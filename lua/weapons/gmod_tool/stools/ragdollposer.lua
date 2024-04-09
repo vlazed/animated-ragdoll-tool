@@ -69,9 +69,8 @@ local function matchPhysicalBonePoseOf(ent, targetEnt)
     end
 end
 
--- https://github.com/Winded/StandingPoseTool/blob/master/lua/weapons/gmod_tool/stools/ragdollstand.lua
 local function matchNonPhysicalBonePoseOf(ent, targetEnt)
-    for i = 0, ent:GetPhysicsObjectCount() - 1 do
+    for i = 0, ent:GetBoneCount() - 1 do
         local phys = ent:GetPhysicsObjectNum(i)
         local b = ent:TranslatePhysBoneToBone(i)
         local pos, ang = targetEnt:GetBonePosition(b)
@@ -196,7 +195,7 @@ function TOOL.BuildCPanel(CPanel, entity, ply)
             currentSequence = seqInfo
             animEntity:ResetSequence(index - 1)
             animEntity:SetPlaybackRate(0)
-            numSlider:SetMax(row:GetValue(4))
+            numSlider:SetMax(row:GetValue(4) - 1)
             net.Start("onAnimationChange")
             net.WriteInt(row:GetValue(1), 14)
             net.SendToServer()
