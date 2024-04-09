@@ -7,7 +7,7 @@ TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["fps"] = 30
 if SERVER then
     util.AddNetworkString("onFrameChange")
-    util.AddNetworkString("onAnimationChange")
+    util.AddNetworkString("onSequenceChange")
 end
 
 local id = "ragposer_entity"
@@ -104,24 +104,24 @@ function TOOL:LeftClick(tr)
     animEntity:Spawn()
     styleServerEntity(animEntity)
     local currentIndex = 0
-    -- FIXME: Find a better implementation which doesn't involve setting a timer every time we get a new frame
     net.Receive("onFrameChange", function()
         local cycle = net.ReadFloat()
+        -- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement. 
         animEntity:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
         animEntity:ResetSequence(currentIndex)
         animEntity:SetCycle(cycle)
         animEntity:SetPlaybackRate(0)
         matchPhysicalBonePoseOf(ent, animEntity)
-        timer.Simple(0.25, function() end)
     end)
 
-    net.Receive("onAnimationChange", function()
+    net.Receive("onSequenceChange", function()
         if not IsValid(animEntity) then return end
         local seqIndex = net.ReadInt(14)
         print("Setting sequence to", seqIndex)
         animEntity:ResetSequence(seqIndex)
         animEntity:SetCycle(0)
         animEntity:SetPlaybackRate(0)
+        matchPhysicalBonePoseOf(ent, animEntity)
         currentIndex = seqIndex
     end)
 
@@ -175,12 +175,11 @@ function TOOL.BuildCPanel(CPanel, entity, ply)
     local modelEntity = entity:GetModel()
     CPanel:Help("Current Entity: " .. modelEntity)
     local numSlider = CPanel:NumSlider("Frame", "ragdollposer_frame", 0, maxFrame, 0)
-    local animEntity = prevClientAnimEntity or ents.CreateClientProp("prop_dynamic")
+    local animEntity = IsValid(prevClientAnimEntity) or ents.CreateClientProp("prop_dynamic")
     animEntity:SetModel(modelEntity)
     animEntity:SetPos(entity:GetPos())
     local angle = (ply:GetPos() - entity:GetPos()):Angle()
     animEntity:SetAngles(angle)
-    -- TODO: Cleanup AnimEntity when entity despawns
     animEntity:Spawn()
     styleClientEntity(animEntity)
     local sequenceList = constructSequenceList(CPanel)
@@ -201,7 +200,7 @@ function TOOL.BuildCPanel(CPanel, entity, ply)
             animEntity:ResetSequence(index - 1)
             animEntity:SetPlaybackRate(0)
             numSlider:SetMax(row:GetValue(4) - 1)
-            net.Start("onAnimationChange")
+            net.Start("onSequenceChange")
             net.WriteInt(row:GetValue(1), 14)
             net.SendToServer()
         end
@@ -220,6 +219,7 @@ function TOOL.BuildCPanel(CPanel, entity, ply)
         prevFrame = numSlider:GetValue()
     end
 
+    entity:CallOnRemove("RemoveAnimEntity", function() animEntity:Remove() end)
     prevClientAnimEntity = animEntity
 end
 
