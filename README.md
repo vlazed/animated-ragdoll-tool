@@ -12,7 +12,7 @@ Here are two ways on how you can use this tool:
 
 This tool has no competing conflicts of interest with Animated Props. I developed this tool with partial inspiration by the ragdollize feature in Animated Props and the Stand Poser. I hope that I inspire another improved version of this tool in Animated Props or some other tool.
 
-You should use this tool in **singleplayer**. If your workflow requires that you animate with another animator in a server, you can use this tool in singleplayer initially and then transfer the data over to the server.
+**You should use this tool in singleplayer**. If your workflow requires that you animate with another animator in a server, you can use this tool in singleplayer initially and then transfer the data over to the server.
 
 ## Pull Requests
 

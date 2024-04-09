@@ -124,6 +124,8 @@ function TOOL:LeftClick(tr)
         animEntity:SetPlaybackRate(0)
         currentIndex = seqIndex
     end)
+
+    self:SetStage(1)
     return true
 end
 
@@ -133,11 +135,13 @@ function TOOL:RightClick(tr)
         print("Removed animation entity to", self:GetAnimationEntity():GetModel())
         self:Cleanup()
         print(self:GetAnimationEntity())
+        self:SetStage(0)
         return true
     end
 end
 
 if SERVER then return end
+local prevClientAnimEntity = nil
 local currentSequence = {
     label = ""
 }
@@ -176,6 +180,7 @@ function TOOL.BuildCPanel(CPanel, entity, ply)
     animEntity:SetPos(entity:GetPos())
     local angle = (ply:GetPos() - entity:GetPos()):Angle()
     animEntity:SetAngles(angle)
+    -- TODO: Cleanup AnimEntity when entity despawns
     animEntity:Spawn()
     styleClientEntity(animEntity)
     local sequenceList = constructSequenceList(CPanel)
