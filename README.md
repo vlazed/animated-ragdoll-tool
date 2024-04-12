@@ -20,5 +20,5 @@ When making a pull request, make sure to confine to the style as that seen in ra
 
 ## Acknowledgements and Credits
 
-- Winded and PenolAkushari: [Stand Poser](https://steamcommunity.com/sharedfiles/filedetails/?id=104576786) ([repo](https://github.com/Winded/StandingPoseTool/tree/master)) for base implementation, Ragdoll Mover, and Stop Motion Helper; their animations tools have allowed me to motivate a new animation tool
+- Winded and PenolAkushari: [Stand Poser](https://steamcommunity.com/sharedfiles/filedetails/?id=104576786) ([repo](https://github.com/Winded/StandingPoseTool/tree/master)) for base implementation, [Ragdoll Mover](https://steamcommunity.com/sharedfiles/filedetails/?id=104575630) ([repo](https://github.com/Winded/RagdollMover/tree/master)) and [Stop Motion Helper](https://steamcommunity.com/sharedfiles/filedetails/?id=111895870) ([repo](https://github.com/Winded/StopMotionHelper)) for animation inspiration; their animations tools have allowed me to motivate a new animation tool
 - no loafing: [Animated Props](https://steamcommunity.com/sharedfiles/filedetails/?id=3214437941); inspiration and a quick peek at the source code for hints on manipulating entity sequences 
