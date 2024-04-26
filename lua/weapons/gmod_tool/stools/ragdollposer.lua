@@ -78,7 +78,6 @@ TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollposer.name"
 TOOL.Command = nil
 TOOL.ConfigName = ""
-TOOL.ClientConVar["fps"] = 30
 TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = "false"
 if SERVER then
@@ -133,8 +132,10 @@ end
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 -- Directly influence the ragdoll physical bones from SMH data
-local function setPhysicalBonePoseOf(ent, targetPose, animEnt)
+local function setPhysicalBonePoseOf(ent, targetPose, animEnt, originPose, offset)
+    offset = offset and Angle(offsets[1], offsets[2], offsets[3]) or Angle(0, 0, 0)
     for i = 0, ent:GetPhysicsObjectCount() - 1 do
+        local b = ent:TranslatePhysBoneToBone(i)
         local phys = ent:GetPhysicsObjectNum(i)
         local parent = ent:GetPhysicsObjectNum(GetPhysBoneParent(ent, i))
         if not targetPose[i] then continue end
@@ -145,10 +146,14 @@ local function setPhysicalBonePoseOf(ent, targetPose, animEnt)
             phys:SetAngles(ang)
             phys:Wake()
         else
-            local b = ent:TranslatePhysBoneToBone(i)
+            local matrix = animEnt:GetBoneMatrix(b)
+            local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
+            local dAng = targetPose[i].Ang - originPose.Ang
+            local dPos = originPose.Pos - targetPose[i].Pos
+            local fPos = animEnt:LocalToWorld(WorldToLocal(bPos, angle_zero, animEnt:GetPos(), angle_zero) - dPos)
             phys:EnableMotion(false)
-            phys:SetPos(animEnt:GetBonePosition(b))
-            phys:SetAngles(targetPose[i].Ang)
+            phys:SetPos(fPos)
+            phys:SetAngles(bAng + dAng + offset)
             phys:Wake()
         end
     end
@@ -157,9 +162,9 @@ end
 -- Directly influence the ragdoll nonphysical bones from SMH data
 local function setNonPhysicalBonePoseOf(ent, targetPose)
     for b = 0, ent:GetBoneCount() - 1 do
-        ent:ManipulateBonePosition(b, targetPose[i].Pos)
-        ent:ManipulateBoneAngles(b, targetPose[i].Ang)
-        ent:ManipulateBoneScale(b, targetPose[i].Scale)
+        ent:ManipulateBonePosition(b, targetPose[b].Pos)
+        ent:ManipulateBoneAngles(b, targetPose[b].Ang)
+        if targetPose[b].Scale then ent:ManipulateBoneScale(b, targetPose[b].Scale) end
     end
 end
 
@@ -200,8 +205,8 @@ local function matchNonPhysicalBonePoseOf(ent, targetEnt)
             if targetEnt:GetBoneParent(i) > -1 then
                 local diffpos = fpos - ipos
                 local diffang = fang - iang
-                print(diffpos)
-                print(diffang)
+                --print(diffpos)
+                --print(diffang)
                 -- Go from world position to local bone position
                 --ent:ManipulateBonePosition(i, diffpos)
                 ent:ManipulateBoneAngles(i, diffang)
@@ -276,9 +281,13 @@ function TOOL:LeftClick(tr)
             end
         else
             local targetPose = net.ReadTable(false)
-            setPhysicalBonePoseOf(ent, targetPose, animEntity)
+            local originPose = net.ReadTable(false)
+            local angOffset = net.ReadTable(true)
+            local animatingNonPhys = net.ReadBool()
+            setPhysicalBonePoseOf(ent, targetPose, animEntity, originPose, angOffset)
             if animatingNonPhys then
-                setNonPhysicalBonePoseOf(ent, targetPose, animEntity)
+                local targetPoseNonPhys = net.ReadTable(false)
+                setNonPhysicalBonePoseOf(ent, targetPoseNonPhys, animEntity)
             elseif not bonesReset then
                 resetAllNonphysicalBonesOf(ent)
             end
@@ -303,10 +312,13 @@ function TOOL:LeftClick(tr)
             end
         else
             local targetPose = net.ReadTable(false)
-            PrintTable(targetPose)
-            setPhysicalBonePoseOf(ent, targetPose, animEntity)
+            local originPose = net.ReadTable(false)
+            local angOffset = net.ReadTable(true)
+            local animatingNonPhys = net.ReadBool()
+            setPhysicalBonePoseOf(ent, targetPose, animEntity, originPose, angOffset)
             if animatingNonPhys then
-                setNonPhysicalBonePoseOf(ent, targetPose, animEntity)
+                local targetPoseNonPhys = net.ReadTable(false)
+                setNonPhysicalBonePoseOf(ent, targetPoseNonPhys, animEntity)
             elseif not bonesReset then
                 resetAllNonphysicalBonesOf(ent)
             end
@@ -389,6 +401,37 @@ local function constructSMHFileBrowser(cPanel)
     return fileBrowser
 end
 
+local function constructAngleNumWangs(parent, names)
+    local wangs = {}
+    for i = 1, 3 do
+        local wang = vgui.Create("DNumberWang", parent)
+        local name = vgui.Create("DLabel", wang)
+        wang:SetMin(-180)
+        wang:SetMax(180)
+        name:NoClipping(false)
+        name:SetText(names[i])
+        name:SetPos(name:GetSize() / 2, 0)
+        name:SetColor(Color(0, 0, 0))
+        wang:Dock(LEFT)
+        wangs[i] = wang
+    end
+    return wangs
+end
+
+local function constructAngleNumWangTrio(cPanel, names, label)
+    label = label or ""
+    local scrollingFrame = vgui.Create("DScrollPanel")
+    local name = vgui.Create("DLabel", scrollingFrame)
+    scrollingFrame:NoClipping(false)
+    local angleWangs = constructAngleNumWangs(scrollingFrame, names)
+    scrollingFrame:Dock(FILL)
+    name:Dock(LEFT)
+    name:SetText(label)
+    name:SetColor(Color(0, 0, 0))
+    cPanel:AddItem(scrollingFrame)
+    return angleWangs, scrollingFrame
+end
+
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/shared/saves.lua MGR.Load()
 local function parseSMHFile(filePath, model)
     -- Check if the file has the model somewhere in there
@@ -417,18 +460,31 @@ end
 -- Populate the DList with compatible SMH entities (compatible meaning the entity has the same model as animEntity)
 local function populateSMHEntitiesList(seqList, model, data, predicate)
     if not data then return end
+    local maxFrames = 0
     for _, entity in pairs(data.Entities) do
         if entity.Properties.Model ~= model then continue end
         if not predicate(entity.Properties) then continue end
         local physFrames = {}
         local nonPhysFrames = {}
+        local pFrames = 0
+        local nFrames = 0
+        local lmax = 0
         for _, fdata in pairs(entity.Frames) do
-            if fdata.EntityData and fdata.EntityData.physbones then table.insert(physFrames, fdata) end
-            if fdata.EntityData and fdata.EntityData.bones then table.insert(nonPhysFrames, fdata) end
+            if fdata.EntityData and fdata.EntityData.physbones then
+                table.insert(physFrames, fdata)
+                pFrames = fdata.Position
+            end
+
+            if fdata.EntityData and fdata.EntityData.bones then
+                table.insert(nonPhysFrames, fdata)
+                nFrames = fdata.Position
+            end
+
+            lmax = (pFrames > nFrames) and pFrames or nFrames
+            if lmax > maxFrames then maxFrames = lmax end
         end
 
-        -- TODO: Compare physframe and nonphysframe and use one with largest number of frames
-        local line = seqList:AddLine(entity.Properties.Name, physFrames[#physFrames].Position)
+        local line = seqList:AddLine(entity.Properties.Name, maxFrames)
         line:SetSortValue(3, physFrames)
         line:SetSortValue(4, nonPhysFrames)
     end
@@ -466,7 +522,7 @@ local function generateLerpFrame(currentFrame, prevFrame, nextFrame, lerpMultipl
     if not nextFrame or not prevFrame then return {} end
     local lerpFrame = {}
     local count = #prevFrame
-    for i = 0, count - 1 do
+    for i = 0, count do
         lerpFrame[i] = {}
         lerpFrame[i].Pos = LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
         lerpFrame[i].Ang = LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
@@ -483,10 +539,7 @@ local function generateLerpFrame(currentFrame, prevFrame, nextFrame, lerpMultipl
 end
 
 local function getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
-    local fps = GetConVar("ragdollposer_fps")
-    print("Here")
     for _, frameData in ipairs(smhFrames) do
-        print(frameData.Position)
         -- If no pose data exists, continue to the next frame
         if not frameData.EntityData[modifier] then continue end
         if frameData.Position == poseFrame then
@@ -496,6 +549,16 @@ local function getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
             return generateLerpFrame(poseFrame, prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier)
         end
     end
+end
+
+local function setAngleTrioDefaults(trio, a, b, c)
+    trio[1]:SetValue(a)
+    trio[2]:SetValue(b)
+    trio[3]:SetValue(c)
+end
+
+local function getAngleTrio(trio)
+    return {trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue()}
 end
 
 function TOOL.BuildCPanel(cPanel, entity, ply)
@@ -512,15 +575,15 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     -- UI Elements
     cPanel:Help("Current Entity: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollposer_frame", 0, defaultMaxFrame - 1, 0)
-    local fpsWang = cPanel:NumberWang("Framerate", "ragdollposer_fps", 0, 10000)
-    fpsWang:SetValue(GetConVar("ragdollposer_fps"):GetFloat())
+    local angOffset, _ = constructAngleNumWangTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
+    setAngleTrioDefaults(angOffset, 0, 0, 0)
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
     cPanel:Button("Update Puppet Position", "ragdollposer_updateposition", animEntity)
     local sourceBox = cPanel:ComboBox("Source")
     sourceBox:AddChoice("Sequence")
     sourceBox:AddChoice("Stop Motion Helper")
     sourceBox:ChooseOption("Sequence", 1)
-    print(sourceBox:GetSelected())
+    --print(sourceBox:GetSelected())
     local searchBar = cPanel:TextEntry("Search Bar:")
     searchBar:SetPlaceholderText("Search for a sequence...")
     local sequenceList = constructSequenceList(cPanel)
@@ -556,7 +619,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         local seqInfo = animEntity:GetSequenceInfo(row:GetValue(1))
         if currentSequence.label ~= seqInfo.label then
             currentSequence = seqInfo
-            print(index)
+            --print(index)
             animEntity:ResetSequence(row:GetValue(1))
             animEntity:SetCycle(0)
             animEntity:SetPlaybackRate(0)
@@ -574,7 +637,6 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         -- Only send when we go frame by frame
         if math.abs(prevFrame - val) < 1 then return end
         local option, _ = sourceBox:GetSelected()
-        print(option)
         if option == "Sequence" then
             if not currentSequence.anims then return end
             if not IsValid(animEntity) then return end
@@ -588,17 +650,21 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
             net.WriteBool(nonPhysCheckbox:GetChecked())
             net.SendToServer()
         else
+            if not smhList:GetSelected()[1] then return end
             local physBoneData = getPoseFromSMHFrames(val, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-            --local nonPhysBoneData = getPoseFromSMHFrames(0, row:GetSortValue(4), "bones")
+            local originPhysBonePose = getPoseFromSMHFrames(0, smhList:GetSelected()[1]:GetSortValue(3), "physbones")[0]
             net.Start("onFrameChange", true)
             net.WriteBool(false)
             net.WriteTable(physBoneData, false)
+            net.WriteTable(originPhysBonePose, false)
+            net.WriteTable(getAngleTrio(angOffset), true)
             net.WriteBool(nonPhysCheckbox:GetChecked())
-            -- if nonPhysCheckbox:GetChecked() then
-            --     net.WriteTable(physBoneData, true)
-            -- end
+            if nonPhysCheckbox:GetChecked() then
+                local nonPhysBoneData = getPoseFromSMHFrames(val, smhList:GetSelected()[1]:GetSortValue(4), "bones")
+                net.WriteTable(nonPhysBoneData, false)
+            end
+
             net.SendToServer()
-            PrintTable(physBoneData)
         end
 
         prevFrame = val
@@ -623,18 +689,20 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     end
 
     function smhList:OnRowSelected(index, row)
-        --PrintTable(row:GetSortValue(3))
         numSlider:SetMax(row:GetValue(2))
         local physBoneData = getPoseFromSMHFrames(0, row:GetSortValue(3), "physbones")
-        --local nonPhysBoneData = getPoseFromSMHFrames(0, row:GetSortValue(4), "bones")
-        PrintTable(physBoneData)
+        local originPhysBonePose = getPoseFromSMHFrames(0, smhList:GetSelected()[1]:GetSortValue(3), "physbones")[0]
         net.Start("onSequenceChange", true)
         net.WriteBool(false)
         net.WriteTable(physBoneData, false)
+        net.WriteTable(originPhysBonePose, false)
+        net.WriteTable(getAngleTrio(angOffset), true)
         net.WriteBool(nonPhysCheckbox:GetChecked())
-        -- if nonPhysCheckbox:GetChecked() then
-        --     net.WriteTable(physBoneData, true)
-        -- end
+        if nonPhysCheckbox:GetChecked() then
+            local nonPhysBoneData = getPoseFromSMHFrames(0, row:GetSortValue(4), "bones")
+            net.WriteTable(nonPhysBoneData, false)
+        end
+
         net.SendToServer()
     end
 
