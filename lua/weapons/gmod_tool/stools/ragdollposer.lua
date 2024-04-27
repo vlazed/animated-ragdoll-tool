@@ -1,79 +1,4 @@
-function GetPhysBoneParent(entity, bone)
-    local b = PhysBoneToBone(entity, bone)
-    local i = 1
-    while true do
-        b = entity:GetBoneParent(b)
-        local parent = BoneToPhysBone(entity, b)
-        if parent >= 0 and parent ~= bone then return parent end
-        i = i + 1
-        if i > 128 then --We've gone through all possible bones, so we get out.
-            break
-        end
-    end
-    return -1
-end
-
-function PhysBoneToBone(ent, bone)
-    return ent:TranslatePhysBoneToBone(bone)
-end
-
-function BoneToPhysBone(ent, bone)
-    for i = 0, ent:GetPhysicsObjectCount() - 1 do
-        local b = ent:TranslatePhysBoneToBone(i)
-        if bone == b then return i end
-    end
-    return -1
-end
-
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/server/easing.lua
-function LerpLinear(s, e, p)
-    return Lerp(p, s, e)
-end
-
-function LerpLinearVector(s, e, p)
-    return LerpVector(p, s, e)
-end
-
-function LerpLinearAngle(s, e, p)
-    return LerpAngle(p, s, e)
-end
-
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/server/keyframe_data.lua
--- Modified to directly work with json translation 
-function getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modname)
-    if ignoreCurrentFrame == nil then ignoreCurrentFrame = false end
-    local prevKeyframe = nil
-    local nextKeyframe = nil
-    for _, keyframe in pairs(keyframes) do
-        if keyframe.Position == frame and keyframe.Modifier == modname and not ignoreCurrentFrame then
-            prevKeyframe = keyframe
-            nextKeyframe = keyframe
-            break
-        end
-
-        if keyframe.Position < frame and (not prevKeyframe or prevKeyframe.Position < keyframe.Position) and keyframe.Modifier == modname then
-            prevKeyframe = keyframe
-        elseif keyframe.Position > frame and (not nextKeyframe or nextKeyframe.Position > keyframe.Position) and keyframe.Modifier == modname then
-            nextKeyframe = keyframe
-        end
-    end
-
-    if not prevKeyframe and not nextKeyframe then
-        return nil, nil, 0
-    elseif not prevKeyframe then
-        prevKeyframe = nextKeyframe
-    elseif not nextKeyframe then
-        nextKeyframe = prevKeyframe
-    end
-
-    local lerpMultiplier = 0
-    if prevKeyframe.Position ~= nextKeyframe.Position then
-        lerpMultiplier = (frame - prevKeyframe.Position) / (nextKeyframe.Position - prevKeyframe.Position)
-        lerpMultiplier = math.EaseInOut(lerpMultiplier, prevKeyframe.EaseOut, nextKeyframe.EaseIn)
-    end
-    return prevKeyframe, nextKeyframe, lerpMultiplier
-end
-
+include("ragdollposer/vendor.lua")
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollposer.name"
 TOOL.Command = nil
@@ -87,11 +12,12 @@ if SERVER then
     util.AddNetworkString("onFramePrevious")
     -- TODO: direct way to update client animation puppet
     util.AddNetworkString("updateClientPosition")
+    util.AddNetworkString("removeClientAnimPuppeteer")
 end
 
-local id = "ragposer_entity"
-local id2 = "ragposer_puppet"
-local prevServerAnimEntity = nil
+local id = "ragposer_puppet"
+local id2 = "ragposer_puppeteer"
+local prevServerAnimPuppet = nil
 local bonesReset = false
 local function styleServerEntity(ent)
     ent:SetColor(Color(255, 255, 255, 0))
@@ -100,44 +26,44 @@ local function styleServerEntity(ent)
 end
 
 function TOOL:Think()
-    if CLIENT then
-        if self:GetAnimationEntity() == prevServerAnimEntity then return end
-        prevServerAnimEntity = self:GetAnimationEntity()
-        self:RebuildControlPanel(self:GetAnimationEntity(), self:GetOwner())
-        return true
-    end
-end
-
-function TOOL:SetAnimationEntity(ent)
-    return self:GetWeapon():SetNWEntity(id, ent)
-end
-
-function TOOL:GetAnimationEntity()
-    return self:GetWeapon():GetNWEntity(id)
+    if self:GetAnimationPuppet() == prevServerAnimPuppet then return end
+    prevServerAnimPuppet = self:GetAnimationPuppet()
+    print(prevServerAnimPuppet)
+    print(self:GetAnimationPuppet())
+    print("")
+    if CLIENT then self:RebuildControlPanel(self:GetAnimationPuppet(), self:GetOwner()) end
 end
 
 function TOOL:SetAnimationPuppet(puppet)
-    return self:GetWeapon():SetNWEntity(id2, puppet)
+    return self:GetWeapon():SetNWEntity(id, puppet)
 end
 
 function TOOL:GetAnimationPuppet()
+    return self:GetWeapon():GetNWEntity(id)
+end
+
+function TOOL:SetAnimationPuppeteer(puppeteer)
+    return self:GetWeapon():SetNWEntity(id2, puppeteer)
+end
+
+function TOOL:GetAnimationPuppeteer()
     return self:GetWeapon():GetNWEntity(id2)
 end
 
 function TOOL:Cleanup()
-    if IsValid(self:GetAnimationPuppet()) then self:GetAnimationPuppet():Remove() end
-    self:SetAnimationEntity(nil)
+    if IsValid(self:GetAnimationPuppeteer()) then self:GetAnimationPuppeteer():Remove() end
     self:SetAnimationPuppet(nil)
+    self:SetAnimationPuppeteer(nil)
 end
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 -- Directly influence the ragdoll physical bones from SMH data
-local function setPhysicalBonePoseOf(ent, targetPose, animEnt, originPose, offset)
-    offset = offset and Angle(offsets[1], offsets[2], offsets[3]) or Angle(0, 0, 0)
-    for i = 0, ent:GetPhysicsObjectCount() - 1 do
-        local b = ent:TranslatePhysBoneToBone(i)
-        local phys = ent:GetPhysicsObjectNum(i)
-        local parent = ent:GetPhysicsObjectNum(GetPhysBoneParent(ent, i))
+local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, originPose, offset)
+    offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
+    for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+        local b = puppet:TranslatePhysBoneToBone(i)
+        local phys = puppet:GetPhysicsObjectNum(i)
+        local parent = puppet:GetPhysicsObjectNum(GetPhysBoneParent(puppet, i))
         if not targetPose[i] then continue end
         if targetPose[i].LocalPos and targetPose[i].LocalAng then
             local pos, ang = LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
@@ -146,11 +72,11 @@ local function setPhysicalBonePoseOf(ent, targetPose, animEnt, originPose, offse
             phys:SetAngles(ang)
             phys:Wake()
         else
-            local matrix = animEnt:GetBoneMatrix(b)
+            local matrix = puppeteer:GetBoneMatrix(b)
             local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
             local dAng = targetPose[i].Ang - originPose.Ang
             local dPos = originPose.Pos - targetPose[i].Pos
-            local fPos = animEnt:LocalToWorld(WorldToLocal(bPos, angle_zero, animEnt:GetPos(), angle_zero) - dPos)
+            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) - dPos)
             phys:EnableMotion(false)
             phys:SetPos(fPos)
             phys:SetAngles(bAng + dAng + offset)
@@ -160,24 +86,24 @@ local function setPhysicalBonePoseOf(ent, targetPose, animEnt, originPose, offse
 end
 
 -- Directly influence the ragdoll nonphysical bones from SMH data
-local function setNonPhysicalBonePoseOf(ent, targetPose)
-    for b = 0, ent:GetBoneCount() - 1 do
-        ent:ManipulateBonePosition(b, targetPose[b].Pos)
-        ent:ManipulateBoneAngles(b, targetPose[b].Ang)
-        if targetPose[b].Scale then ent:ManipulateBoneScale(b, targetPose[b].Scale) end
+local function setNonPhysicalBonePoseOf(puppet, targetPose)
+    for b = 0, puppet:GetBoneCount() - 1 do
+        puppet:ManipulateBonePosition(b, targetPose[b].Pos)
+        puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
+        if targetPose[b].Scale then puppet:ManipulateBoneScale(b, targetPose[b].Scale) end
     end
 end
 
 -- https://github.com/Winded/StandingPoseTool/blob/master/lua/weapons/gmod_tool/stools/ragdollstand.lua
-local function matchPhysicalBonePoseOf(ent, targetEnt)
-    for i = 0, ent:GetPhysicsObjectCount() - 1 do
-        local phys = ent:GetPhysicsObjectNum(i)
-        local b = ent:TranslatePhysBoneToBone(i)
-        local pos, ang = targetEnt:GetBonePosition(b)
+local function matchPhysicalBonePoseOf(puppet, puppeteer)
+    for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+        local phys = puppet:GetPhysicsObjectNum(i)
+        local b = puppet:TranslatePhysBoneToBone(i)
+        local pos, ang = puppeteer:GetBonePosition(b)
         phys:EnableMotion(false)
         phys:SetPos(pos)
         phys:SetAngles(ang)
-        if string.sub(ent:GetBoneName(b), 1, 4) == "prp_" then
+        if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
             phys:EnableMotion(true)
             phys:Wake()
         else
@@ -186,53 +112,51 @@ local function matchPhysicalBonePoseOf(ent, targetEnt)
     end
 end
 
-local function matchNonPhysicalBonePoseOf(ent, targetEnt)
+local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
     if bonesReset then bonesReset = false end
     local physBoneIndices = {}
-    for i = 0, ent:GetPhysicsObjectCount() - 1 do
-        physBoneIndices[ent:TranslatePhysBoneToBone(i)] = true
+    for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+        physBoneIndices[puppet:TranslatePhysBoneToBone(i)] = true
     end
 
-    for i = 0, ent:GetBoneCount() - 1 do
+    for i = 0, puppet:GetBoneCount() - 1 do
         if not physBoneIndices[i] then
             -- Reset bone position and angles
-            ent:ManipulateBonePosition(i, vector_origin, false)
-            ent:ManipulateBoneAngles(i, angle_zero, false)
+            puppet:ManipulateBonePosition(i, vector_origin, false)
+            puppet:ManipulateBoneAngles(i, angle_zero, false)
             -- Get world position
-            local ipos, iang = ent:GetBonePosition(i)
-            local fpos, fang = targetEnt:GetBonePosition(i)
+            local ipos, iang = puppet:GetBonePosition(i)
+            local fpos, fang = puppeteer:GetBonePosition(i)
             -- TODO: Manipulate nonphysical bones from target ent which has no bone manipulations
-            if targetEnt:GetBoneParent(i) > -1 then
+            if puppeteer:GetBoneParent(i) > -1 then
                 local diffpos = fpos - ipos
                 local diffang = fang - iang
-                --print(diffpos)
-                --print(diffang)
                 -- Go from world position to local bone position
                 --ent:ManipulateBonePosition(i, diffpos)
-                ent:ManipulateBoneAngles(i, diffang)
+                puppet:ManipulateBoneAngles(i, diffang)
             end
         end
     end
 end
 
-local function setPositionOf(targetEnt, ent)
+local function setPositionOf(puppeteer, puppet)
     local tr = util.TraceLine({
-        start = ent:GetPos(),
-        endpos = ent:GetPos() - Vector(0, 0, 3000),
+        start = puppet:GetPos(),
+        endpos = puppet:GetPos() - Vector(0, 0, 3000),
         filter = function(e) return e:GetClass() == game.GetWorld() end,
     })
 
-    targetEnt:SetPos(tr.HitPos)
+    puppeteer:SetPos(tr.HitPos)
 end
 
-local function setAngleOf(targetEnt, ent, ply)
-    local angle = (ply:GetPos() - ent:GetPos()):Angle()
-    targetEnt:SetAngles(Angle(0, angle.y, 0))
+local function setAngleOf(puppeteer, puppet, ply)
+    local angle = (ply:GetPos() - puppet:GetPos()):Angle()
+    puppeteer:SetAngles(Angle(0, angle.y, 0))
 end
 
-local function setPlacementOf(targetEnt, ent, ply)
-    setPositionOf(targetEnt, ent)
-    setAngleOf(targetEnt, ent, ply)
+local function setPlacementOf(puppeteer, puppet, ply)
+    setPositionOf(puppeteer, puppet)
+    setAngleOf(puppeteer, puppet, ply)
 end
 
 local function resetAllNonphysicalBonesOf(ent)
@@ -246,22 +170,22 @@ end
 
 -- Set stages for showing control panel for selected entity 
 function TOOL:LeftClick(tr)
-    local ent = tr.Entity
+    local ragdollPuppet = tr.Entity
     do
-        local validEnt = IsValid(ent)
-        local isRagdoll = ent:IsRagdoll()
-        local sameEntity = IsValid(self:GetAnimationEntity()) and self:GetAnimationEntity() == prevServerAnimEntity
-        if not validEnt or not isRagdoll or sameEntity then return false end
+        local validPuppet = IsValid(ragdollPuppet)
+        local isRagdoll = ragdollPuppet:IsRagdoll()
+        local samePuppet = IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() == prevServerAnimPuppet
+        if not validPuppet or not isRagdoll or samePuppet then return false end
     end
 
-    local animEntity = ents.Create("prop_dynamic")
-    if self:GetAnimationEntity() ~= animEntity then self:Cleanup() end
-    animEntity:SetModel(ent:GetModel())
-    self:SetAnimationEntity(ent)
-    self:SetAnimationPuppet(animEntity)
-    setPlacementOf(animEntity, ent, self:GetOwner())
-    animEntity:Spawn()
-    styleServerEntity(animEntity)
+    local animPuppeteer = ents.Create("prop_dynamic")
+    if self:GetAnimationPuppet() ~= ragdollPuppet then self:Cleanup() end
+    animPuppeteer:SetModel(ragdollPuppet:GetModel())
+    self:SetAnimationPuppet(ragdollPuppet)
+    self:SetAnimationPuppeteer(animPuppeteer)
+    setPlacementOf(animPuppeteer, ragdollPuppet, self:GetOwner())
+    animPuppeteer:Spawn()
+    styleServerEntity(animPuppeteer)
     local currentIndex = 0
     net.Receive("onFrameChange", function()
         local isSequence = net.ReadBool()
@@ -269,72 +193,76 @@ function TOOL:LeftClick(tr)
             local cycle = net.ReadFloat()
             local animatingNonPhys = net.ReadBool()
             -- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement. 
-            animEntity:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
-            animEntity:ResetSequence(currentIndex)
-            animEntity:SetCycle(cycle)
-            animEntity:SetPlaybackRate(0)
-            matchPhysicalBonePoseOf(ent, animEntity)
+            animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
+            animPuppeteer:ResetSequence(currentIndex)
+            animPuppeteer:SetCycle(cycle)
+            animPuppeteer:SetPlaybackRate(0)
+            matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
             if animatingNonPhys then
-                matchNonPhysicalBonePoseOf(ent, animEntity)
+                matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
             elseif not bonesReset then
-                resetAllNonphysicalBonesOf(ent)
+                resetAllNonphysicalBonesOf(ragdollPuppet)
             end
         else
             local targetPose = net.ReadTable(false)
             local originPose = net.ReadTable(false)
             local angOffset = net.ReadTable(true)
             local animatingNonPhys = net.ReadBool()
-            setPhysicalBonePoseOf(ent, targetPose, animEntity, originPose, angOffset)
+            setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
             if animatingNonPhys then
                 local targetPoseNonPhys = net.ReadTable(false)
-                setNonPhysicalBonePoseOf(ent, targetPoseNonPhys, animEntity)
+                setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
             elseif not bonesReset then
-                resetAllNonphysicalBonesOf(ent)
+                resetAllNonphysicalBonesOf(ragdollPuppet)
             end
         end
     end)
 
     net.Receive("onSequenceChange", function()
-        if not IsValid(animEntity) then return end
+        if not IsValid(animPuppeteer) then return end
         local isSequence = net.ReadBool()
         if isSequence then
             local seqIndex = net.ReadInt(14)
             local animatingNonPhys = net.ReadBool()
             currentIndex = seqIndex
-            animEntity:ResetSequence(seqIndex)
-            animEntity:SetCycle(0)
-            animEntity:SetPlaybackRate(0)
-            matchPhysicalBonePoseOf(ent, animEntity)
+            animPuppeteer:ResetSequence(seqIndex)
+            animPuppeteer:SetCycle(0)
+            animPuppeteer:SetPlaybackRate(0)
+            matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
             if animatingNonPhys then
-                matchNonPhysicalBonePoseOf(ent, animEntity)
+                matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
             elseif not bonesReset then
-                resetAllNonphysicalBonesOf(ent)
+                resetAllNonphysicalBonesOf(ragdollPuppet)
             end
         else
             local targetPose = net.ReadTable(false)
             local originPose = net.ReadTable(false)
             local angOffset = net.ReadTable(true)
             local animatingNonPhys = net.ReadBool()
-            setPhysicalBonePoseOf(ent, targetPose, animEntity, originPose, angOffset)
+            setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
             if animatingNonPhys then
                 local targetPoseNonPhys = net.ReadTable(false)
-                setNonPhysicalBonePoseOf(ent, targetPoseNonPhys, animEntity)
+                setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
             elseif not bonesReset then
-                resetAllNonphysicalBonesOf(ent)
+                resetAllNonphysicalBonesOf(ragdollPuppet)
             end
         end
     end)
 
-    ent:CallOnRemove("RemoveAnimEntity", function() self:Cleanup() end)
+    ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function() self:Cleanup() end)
     self:SetStage(1)
     return true
 end
 
 -- Stop selecting an entity
 function TOOL:RightClick(tr)
-    if IsValid(self:GetAnimationEntity()) then
+    -- FIXME: Properly clear any animation entities, clientside and serverside
+    if IsValid(self:GetAnimationPuppet()) then
         self:Cleanup()
         self:SetStage(0)
+        prevServerAnimPuppet = nil
+        net.Start("removeClientAnimPuppeteer")
+        net.Send(self:GetOwner())
         return true
     end
 end
@@ -342,10 +270,10 @@ end
 concommand.Add("ragdollposer_updateposition", function(ply, _, _)
     if not IsValid(ply) then return end
     local tool = ply:GetTool("ragdollposer")
+    local puppeteer = tool:GetAnimationPuppeteer()
     local puppet = tool:GetAnimationPuppet()
-    local entity = tool:GetAnimationEntity()
-    if not IsValid(entity) or not IsValid(puppet) then return end
-    setPlacementOf(puppet, entity, ply)
+    if not IsValid(puppet) or not IsValid(puppeteer) then return end
+    setPlacementOf(puppeteer, puppet, ply)
     net.Start("updateClientPosition")
     net.Send(ply)
 end)
@@ -361,7 +289,7 @@ concommand.Add("ragdollposer_nextframe", function(ply)
 end)
 
 if SERVER then return end
-local prevClientAnimEntity = nil
+local prevClientAnimPuppeteer = nil
 local currentSequence = {
     label = ""
 }
@@ -562,28 +490,31 @@ local function getAngleTrio(trio)
 end
 
 function TOOL.BuildCPanel(cPanel, entity, ply)
-    if not IsValid(entity) then return end
+    if not IsValid(entity) then
+        cPanel:Help("No entity selected")
+        return
+    end
+
     local defaultMaxFrame = 60
     local prevFrame = 0
     local model = entity:GetModel()
-    local animEntity = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-    if IsValid(prevClientAnimEntity) and prevClientAnimEntity ~= animEntity then prevClientAnimEntity:Remove() end
-    animEntity:SetModel(model)
-    setPlacementOf(animEntity, entity, ply)
-    animEntity:Spawn()
-    styleClientEntity(animEntity)
+    local animPuppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+    if IsValid(prevClientAnimPuppeteer) then prevClientAnimPuppeteer:Remove() end
+    animPuppeteer:SetModel(model)
+    setPlacementOf(animPuppeteer, entity, ply)
+    animPuppeteer:Spawn()
+    styleClientEntity(animPuppeteer)
     -- UI Elements
-    cPanel:Help("Current Entity: " .. model)
+    local entityLabel = cPanel:Help("Current Entity: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollposer_frame", 0, defaultMaxFrame - 1, 0)
     local angOffset, _ = constructAngleNumWangTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
     setAngleTrioDefaults(angOffset, 0, 0, 0)
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
-    cPanel:Button("Update Puppet Position", "ragdollposer_updateposition", animEntity)
+    cPanel:Button("Update Puppet Position", "ragdollposer_updateposition", animPuppeteer)
     local sourceBox = cPanel:ComboBox("Source")
     sourceBox:AddChoice("Sequence")
     sourceBox:AddChoice("Stop Motion Helper")
     sourceBox:ChooseOption("Sequence", 1)
-    --print(sourceBox:GetSelected())
     local searchBar = cPanel:TextEntry("Search Bar:")
     searchBar:SetPlaceholderText("Search for a sequence...")
     local sequenceList = constructSequenceList(cPanel)
@@ -591,13 +522,13 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     local smhList = constructSMHEntityList(cPanel)
     smhList:Hide()
     smhBrowser:Hide()
-    populateSequenceList(sequenceList, animEntity, function(_) return true end)
+    populateSequenceList(sequenceList, animPuppeteer, function(_) return true end)
     sequenceList:SizeTo(-1, 500, 0.5)
     -- UI Hooks
     function searchBar:OnEnter(text)
         if sourceBox:GetSelected() == "Sequence" then
             clearList(sequenceList)
-            populateSequenceList(sequenceList, animEntity, function(seqInfo)
+            populateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
                 if text:len() > 0 then
                     return string.find(seqInfo.label, text)
                 else
@@ -605,7 +536,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
                 end
             end)
         else
-            populateSMHEntitiesList(smhList, animEntity, function(entProp)
+            populateSMHEntitiesList(smhList, animPuppeteer, function(entProp)
                 if text:len() > 0 then
                     return entProp == text
                 else
@@ -616,13 +547,12 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     end
 
     function sequenceList:OnRowSelected(index, row)
-        local seqInfo = animEntity:GetSequenceInfo(row:GetValue(1))
+        local seqInfo = animPuppeteer:GetSequenceInfo(row:GetValue(1))
         if currentSequence.label ~= seqInfo.label then
             currentSequence = seqInfo
-            --print(index)
-            animEntity:ResetSequence(row:GetValue(1))
-            animEntity:SetCycle(0)
-            animEntity:SetPlaybackRate(0)
+            animPuppeteer:ResetSequence(row:GetValue(1))
+            animPuppeteer:SetCycle(0)
+            animPuppeteer:SetPlaybackRate(0)
             numSlider:SetMax(row:GetValue(4) - 1)
             net.Start("onSequenceChange")
             net.WriteBool(true)
@@ -639,11 +569,11 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         local option, _ = sourceBox:GetSelected()
         if option == "Sequence" then
             if not currentSequence.anims then return end
-            if not IsValid(animEntity) then return end
-            local numframes = findLongestAnimationIn(currentSequence, animEntity).numframes - 1
+            if not IsValid(animPuppeteer) then return end
+            local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
             numSlider:SetValue(math.Clamp(val, 0, numframes))
             local cycle = val / numframes
-            animEntity:SetCycle(cycle)
+            animPuppeteer:SetCycle(cycle)
             net.Start("onFrameChange", true)
             net.WriteBool(true)
             net.WriteFloat(cycle)
@@ -715,15 +645,59 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     -- Network Hooks
     net.Receive("onFramePrevious", function() numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax()) end)
     net.Receive("onFrameNext", function() numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax()) end)
-    net.Receive("updateClientPosition", function() setPlacementOf(animEntity, entity, ply) end)
+    net.Receive("updateClientPosition", function() setPlacementOf(animPuppeteer, entity, ply) end)
+    net.Receive("removeClientAnimPuppeteer", function()
+        if IsValid(animPuppeteer) then
+            animPuppeteer:Remove()
+            prevClientAnimPuppeteer = nil
+            clearList(sequenceList)
+            clearList(smhList)
+            entityLabel:SetText("No entity selected.")
+        end
+    end)
+
     -- End of lifecycle events
-    entity:CallOnRemove("RemoveAnimEntity", function() animEntity:Remove() end)
-    prevClientAnimEntity = animEntity
+    entity:CallOnRemove("RemoveAnimPuppeteer", function()
+        if IsValid(animPuppeteer) then
+            animPuppeteer:Remove()
+            prevClientAnimPuppeteer = nil
+            clearList(sequenceList)
+            clearList(smhList)
+            entityLabel:SetText("No entity selected.")
+        end
+    end)
+
+    prevClientAnimPuppeteer = animPuppeteer
+end
+
+function TOOL:DrawToolScreen(width, height)
+    --surface.SetDrawColor(Color(20, 20, 20))
+    local white = Color(200, 200, 200)
+    local frame = GetConVar("ragdollposer_frame")
+    draw.SimpleText("Ragdoll Poser", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+    draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
 
 if CLIENT then
+    TOOL.Information = {
+        {
+            name = "info",
+            stage = 1
+        },
+        {
+            name = "left",
+            stage = 0
+        },
+        {
+            name = "right",
+            stage = 1
+        }
+    }
+
     language.Add("tool.ragdollposer.name", "Pose Ragdoll to Animation")
-    language.Add("tool.ragdollposer.desc", "Pose ragdolls to any animation frame.")
-    language.Add("tool.ragdollposer.0", "Left click to select a ragdoll.")
-    language.Add("tool.ragdollposer.1", "Play animations through the context menu.")
+    language.Add("tool.ragdollposer.desc", "Pose ragdolls to any animation frame")
+    language.Add("tool.ragdollposer.0", "Select a ragdoll")
+    language.Add("tool.ragdollposer.1", "Play animations through the context menu")
+    language.Add("tool.ragdollposer.left", "Select ragdoll to pose")
+    language.Add("tool.ragdollposer.right", "Deselect ragdoll to pose")
 end
