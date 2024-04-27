@@ -290,6 +290,7 @@ concommand.Add("ragdollposer_nextframe", function(ply)
 end)
 
 if SERVER then return end
+include("ragdollposer/smh.lua")
 local prevClientAnimPuppeteer = nil
 local currentSequence = {
     label = ""
@@ -330,47 +331,22 @@ local function constructSMHFileBrowser(cPanel)
     return fileBrowser
 end
 
-local function constructAngleNumWangs(parent, names)
-    local wangs = {}
+local function constructAngleNumSliders(dForm, names)
+    local sliders = {}
     for i = 1, 3 do
-        local wang = vgui.Create("DNumberWang", parent)
-        local name = vgui.Create("DLabel", wang)
-        wang:SetMin(-180)
-        wang:SetMax(180)
-        name:NoClipping(false)
-        name:SetText(names[i])
-        name:SetPos(name:GetSize() / 2, 0)
-        name:SetColor(Color(0, 0, 0))
-        wang:Dock(LEFT)
-        wangs[i] = wang
+        local slider = dForm:NumSlider(names[i], "", -180, 180)
+        slider:Dock(TOP)
+        sliders[i] = slider
     end
-    return wangs
+    return sliders
 end
 
-local function constructAngleNumWangTrio(cPanel, names, label)
-    label = label or ""
-    local scrollingFrame = vgui.Create("DScrollPanel")
-    local name = vgui.Create("DLabel", scrollingFrame)
-    scrollingFrame:NoClipping(false)
-    local angleWangs = constructAngleNumWangs(scrollingFrame, names)
-    scrollingFrame:Dock(FILL)
-    name:Dock(LEFT)
-    name:SetText(label)
-    name:SetColor(Color(0, 0, 0))
-    cPanel:AddItem(scrollingFrame)
-    return angleWangs, scrollingFrame
-end
-
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/shared/saves.lua MGR.Load()
-local function parseSMHFile(filePath, model)
-    -- Check if the file has the model somewhere in there
-    if not file.Exists(filePath, "DATA") then return end
-    local json = file.Read(filePath)
-    -- If the entity doesn't exist, don't bother loading other entities
-    if not string.find(json, model) then return end
-    local smhData = util.JSONToTable(json)
-    if not smhData then return end
-    return smhData
+local function constructAngleNumSliderTrio(cPanel, names, label)
+    local dForm = vgui.Create("DForm")
+    dForm:SetLabel(label)
+    local angleSliders = constructAngleNumSliders(dForm, names)
+    cPanel:AddItem(dForm)
+    return angleSliders
 end
 
 local function findLongestAnimationIn(sequenceInfo, animEntity)
@@ -445,41 +421,6 @@ local function clearList(dList)
     end
 end
 
-local function generateLerpFrame(currentFrame, prevFrame, nextFrame, lerpMultiplier)
-    prevFrame = prevFrame or nextFrame
-    nextFrame = nextFrame or prevFrame
-    if not nextFrame or not prevFrame then return {} end
-    local lerpFrame = {}
-    local count = #prevFrame
-    for i = 0, count do
-        lerpFrame[i] = {}
-        lerpFrame[i].Pos = LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
-        lerpFrame[i].Ang = LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
-        if i > 0 then
-            if prevFrame[i].LocalPos then
-                lerpFrame[i].LocalPos = LerpLinearVector(prevFrame[i].LocalPos, nextFrame[i].LocalPos, lerpMultiplier)
-                lerpFrame[i].LocalAng = LerpLinearAngle(prevFrame[i].LocalAng, nextFrame[i].LocalAng, lerpMultiplier)
-            end
-
-            if prevFrame[i].Scale then lerpFrame[i].Scale = LerpLinear(prevFrame[i].Scale, nextFrame[i].Scale, lerpMultiplier) end
-        end
-    end
-    return lerpFrame
-end
-
-local function getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
-    for _, frameData in ipairs(smhFrames) do
-        -- If no pose data exists, continue to the next frame
-        if not frameData.EntityData[modifier] then continue end
-        if frameData.Position == poseFrame then
-            return frameData.EntityData[modifier]
-        else
-            local prevFrame, nextFrame, lerpMultiplier = getClosestKeyframes(smhFrames, poseFrame, false, modifier)
-            return generateLerpFrame(poseFrame, prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier)
-        end
-    end
-end
-
 local function setAngleTrioDefaults(trio, a, b, c)
     trio[1]:SetValue(a)
     trio[2]:SetValue(b)
@@ -508,7 +449,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     -- UI Elements
     local entityLabel = cPanel:Help("Current Entity: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollposer_frame", 0, defaultMaxFrame - 1, 0)
-    local angOffset, _ = constructAngleNumWangTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
+    local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
     setAngleTrioDefaults(angOffset, 0, 0, 0)
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
     cPanel:Button("Update Puppet Position", "ragdollposer_updateposition", animPuppeteer)
@@ -521,9 +462,12 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     local sequenceList = constructSequenceList(cPanel)
     local smhBrowser = constructSMHFileBrowser(cPanel)
     local smhList = constructSMHEntityList(cPanel)
-    smhList:Hide()
-    smhBrowser:Hide()
+    sequenceList:Dock(TOP)
+    smhList:Dock(TOP)
+    smhBrowser:Dock(TOP)
     populateSequenceList(sequenceList, animPuppeteer, function(_) return true end)
+    smhList:SizeTo(-1, 0, 0.5)
+    smhBrowser:SizeTo(-1, 0, 0.5)
     sequenceList:SizeTo(-1, 500, 0.5)
     -- UI Hooks
     function searchBar:OnEnter(text)
@@ -605,15 +549,9 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         if val == "Sequence" then
             smhList:SizeTo(-1, 0, 0.5)
             smhBrowser:SizeTo(-1, 0, 0.5)
-            smhList:Hide()
-            smhBrowser:Hide()
-            sequenceList:Show()
             sequenceList:SizeTo(-1, 500, 0.5)
         else
             sequenceList:SizeTo(-1, 0, 0.5)
-            sequenceList:Hide()
-            smhBrowser:Show()
-            smhList:Show()
             smhList:SizeTo(-1, 250, 0.5)
             smhBrowser:SizeTo(-1, 250, 0.5)
         end
