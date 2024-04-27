@@ -1,4 +1,4 @@
--- TODO: move clientside code to another file
+-- https://github.com/Winded/RagdollMover/blob/master/lua/autorun/ragdollmover.lua
 function GetPhysBoneParent(entity, bone)
     local b = PhysBoneToBone(entity, bone)
     local i = 1
@@ -7,7 +7,7 @@ function GetPhysBoneParent(entity, bone)
         local parent = BoneToPhysBone(entity, b)
         if parent >= 0 and parent ~= bone then return parent end
         i = i + 1
-        if i > 128 then --We've gone through all possible bones, so we get out.
+        if i > 256 then --We've gone through all possible bones, so we get out.
             break
         end
     end

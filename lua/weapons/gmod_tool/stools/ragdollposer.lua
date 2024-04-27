@@ -1,3 +1,4 @@
+-- TODO: move clientside code to another file
 include("ragdollposer/vendor.lua")
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollposer.name"
@@ -54,6 +55,7 @@ function TOOL:Cleanup()
     if IsValid(self:GetAnimationPuppeteer()) then self:GetAnimationPuppeteer():Remove() end
     self:SetAnimationPuppet(nil)
     self:SetAnimationPuppeteer(nil)
+    self:SetStage(0)
 end
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
@@ -125,11 +127,11 @@ local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
             puppet:ManipulateBonePosition(i, vector_origin, false)
             puppet:ManipulateBoneAngles(i, angle_zero, false)
             -- Get world position
-            local ipos, iang = puppet:GetBonePosition(i)
-            local fpos, fang = puppeteer:GetBonePosition(i)
+            local _, iang = puppet:GetBonePosition(i)
+            local _, fang = puppeteer:GetBonePosition(i)
             -- TODO: Manipulate nonphysical bones from target ent which has no bone manipulations
             if puppeteer:GetBoneParent(i) > -1 then
-                local diffpos = fpos - ipos
+                --local diffpos = fpos - ipos
                 local diffang = fang - iang
                 -- Go from world position to local bone position
                 --ent:ManipulateBonePosition(i, diffpos)
@@ -259,7 +261,6 @@ function TOOL:RightClick(tr)
     -- FIXME: Properly clear any animation entities, clientside and serverside
     if IsValid(self:GetAnimationPuppet()) then
         self:Cleanup()
-        self:SetStage(0)
         prevServerAnimPuppet = nil
         net.Start("removeClientAnimPuppeteer")
         net.Send(self:GetOwner())
