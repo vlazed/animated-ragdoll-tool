@@ -617,26 +617,24 @@ function TOOL:DrawToolScreen(width, height)
     draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
 
-if CLIENT then
-    TOOL.Information = {
-        {
-            name = "info",
-            stage = 1
-        },
-        {
-            name = "left",
-            stage = 0
-        },
-        {
-            name = "right",
-            stage = 1
-        }
+TOOL.Information = {
+    {
+        name = "info",
+        stage = 1
+    },
+    {
+        name = "left",
+        stage = 0
+    },
+    {
+        name = "right",
+        stage = 1
     }
+}
 
-    language.Add("tool.ragdollposer.name", "Pose Ragdoll to Animation")
-    language.Add("tool.ragdollposer.desc", "Pose ragdolls to any animation frame")
-    language.Add("tool.ragdollposer.0", "Select a ragdoll")
-    language.Add("tool.ragdollposer.1", "Play animations through the context menu")
-    language.Add("tool.ragdollposer.left", "Select ragdoll to pose")
-    language.Add("tool.ragdollposer.right", "Deselect ragdoll to pose")
-end
+language.Add("tool.ragdollposer.name", "Pose Ragdoll to Animation")
+language.Add("tool.ragdollposer.desc", "Pose ragdolls to any animation frame")
+language.Add("tool.ragdollposer.0", "Select a ragdoll")
+language.Add("tool.ragdollposer.1", "Play animations through the context menu")
+language.Add("tool.ragdollposer.left", "Select ragdoll to pose")
+language.Add("tool.ragdollposer.right", "Deselect ragdoll to pose")
