@@ -28,12 +28,12 @@ local function styleServerPuppeteer(puppeteer)
 end
 
 function TOOL:Think()
+    -- Do not rebuild control panel for the same puppet
     if self:GetAnimationPuppet() == prevServerAnimPuppet then return end
     prevServerAnimPuppet = self:GetAnimationPuppet()
-    print(prevServerAnimPuppet)
     print(self:GetAnimationPuppet())
-    print("")
     if CLIENT then
+        -- FIXME: Left clicking after right clicking should still rebuild the control panel for the same entity 
         self:RebuildControlPanel(self:GetAnimationPuppet(), self:GetOwner())
     end
 end
@@ -183,7 +183,7 @@ local function resetAllNonphysicalBonesOf(ent)
     bonesReset = true
 end
 
--- Set stages for showing control panel for selected puppet
+-- Select a ragdoll as a puppet to puppeteer
 function TOOL:LeftClick(tr)
     local ragdollPuppet = tr.Entity
     do
@@ -234,6 +234,7 @@ function TOOL:LeftClick(tr)
         end
     end
 
+    -- Network hooks from client
     net.Receive(
         "onFrameChange",
         function()
@@ -264,6 +265,7 @@ function TOOL:LeftClick(tr)
         end
     )
 
+    -- -- End of lifecycle events
     ragdollPuppet:CallOnRemove(
         "RemoveAnimPuppeteer",
         function()
@@ -271,6 +273,7 @@ function TOOL:LeftClick(tr)
         end
     )
 
+    -- Set stages for showing control panel for selected puppet
     self:SetStage(1)
 
     return true
@@ -289,6 +292,7 @@ function TOOL:RightClick(tr)
     end
 end
 
+-- Concommands
 concommand.Add(
     "ragdollpuppeteer_updateposition",
     function(ply, _, _)
@@ -298,6 +302,7 @@ concommand.Add(
         local puppet = tool:GetAnimationPuppet()
         if not IsValid(puppet) or not IsValid(puppeteer) then return end
         setPlacementOf(puppeteer, puppet, ply)
+        -- Update client puppeteer position, which calls the above function for the client puppeteer
         net.Start("updateClientPosition")
         net.Send(ply)
     end
@@ -391,6 +396,7 @@ local function constructAngleNumSliderTrio(cPanel, names, label)
     return angleSliders
 end
 
+-- The longest animation is assumed to be the main animation for the sequence
 local function findLongestAnimationIn(sequenceInfo, puppeteer)
     local longestAnim = {
         numframes = -1
@@ -631,7 +637,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
         populateSMHEntitiesList(smhList, model, data, function(_) return true end)
     end
 
-    -- Network Hooks
+    -- Network hooks from server
     net.Receive(
         "onFramePrevious",
         function()
