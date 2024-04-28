@@ -83,17 +83,14 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
         else
             local matrix = puppeteer:GetBoneMatrix(b)
             local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
-            -- Calculate differences in position and angle
-            local dAng = targetPose[i].Ang -- - originPose.Ang
-            local dPos = targetPose[i].Pos -- - originPose.Pos
             -- First, set offset angle of puppeteer
             puppeteer:SetAngles(defaultAngle + offset)
             -- Then, set target position of puppet with offset
-            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) + dPos)
+            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) + targetPose[i].Pos)
             phys:EnableMotion(false)
             phys:SetPos(fPos)
             -- Finally, set angle of puppet itself
-            phys:SetAngles(bAng + dAng)
+            phys:SetAngles(bAng + targetPose[i].Ang)
             phys:Wake()
         end
     end
