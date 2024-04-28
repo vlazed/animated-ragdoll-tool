@@ -204,6 +204,21 @@ function TOOL:LeftClick(tr)
     setPlacementOf(animPuppeteer, ragdollPuppet, self:GetOwner())
     animPuppeteer:Spawn()
     styleServerEntity(animPuppeteer)
+    local function readSMHPose()
+        -- Assumes that we are in the networking scope
+        local targetPose = net.ReadTable(false)
+        local originPose = net.ReadTable(false)
+        local angOffset = net.ReadTable(true)
+        local animatingNonPhys = net.ReadBool()
+        setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
+        if animatingNonPhys then
+            local targetPoseNonPhys = net.ReadTable(false)
+            setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
+        elseif not bonesReset then
+            resetAllNonphysicalBonesOf(ragdollPuppet)
+        end
+    end
+
     local currentIndex = 0
     net.Receive(
         "onFrameChange",
@@ -224,17 +239,7 @@ function TOOL:LeftClick(tr)
                     resetAllNonphysicalBonesOf(ragdollPuppet)
                 end
             else
-                local targetPose = net.ReadTable(false)
-                local originPose = net.ReadTable(false)
-                local angOffset = net.ReadTable(true)
-                local animatingNonPhys = net.ReadBool()
-                setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
-                if animatingNonPhys then
-                    local targetPoseNonPhys = net.ReadTable(false)
-                    setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
-                elseif not bonesReset then
-                    resetAllNonphysicalBonesOf(ragdollPuppet)
-                end
+                readSMHPose()
             end
         end
     )
@@ -258,17 +263,7 @@ function TOOL:LeftClick(tr)
                     resetAllNonphysicalBonesOf(ragdollPuppet)
                 end
             else
-                local targetPose = net.ReadTable(false)
-                local originPose = net.ReadTable(false)
-                local angOffset = net.ReadTable(true)
-                local animatingNonPhys = net.ReadBool()
-                setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
-                if animatingNonPhys then
-                    local targetPoseNonPhys = net.ReadTable(false)
-                    setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
-                elseif not bonesReset then
-                    resetAllNonphysicalBonesOf(ragdollPuppet)
-                end
+                readSMHPose()
             end
         end
     )
