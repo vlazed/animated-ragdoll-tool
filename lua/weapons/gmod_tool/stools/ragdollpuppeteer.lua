@@ -17,8 +17,8 @@ if SERVER then
     util.AddNetworkString("removeClientAnimPuppeteer")
 end
 
-local id = "ragposer_puppet"
-local id2 = "ragposer_puppeteer"
+local id = "ragdollpuppeteer_puppet"
+local id2 = "ragdollpuppeteer_puppeteer"
 local prevServerAnimPuppet = nil
 local bonesReset = false
 local function styleServerPuppeteer(puppeteer)
