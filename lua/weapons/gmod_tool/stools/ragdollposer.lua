@@ -378,6 +378,7 @@ local function constructAngleNumSliders(dForm, names)
     for i = 1, 3 do
         local slider = dForm:NumSlider(names[i], "", -180, 180)
         slider:Dock(TOP)
+        slider:SetValue(0)
         sliders[i] = slider
     end
 
