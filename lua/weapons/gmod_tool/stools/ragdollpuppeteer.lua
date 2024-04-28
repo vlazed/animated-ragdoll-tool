@@ -1,7 +1,7 @@
 -- TODO: move clientside code to another file
-include("ragdollposer/vendor.lua")
+include("ragdollpuppeteer/vendor.lua")
 TOOL.Category = "Poser"
-TOOL.Name = "#tool.ragdollposer.name"
+TOOL.Name = "#tool.ragdollpuppeteer.name"
 TOOL.Command = nil
 TOOL.ConfigName = ""
 TOOL.ClientConVar["frame"] = 0
@@ -299,10 +299,10 @@ function TOOL:RightClick(tr)
 end
 
 concommand.Add(
-    "ragdollposer_updateposition",
+    "ragdollpuppeteer_updateposition",
     function(ply, _, _)
         if not IsValid(ply) then return end
-        local tool = ply:GetTool("ragdollposer")
+        local tool = ply:GetTool("ragdollpuppeteer")
         local puppeteer = tool:GetAnimationPuppeteer()
         local puppet = tool:GetAnimationPuppet()
         if not IsValid(puppet) or not IsValid(puppeteer) then return end
@@ -313,7 +313,7 @@ concommand.Add(
 )
 
 concommand.Add(
-    "ragdollposer_previousframe",
+    "ragdollpuppeteer_previousframe",
     function(ply)
         net.Start("onFramePrevious")
         net.Send(ply)
@@ -321,7 +321,7 @@ concommand.Add(
 )
 
 concommand.Add(
-    "ragdollposer_nextframe",
+    "ragdollpuppeteer_nextframe",
     function(ply)
         net.Start("onFrameNext")
         net.Send(ply)
@@ -329,7 +329,7 @@ concommand.Add(
 )
 
 if SERVER then return end
-include("ragdollposer/smh.lua")
+include("ragdollpuppeteer/smh.lua")
 local prevClientAnimPuppeteer = nil
 local currentSequence = {
     label = ""
@@ -502,10 +502,10 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     styleClientEntity(animPuppeteer)
     -- UI Elements
     local entityLabel = cPanel:Help("Current Entity: " .. model)
-    local numSlider = cPanel:NumSlider("Frame", "ragdollposer_frame", 0, defaultMaxFrame - 1, 0)
+    local numSlider = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, defaultMaxFrame - 1, 0)
     local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
-    local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
-    cPanel:Button("Update Puppeteer Position", "ragdollposer_updateposition", animPuppeteer)
+    local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
+    cPanel:Button("Update Puppeteer Position", "ragdollpuppeteer_updateposition", animPuppeteer)
     local sourceBox = cPanel:ComboBox("Source")
     sourceBox:AddChoice("Sequence")
     sourceBox:AddChoice("Stop Motion Helper")
@@ -695,8 +695,8 @@ end
 function TOOL:DrawToolScreen(width, height)
     --surface.SetDrawColor(Color(20, 20, 20))
     local white = Color(200, 200, 200)
-    local frame = GetConVar("ragdollposer_frame")
-    draw.SimpleText("Ragdoll Poser", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+    local frame = GetConVar("ragdollpuppeteer_frame")
+    draw.SimpleText("Ragdoll Puppeteer", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
     draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
 
@@ -715,9 +715,9 @@ TOOL.Information = {
     }
 }
 
-language.Add("tool.ragdollposer.name", "Pose Ragdoll to Animation")
-language.Add("tool.ragdollposer.desc", "Pose ragdolls to any animation frame")
-language.Add("tool.ragdollposer.0", "Select a ragdoll")
-language.Add("tool.ragdollposer.1", "Play animations through the context menu")
-language.Add("tool.ragdollposer.left", "Select ragdoll to pose")
-language.Add("tool.ragdollposer.right", "Deselect ragdoll to pose")
+language.Add("tool.ragdollpuppeteer.name", "Ragdoll Puppeteer")
+language.Add("tool.ragdollpuppeteer.desc", "Puppeteer a ragdoll to any animation frame")
+language.Add("tool.ragdollpuppeteer.0", "Select a ragdoll to puppeteer")
+language.Add("tool.ragdollpuppeteer.1", "Play animations through the context menu")
+language.Add("tool.ragdollpuppeteer.left", "Add puppeteer to ragdoll")
+language.Add("tool.ragdollpuppeteer.right", "Remove puppeteer from ragdoll")
