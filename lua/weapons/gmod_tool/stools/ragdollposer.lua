@@ -9,6 +9,7 @@ TOOL.ClientConVar["animatenonphys"] = "false"
 if SERVER then
     util.AddNetworkString("onFrameChange")
     util.AddNetworkString("onSequenceChange")
+    util.AddNetworkString("onAngleChange")
     util.AddNetworkString("onFrameNext")
     util.AddNetworkString("onFramePrevious")
     -- TODO: direct way to update client animation puppet
@@ -504,7 +505,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
     setAngleTrioDefaults(angOffset, 0, 0, 0)
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
-    cPanel:Button("Update Puppet Position", "ragdollposer_updateposition", animPuppeteer)
+    cPanel:Button("Update Puppeteer Position", "ragdollposer_updateposition", animPuppeteer)
     local sourceBox = cPanel:ComboBox("Source")
     sourceBox:AddChoice("Sequence")
     sourceBox:AddChoice("Stop Motion Helper")
@@ -522,6 +523,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     smhBrowser:SizeTo(-1, 0, 0.5)
     sequenceList:SizeTo(-1, 500, 0.5)
     local function sendSMHPose(netString, frame)
+        if not smhList:GetSelected()[1] then return end
         local physBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
         local originPhysBonePose = getPoseFromSMHFrames(0, smhList:GetSelected()[1]:GetSortValue(3), "physbones")[0]
         net.Start(netString, true)
@@ -536,6 +538,10 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         end
 
         net.SendToServer()
+    end
+
+    local function onAngleTrioValueChange()
+        sendSMHPose("onFrameChange", numSlider:GetValue())
     end
 
     -- UI Hooks
@@ -602,13 +608,15 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
             net.WriteBool(nonPhysCheckbox:GetChecked())
             net.SendToServer()
         else
-            if not smhList:GetSelected()[1] then return end
             sendSMHPose("onFrameChange", val)
         end
 
         prevFrame = val
     end
 
+    angOffset[1].OnValueChanged = onAngleTrioValueChange
+    angOffset[2].OnValueChanged = onAngleTrioValueChange
+    angOffset[3].OnValueChanged = onAngleTrioValueChange
     function sourceBox:OnSelect(ind, val, data)
         if val == "Sequence" then
             smhList:SizeTo(-1, 0, 0.5)
