@@ -21,6 +21,7 @@ local id = "ragdollpuppeteer_puppet"
 local id2 = "ragdollpuppeteer_puppeteer"
 local prevServerAnimPuppet = nil
 local bonesReset = false
+local defaultAngle = angle_zero
 local function styleServerPuppeteer(puppeteer)
     puppeteer:SetColor(Color(255, 255, 255, 0))
     puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
@@ -82,12 +83,17 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, originPose, 
         else
             local matrix = puppeteer:GetBoneMatrix(b)
             local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
+            -- Calculate differences in position and angle
             local dAng = targetPose[i].Ang - originPose.Ang
-            local dPos = originPose.Pos - targetPose[i].Pos
-            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) - dPos)
+            local dPos = targetPose[i].Pos - originPose.Pos
+            -- First, set offset angle of puppeteer
+            puppeteer:SetAngles(defaultAngle + offset)
+            -- Then, set target position of puppet with offset
+            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) + dPos)
             phys:EnableMotion(false)
             phys:SetPos(fPos)
-            phys:SetAngles(bAng + dAng + offset)
+            -- Finally, set angle of puppet itself
+            phys:SetAngles(bAng + dAng)
             phys:Wake()
         end
     end
@@ -166,6 +172,7 @@ end
 
 local function setAngleOf(puppeteer, puppet, ply)
     local angle = (ply:GetPos() - puppet:GetPos()):Angle()
+    defaultAngle = angle
     puppeteer:SetAngles(Angle(0, angle.y, 0))
 end
 
