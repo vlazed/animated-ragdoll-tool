@@ -21,10 +21,10 @@ local id = "ragposer_puppet"
 local id2 = "ragposer_puppeteer"
 local prevServerAnimPuppet = nil
 local bonesReset = false
-local function styleServerEntity(ent)
-    ent:SetColor(Color(255, 255, 255, 0))
-    ent:SetRenderMode(RENDERMODE_TRANSCOLOR)
-    ent:AddEffects(EF_NODRAW)
+local function styleServerPuppeteer(puppeteer)
+    puppeteer:SetColor(Color(255, 255, 255, 0))
+    puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
+    puppeteer:AddEffects(EF_NODRAW)
 end
 
 function TOOL:Think()
@@ -183,7 +183,7 @@ local function resetAllNonphysicalBonesOf(ent)
     bonesReset = true
 end
 
--- Set stages for showing control panel for selected entity 
+-- Set stages for showing control panel for selected puppet
 function TOOL:LeftClick(tr)
     local ragdollPuppet = tr.Entity
     do
@@ -203,7 +203,7 @@ function TOOL:LeftClick(tr)
     self:SetAnimationPuppeteer(animPuppeteer)
     setPlacementOf(animPuppeteer, ragdollPuppet, self:GetOwner())
     animPuppeteer:Spawn()
-    styleServerEntity(animPuppeteer)
+    styleServerPuppeteer(animPuppeteer)
     local currentIndex = 0
     local function readSMHPose()
         -- Assumes that we are in the networking scope
@@ -276,7 +276,7 @@ function TOOL:LeftClick(tr)
     return true
 end
 
--- Stop selecting an entity
+-- Stop puppeteering a ragdoll
 function TOOL:RightClick(tr)
     -- FIXME: Properly clear any animation entities, clientside and serverside
     if IsValid(self:GetAnimationPuppet()) then
@@ -327,9 +327,9 @@ local currentSequence = {
 }
 
 TOOL:BuildConVarList()
-local function styleClientEntity(ent)
-    ent:SetColor(Color(0, 0, 255, 128))
-    ent:SetRenderMode(RENDERMODE_TRANSCOLOR)
+local function styleClientPuppeteer(puppeteer)
+    puppeteer:SetColor(Color(0, 0, 255, 128))
+    puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 end
 
 local function constructSequenceList(cPanel)
@@ -391,13 +391,13 @@ local function constructAngleNumSliderTrio(cPanel, names, label)
     return angleSliders
 end
 
-local function findLongestAnimationIn(sequenceInfo, animEntity)
+local function findLongestAnimationIn(sequenceInfo, puppeteer)
     local longestAnim = {
         numframes = -1
     }
 
     for _, anim in pairs(sequenceInfo.anims) do
-        local animInfo = animEntity:GetAnimInfo(anim)
+        local animInfo = puppeteer:GetAnimInfo(anim)
         if not (animInfo and animInfo.numframes) then continue end
         if animInfo.numframes > longestAnim.numframes then
             longestAnim = animInfo
@@ -407,7 +407,7 @@ local function findLongestAnimationIn(sequenceInfo, animEntity)
     return longestAnim
 end
 
--- Populate the DList with compatible SMH entities (compatible meaning the entity has the same model as animEntity)
+-- Populate the DList with compatible SMH entities (compatible meaning the SMH entity has the same model as the puppet)
 local function populateSMHEntitiesList(seqList, model, data, predicate)
     if not data then return end
     local maxFrames = 0
@@ -442,14 +442,14 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
     end
 end
 
--- Populate the DList with the animEntity sequence
-local function populateSequenceList(seqList, animEntity, predicate)
+-- Populate the DList with the puppeteer sequence
+local function populateSequenceList(seqList, puppeteer, predicate)
     local defaultMaxFrame = 60
     local defaultFPS = 30
-    for i = 0, animEntity:GetSequenceCount() - 1 do
-        local seqInfo = animEntity:GetSequenceInfo(i)
+    for i = 0, puppeteer:GetSequenceCount() - 1 do
+        local seqInfo = puppeteer:GetSequenceInfo(i)
         if not predicate(seqInfo) then continue end
-        local longestAnim = findLongestAnimationIn(seqInfo, animEntity)
+        local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
         local fps = defaultFPS
         local maxFrame = defaultMaxFrame
         -- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
@@ -490,9 +490,9 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     animPuppeteer:SetModel(model)
     setPlacementOf(animPuppeteer, puppet, ply)
     animPuppeteer:Spawn()
-    styleClientEntity(animPuppeteer)
+    styleClientPuppeteer(animPuppeteer)
     -- UI Elements
-    local entityLabel = cPanel:Help("Current Puppet: " .. model)
+    local puppetLabel = cPanel:Help("Current Puppet: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, defaultMaxFrame - 1, 0)
     local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
@@ -661,7 +661,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
                 prevClientAnimPuppeteer = nil
                 clearList(sequenceList)
                 clearList(smhList)
-                entityLabel:SetText("No puppet selected.")
+                puppetLabel:SetText("No puppet selected.")
             end
         end
     )
@@ -675,7 +675,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
                 prevClientAnimPuppeteer = nil
                 clearList(sequenceList)
                 clearList(smhList)
-                entityLabel:SetText("No puppet selected.")
+                puppetLabel:SetText("No puppet selected.")
             end
         end
     )
