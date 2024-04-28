@@ -14,6 +14,8 @@ This tool has no competing conflicts of interest with Animated Props and similar
 
 **You should use this tool in singleplayer.** Many of the features here were tested in singleplayer. If your workflow requires that you animate with another animator in a server, you can use this tool in singleplayer initially and then transfer the data over to the server (assuming that you use an animation tool like SMH).
 
+In addition, the ragdoll puppet may not exactly match the pose of the puppeteer. This is dependent on the ragdoll itself. Consider using a ragdoll with as many physical bones to animate (make collar/shoulder physical bones, increase spine count, and so on).
+
 ## Pull Requests
 
 When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua (no redundant spaces in function parentheses). If you use Visual Studio Code, I accompanied the repo with settings.json; make sure to install the required extensions.
