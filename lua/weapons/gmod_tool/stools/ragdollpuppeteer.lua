@@ -704,11 +704,13 @@ function TOOL:DrawToolScreen(width, height)
     local white = Color(200, 200, 200)
     local brightWhite = Color(255, 255, 255)
     local grey = Color(128, 128, 128)
+    local y = 19.25 * height / 32
+    local ySize = height / 18
     local frame = GetConVar("ragdollpuppeteer_frame")
     draw.SimpleText("Ragdoll Puppeteer", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
     draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    draw.RoundedBox(2, 0, height / 4, width, height / 16, grey)
-    draw.RoundedBox(2, 0, height / 4, width * frame:GetFloat() / maxAnimFrames, height / 16, brightWhite)
+    draw.RoundedBox(2, 0, y, width, ySize, grey)
+    draw.RoundedBox(2, 0, y, width * frame:GetFloat() / maxAnimFrames, ySize, brightWhite)
 end
 
 TOOL.Information = {
