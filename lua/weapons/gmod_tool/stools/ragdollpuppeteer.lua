@@ -204,6 +204,7 @@ function TOOL:LeftClick(tr)
     setPlacementOf(animPuppeteer, ragdollPuppet, self:GetOwner())
     animPuppeteer:Spawn()
     styleServerEntity(animPuppeteer)
+    local currentIndex = 0
     local function readSMHPose()
         -- Assumes that we are in the networking scope
         local targetPose = net.ReadTable(false)
@@ -219,7 +220,20 @@ function TOOL:LeftClick(tr)
         end
     end
 
-    local currentIndex = 0
+    local function setPuppeteerPose(cycle, animatingNonPhys)
+        -- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement. 
+        animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
+        animPuppeteer:ResetSequence(currentIndex)
+        animPuppeteer:SetCycle(cycle)
+        animPuppeteer:SetPlaybackRate(0)
+        matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
+        if animatingNonPhys then
+            matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
+        elseif not bonesReset then
+            resetAllNonphysicalBonesOf(ragdollPuppet)
+        end
+    end
+
     net.Receive(
         "onFrameChange",
         function()
@@ -227,17 +241,7 @@ function TOOL:LeftClick(tr)
             if isSequence then
                 local cycle = net.ReadFloat()
                 local animatingNonPhys = net.ReadBool()
-                -- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement. 
-                animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
-                animPuppeteer:ResetSequence(currentIndex)
-                animPuppeteer:SetCycle(cycle)
-                animPuppeteer:SetPlaybackRate(0)
-                matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
-                if animatingNonPhys then
-                    matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
-                elseif not bonesReset then
-                    resetAllNonphysicalBonesOf(ragdollPuppet)
-                end
+                setPuppeteerPose(cycle, animatingNonPhys)
             else
                 readSMHPose()
             end
@@ -253,15 +257,7 @@ function TOOL:LeftClick(tr)
                 local seqIndex = net.ReadInt(14)
                 local animatingNonPhys = net.ReadBool()
                 currentIndex = seqIndex
-                animPuppeteer:ResetSequence(seqIndex)
-                animPuppeteer:SetCycle(0)
-                animPuppeteer:SetPlaybackRate(0)
-                matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
-                if animatingNonPhys then
-                    matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
-                elseif not bonesReset then
-                    resetAllNonphysicalBonesOf(ragdollPuppet)
-                end
+                setPuppeteerPose(0, animatingNonPhys)
             else
                 readSMHPose()
             end
