@@ -533,7 +533,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
         net.WriteTable(getAngleTrio(angOffset), true)
         net.WriteBool(nonPhysCheckbox:GetChecked())
         if nonPhysCheckbox:GetChecked() then
-            local nonPhysBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "bones")
+            local nonPhysBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
             net.WriteTable(nonPhysBoneData, false)
         end
 
