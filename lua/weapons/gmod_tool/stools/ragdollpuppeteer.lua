@@ -338,6 +338,7 @@ local currentSequence = {
     label = ""
 }
 
+local maxAnimFrames = 0
 TOOL:BuildConVarList()
 local function styleClientPuppeteer(puppeteer)
     puppeteer:SetColor(Color(0, 0, 255, 128))
@@ -586,6 +587,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
             animPuppeteer:SetCycle(0)
             animPuppeteer:SetPlaybackRate(0)
             numSlider:SetMax(row:GetValue(4) - 1)
+            maxAnimFrames = row:GetValue(4) - 1
             net.Start("onSequenceChange")
             net.WriteBool(true)
             net.WriteInt(row:GetValue(1), 14)
@@ -635,6 +637,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 
     function smhList:OnRowSelected(index, row)
         numSlider:SetMax(row:GetValue(2))
+        maxAnimFrames = row:GetValue(2)
         sendSMHPose("onSequenceChange", 0)
     end
 
@@ -699,9 +702,13 @@ end
 function TOOL:DrawToolScreen(width, height)
     --surface.SetDrawColor(Color(20, 20, 20))
     local white = Color(200, 200, 200)
+    local brightWhite = Color(255, 255, 255)
+    local grey = Color(128, 128, 128)
     local frame = GetConVar("ragdollpuppeteer_frame")
     draw.SimpleText("Ragdoll Puppeteer", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
     draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.RoundedBox(2, 0, height / 4, width, height / 16, grey)
+    draw.RoundedBox(2, 0, height / 4, width * frame:GetFloat() / maxAnimFrames, height / 16, brightWhite)
 end
 
 TOOL.Information = {
