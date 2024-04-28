@@ -476,27 +476,27 @@ local function getAngleTrio(trio)
     return {trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue()}
 end
 
-function TOOL.BuildCPanel(cPanel, entity, ply)
-    if not IsValid(entity) then
-        cPanel:Help("No entity selected")
+function TOOL.BuildCPanel(cPanel, puppet, ply)
+    if not IsValid(puppet) then
+        cPanel:Help("No puppet selected")
 
         return
     end
 
     local defaultMaxFrame = 60
     local prevFrame = 0
-    local model = entity:GetModel()
+    local model = puppet:GetModel()
     local animPuppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
     if IsValid(prevClientAnimPuppeteer) then
         prevClientAnimPuppeteer:Remove()
     end
 
     animPuppeteer:SetModel(model)
-    setPlacementOf(animPuppeteer, entity, ply)
+    setPlacementOf(animPuppeteer, puppet, ply)
     animPuppeteer:Spawn()
     styleClientEntity(animPuppeteer)
     -- UI Elements
-    local entityLabel = cPanel:Help("Current Entity: " .. model)
+    local entityLabel = cPanel:Help("Current Puppet: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, defaultMaxFrame - 1, 0)
     local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
@@ -653,7 +653,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     net.Receive(
         "updateClientPosition",
         function()
-            setPlacementOf(animPuppeteer, entity, ply)
+            setPlacementOf(animPuppeteer, puppet, ply)
         end
     )
 
@@ -665,13 +665,13 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
                 prevClientAnimPuppeteer = nil
                 clearList(sequenceList)
                 clearList(smhList)
-                entityLabel:SetText("No entity selected.")
+                entityLabel:SetText("No puppet selected.")
             end
         end
     )
 
     -- End of lifecycle events
-    entity:CallOnRemove(
+    puppet:CallOnRemove(
         "RemoveAnimPuppeteer",
         function()
             if IsValid(animPuppeteer) then
@@ -679,7 +679,7 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
                 prevClientAnimPuppeteer = nil
                 clearList(sequenceList)
                 clearList(smhList)
-                entityLabel:SetText("No entity selected.")
+                entityLabel:SetText("No puppet selected.")
             end
         end
     )
