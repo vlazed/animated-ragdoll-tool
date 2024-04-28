@@ -67,7 +67,7 @@ end
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 -- Directly influence the ragdoll physical bones from SMH data
-local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, originPose, offset)
+local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
     offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
     for i = 0, puppet:GetPhysicsObjectCount() - 1 do
         local b = puppet:TranslatePhysBoneToBone(i)
@@ -84,8 +84,8 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, originPose, 
             local matrix = puppeteer:GetBoneMatrix(b)
             local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
             -- Calculate differences in position and angle
-            local dAng = targetPose[i].Ang - originPose.Ang
-            local dPos = targetPose[i].Pos - originPose.Pos
+            local dAng = targetPose[i].Ang -- - originPose.Ang
+            local dPos = targetPose[i].Pos -- - originPose.Pos
             -- First, set offset angle of puppeteer
             puppeteer:SetAngles(defaultAngle + offset)
             -- Then, set target position of puppet with offset
@@ -215,10 +215,9 @@ function TOOL:LeftClick(tr)
     local function readSMHPose()
         -- Assumes that we are in the networking scope
         local targetPose = net.ReadTable(false)
-        local originPose = net.ReadTable(false)
         local angOffset = net.ReadTable(true)
         local animatingNonPhys = net.ReadBool()
-        setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, originPose, angOffset)
+        setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, angOffset)
         if animatingNonPhys then
             local targetPoseNonPhys = net.ReadTable(false)
             setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
@@ -527,14 +526,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     smhList:SizeTo(-1, 0, 0.5)
     smhBrowser:SizeTo(-1, 0, 0.5)
     sequenceList:SizeTo(-1, 500, 0.5)
-    local function sendSMHPose(netString, frame)
+    local function writeSMHPose(netString, frame)
         if not smhList:GetSelected()[1] then return end
         local physBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-        local originPhysBonePose = getPoseFromSMHFrames(0, smhList:GetSelected()[1]:GetSortValue(3), "physbones")[0]
         net.Start(netString, true)
         net.WriteBool(false)
         net.WriteTable(physBoneData, false)
-        net.WriteTable(originPhysBonePose, false)
         net.WriteTable(getAngleTrio(angOffset), true)
         net.WriteBool(nonPhysCheckbox:GetChecked())
         if nonPhysCheckbox:GetChecked() then
@@ -546,7 +543,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     end
 
     local function onAngleTrioValueChange()
-        sendSMHPose("onFrameChange", numSlider:GetValue())
+        writeSMHPose("onFrameChange", numSlider:GetValue())
     end
 
     -- UI Hooks
@@ -614,7 +611,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
             net.WriteBool(nonPhysCheckbox:GetChecked())
             net.SendToServer()
         else
-            sendSMHPose("onFrameChange", val)
+            writeSMHPose("onFrameChange", val)
         end
 
         prevFrame = val
@@ -638,7 +635,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     function smhList:OnRowSelected(index, row)
         numSlider:SetMax(row:GetValue(2))
         maxAnimFrames = row:GetValue(2)
-        sendSMHPose("onSequenceChange", 0)
+        writeSMHPose("onSequenceChange", 0)
     end
 
     function smhBrowser:OnSelect(filePath)
