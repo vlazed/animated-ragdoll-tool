@@ -28,6 +28,14 @@ local function styleServerPuppeteer(puppeteer)
     puppeteer:AddEffects(EF_NODRAW)
 end
 
+local function compressTableToJSON(tab)
+    return util.Compress(util.TableToJSON(tab))
+end
+
+local function decompressJSONToTable(json)
+    return util.JSONToTable(util.Decompress(json))
+end
+
 function TOOL:Think()
     -- Do not rebuild control panel for the same puppet
     if self:GetAnimationPuppet() == prevServerAnimPuppet then return end
@@ -211,12 +219,15 @@ function TOOL:LeftClick(tr)
     local currentIndex = 0
     local function readSMHPose()
         -- Assumes that we are in the networking scope
-        local targetPose = net.ReadTable(false)
-        local angOffset = net.ReadTable(true)
-        local animatingNonPhys = net.ReadBool()
+        local tPoseLength = net.ReadUInt(16)
+        local targetPose = decompressJSONToTable(net.ReadData(tPoseLength))
+        local angOffsetLength = net.ReadUInt(16)
+        local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
+        local animatingNonPhys = net.ReadBool(16)
         setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, angOffset)
         if animatingNonPhys then
-            local targetPoseNonPhys = net.ReadTable(false)
+            local tPNPLength = net.ReadUInt(16)
+            local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
             setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys, animPuppeteer)
         elseif not bonesReset then
             resetAllNonphysicalBonesOf(ragdollPuppet)
@@ -525,15 +536,21 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     sequenceList:SizeTo(-1, 500, 0.5)
     local function writeSMHPose(netString, frame)
         if not smhList:GetSelected()[1] then return end
-        local physBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+        local physBonePose = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+        local compressedData = compressTableToJSON(physBonePose)
+        local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
         net.Start(netString, true)
         net.WriteBool(false)
-        net.WriteTable(physBoneData, false)
-        net.WriteTable(getAngleTrio(angOffset), true)
+        net.WriteUInt(#compressedData, 16)
+        net.WriteData(compressedData)
+        net.WriteUInt(#compressedOffset, 16)
+        net.WriteData(compressedOffset)
         net.WriteBool(nonPhysCheckbox:GetChecked())
         if nonPhysCheckbox:GetChecked() then
             local nonPhysBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
-            net.WriteTable(nonPhysBoneData, false)
+            local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
+            net.WriteUInt(#compressedNonPhysPose, 16)
+            net.WriteData(compressedNonPhysPose)
         end
 
         net.SendToServer()
