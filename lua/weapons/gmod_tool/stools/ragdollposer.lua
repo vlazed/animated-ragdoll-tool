@@ -389,6 +389,12 @@ local function constructAngleNumSliderTrio(cPanel, names, label)
     dForm:SetLabel(label)
     local angleSliders = constructAngleNumSliders(dForm, names)
     cPanel:AddItem(dForm)
+    local resetAngles = dForm:Button("Reset Angles")
+    function resetAngles:DoClick()
+        for i = 1, 3 do
+            angleSliders[i]:SetValue(0)
+        end
+    end
 
     return angleSliders
 end
@@ -470,12 +476,6 @@ local function clearList(dList)
     end
 end
 
-local function setAngleTrioDefaults(trio, a, b, c)
-    trio[1]:SetValue(a)
-    trio[2]:SetValue(b)
-    trio[3]:SetValue(c)
-end
-
 local function getAngleTrio(trio)
     return {trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue()}
 end
@@ -503,7 +503,6 @@ function TOOL.BuildCPanel(cPanel, entity, ply)
     local entityLabel = cPanel:Help("Current Entity: " .. model)
     local numSlider = cPanel:NumSlider("Frame", "ragdollposer_frame", 0, defaultMaxFrame - 1, 0)
     local angOffset = constructAngleNumSliderTrio(cPanel, {"Pitch", "Yaw", "Roll"}, "Angle Offset")
-    setAngleTrioDefaults(angOffset, 0, 0, 0)
     local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollposer_animatenonphys")
     cPanel:Button("Update Puppeteer Position", "ragdollposer_updateposition", animPuppeteer)
     local sourceBox = cPanel:ComboBox("Source")
