@@ -22,6 +22,7 @@ local id2 = "ragdollpuppeteer_puppeteer"
 local prevServerAnimPuppet = nil
 local bonesReset = false
 local defaultAngle = angle_zero
+local defaultBonePose = {}
 local function styleServerPuppeteer(puppeteer)
     puppeteer:SetColor(Color(255, 255, 255, 0))
     puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
@@ -133,32 +134,71 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer)
     end
 end
 
+-- local ourmatr = self.csmodel:GetBoneMatrix(i)
+-- local parentboneid = self.csmodel:GetBoneParent(i)
+-- Get the bone's offset from its parent
+-- local parentmatr = self.csmodel:GetBoneMatrix(parentboneid)
+-- newentry["posoffset"], newentry["angoffset"] = WorldToLocal(ourmatr:GetTranslation(), ourmatr:GetAngles(), parentmatr:GetTranslation(), parentmatr:GetAngles())
+-- newentry["pos"], newentry["ang"] = WorldToLocal(ourmatr:GetTranslation(), ourmatr:GetAngles(), self:GetPos(), self:GetAngles())
+-- If a bone doesn't have a parent, then get its offset from the model origin
+-- ourmatr = self.csmodel:GetBoneMatrix(i)
+-- if ourmatr != nil then
+-- newentry["posoffset"], newentry["angoffset"] = WorldToLocal(ourmatr:GetTranslation(), ourmatr:GetAngles(), self.csmodel:GetPos(), self.csmodel:GetAngles())
+-- newentry["pos"], newentry["ang"] = WorldToLocal(ourmatr:GetTranslation(), ourmatr:GetAngles(), self:GetPos(), self:GetAngles())
+local function getDefaultBonePoseOf(ent)
+    local defaultPose = {}
+    for b = 0, ent:GetBoneCount() - 1 do
+        local bMatrix = ent:GetBoneMatrix(b)
+        local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), ent:GetPos(), ent:GetAngles())
+        local pos2, ang2 = pos1, ang1
+        if ent:GetBoneParent(b) > -1 then
+            local pMatrix = ent:GetBoneMatrix(ent:GetBoneParent(b))
+            pos2, ang2 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
+        end
+
+        defaultPose[b] = {pos1, ang1, pos2, ang2}
+    end
+
+    return defaultPose
+end
+
+-- local matr = self:GetBoneMatrix(i)
+-- local parentmatr = self:GetBoneMatrix(self:GetBoneParent(i))
+-- local newpos, newang = WorldToLocal(matr:GetTranslation(), matr:GetAngles(), parentmatr:GetTranslation(), parentmatr:GetAngles())
+-- subtab["pos"] = newpos - self.RemapInfo_DefaultBoneOffsets[i].posoffset
+-- From the perspective of the bone we want to rotate, get how much the new offset rotates the bone compared to the default offset, and use that as our ang manip
+-- local newmatr2 = Matrix()
+-- newmatr2:Translate(self.RemapInfo_DefaultBoneOffsets[self:GetBoneParent(i)].pos)
+-- newmatr2:Rotate(self.RemapInfo_DefaultBoneOffsets[self:GetBoneParent(i)].ang)
+-- newmatr2:Rotate(newang)
+-- local newpos2, newang2 = WorldToLocal(newmatr2:GetTranslation(), newmatr2:GetAngles(), self.RemapInfo_DefaultBoneOffsets[i].pos, self.RemapInfo_DefaultBoneOffsets[i].ang)
+-- subtab["ang"] = newang2
+local function getBoneOffsetsOf(puppeteer, child)
+    local parent = puppeteer:GetBoneParent(child)
+    local cMatrix = puppeteer:GetBoneMatrix(child)
+    local pMatrix = puppeteer:GetBoneMatrix(parent)
+    local fPos, fAng = WorldToLocal(cMatrix:GetTranslation(), cMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
+    local dPos = fPos - defaultBonePose[child][3]
+    local m = Matrix()
+    m:Translate(defaultBonePose[parent][1])
+    m:Rotate(defaultBonePose[parent][2])
+    m:Rotate(fAng)
+    local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child][1], defaultBonePose[child][2])
+
+    return dPos, dAng
+end
+
 local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
     if bonesReset then
         bonesReset = false
     end
 
-    local physBoneIndices = {}
-    for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-        physBoneIndices[puppet:TranslatePhysBoneToBone(i)] = true
-    end
-
-    for i = 0, puppet:GetBoneCount() - 1 do
-        if not physBoneIndices[i] then
-            -- Reset bone position and angles
-            puppet:ManipulateBonePosition(i, vector_origin, false)
-            puppet:ManipulateBoneAngles(i, angle_zero, false)
-            -- Get world position
-            local _, iang = puppet:GetBonePosition(i)
-            local _, fang = puppeteer:GetBonePosition(i)
-            -- TODO: Manipulate nonphysical bones from target ent which has no bone manipulations
-            if puppeteer:GetBoneParent(i) > -1 then
-                --local diffpos = fpos - ipos
-                local diffang = fang - iang
-                -- Go from world position to local bone position
-                --ent:ManipulateBonePosition(i, diffpos)
-                puppet:ManipulateBoneAngles(i, diffang)
-            end
+    for b = 0, puppeteer:GetBoneCount() - 1 do
+        -- Reset bone position and angles
+        if puppeteer:GetBoneParent(b) > -1 then
+            local dPos, dAng = getBoneOffsetsOf(puppeteer, b)
+            --puppet:ManipulateBonePosition(b, dPos)
+            puppet:ManipulateBoneAngles(b, dAng)
         end
     end
 end
@@ -216,6 +256,7 @@ function TOOL:LeftClick(tr)
     setPlacementOf(animPuppeteer, ragdollPuppet, self:GetOwner())
     animPuppeteer:Spawn()
     styleServerPuppeteer(animPuppeteer)
+    defaultBonePose = getDefaultBonePoseOf(animPuppeteer)
     local currentIndex = 0
     local function readSMHPose()
         -- Assumes that we are in the networking scope
@@ -242,6 +283,7 @@ function TOOL:LeftClick(tr)
         animPuppeteer:SetPlaybackRate(0)
         matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
         if animatingNonPhys then
+            defaultBonePose = getDefaultBonePoseOf(animPuppeteer)
             matchNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
         elseif not bonesReset then
             resetAllNonphysicalBonesOf(ragdollPuppet)
@@ -316,6 +358,7 @@ concommand.Add(
         local puppet = tool:GetAnimationPuppet()
         if not IsValid(puppet) or not IsValid(puppeteer) then return end
         setPlacementOf(puppeteer, puppet, ply)
+        defaultBonePose = getDefaultBonePoseOf(puppeteer)
         -- Update client puppeteer position, which calls the above function for the client puppeteer
         net.Start("updateClientPosition")
         net.Send(ply)
