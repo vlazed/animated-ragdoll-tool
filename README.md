@@ -6,6 +6,7 @@ The Ragdoll Puppeteer is a companion tool for ragdoll animations. Unlike the Sta
 Here are two ways on how you can use this tool:
 
 - "Bake" a sequence onto SMH (in whatever resolution you desire), and use the ragdoll mover and other posing tools for a new animation. For example, you can either use a premade running animation, or animate your own using SMH. With the animation, use SMH to outline a base trajectory for the ragdoll and use RGM to make adjustments to the pose on each frame.
+    - If the sequence of SMH animation moves the character root, you can automate the movement of a character in Stop Motion Helper, without using RGM. For instance, one can combine this tool's update position and frame advancement commands to move the origin forward in its walk cycle.
 - Initially puppeteer a ragdoll to an animation frame, and then make additional adjustments using the RGM. For instance, you can first set the Heavy to his primary weapon sequence, and then adjust his hands to hold a different weapon. You can also use a pose saved from a SMH animation.
 
 ## Disclaimer
