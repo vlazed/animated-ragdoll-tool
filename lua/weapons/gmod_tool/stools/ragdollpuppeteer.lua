@@ -80,7 +80,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
         local phys = puppet:GetPhysicsObjectNum(i)
         local parent = puppet:GetPhysicsObjectNum(GetPhysBoneParent(puppet, i))
         if not targetPose[i] then continue end
-        if targetPose[i].LocalPos and targetPose[i].LocalAng then
+        if targetPose[i].LocalPos and targetPose[i].LocalPos ~= Vector(-16384, -16384, -16384) then
             local pos, ang = LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
             phys:EnableMotion(false)
             phys:SetPos(pos)
@@ -243,10 +243,32 @@ function TOOL:LeftClick(tr)
     styleServerPuppeteer(animPuppeteer)
     defaultBonePose = getDefaultBonePoseOf(animPuppeteer)
     local currentIndex = 0
+    local function decodePose()
+        local pose = {}
+        local poseSize = net.ReadUInt(16)
+        for i = 0, poseSize do
+            pose[i] = {
+                Pos = 0,
+                Ang = 0,
+                Scale = 0,
+                LocalPos = 0,
+                LocalAng = 0
+            }
+
+            pose[i].Pos = net.ReadVector()
+            pose[i].Ang = net.ReadAngle()
+            pose[i].Scale = net.ReadVector()
+            pose[i].LocalPos = net.ReadVector()
+            pose[i].LocalAng = net.ReadAngle()
+        end
+        return pose
+    end
+
     local function readSMHPose()
         -- Assumes that we are in the networking scope
-        local tPoseLength = net.ReadUInt(16)
-        local targetPose = decompressJSONToTable(net.ReadData(tPoseLength))
+        local targetPose = decodePose()
+        -- local tPoseLength = net.ReadUInt(16)
+        -- local targetPose = decompressJSONToTable(net.ReadData(tPoseLength))
         local angOffsetLength = net.ReadUInt(16)
         local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
         local animatingNonPhys = net.ReadBool(16)
@@ -525,15 +547,27 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     smhList:SizeTo(-1, 0, 0.5)
     smhBrowser:SizeTo(-1, 0, 0.5)
     sequenceList:SizeTo(-1, 500, 0.5)
+    local function encodePose(pose)
+        net.WriteUInt(#pose, 16)
+        for i = 0, #pose do
+            net.WriteVector(pose[i].Pos or vector_origin)
+            net.WriteAngle(pose[i].Ang or angle_zero)
+            net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
+            net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
+            net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
+        end
+    end
+
     local function writeSMHPose(netString, frame)
         if not smhList:GetSelected()[1] then return end
         local physBonePose = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-        local compressedData = compressTableToJSON(physBonePose)
+        -- local compressedData = compressTableToJSON(physBonePose)
         local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
         net.Start(netString, true)
         net.WriteBool(false)
-        net.WriteUInt(#compressedData, 16)
-        net.WriteData(compressedData)
+        encodePose(physBonePose)
+        -- net.WriteUInt(#compressedData, 16)
+        -- net.WriteData(compressedData)
         net.WriteUInt(#compressedOffset, 16)
         net.WriteData(compressedOffset)
         net.WriteBool(nonPhysCheckbox:GetChecked())
