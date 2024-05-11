@@ -65,10 +65,7 @@ function TOOL:GetAnimationPuppeteer()
 end
 
 function TOOL:Cleanup()
-    if IsValid(self:GetAnimationPuppeteer()) then
-        self:GetAnimationPuppeteer():Remove()
-    end
-
+    if IsValid(self:GetAnimationPuppeteer()) then self:GetAnimationPuppeteer():Remove() end
     self:SetAnimationPuppet(nil)
     self:SetAnimationPuppeteer(nil)
     self:SetStage(0)
@@ -95,11 +92,11 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
             -- First, set offset angle of puppeteer
             puppeteer:SetAngles(defaultAngle + offset)
             -- Then, set target position of puppet with offset
-            local fPos = puppeteer:LocalToWorld(WorldToLocal(bPos, angle_zero, puppeteer:GetPos(), angle_zero) + targetPose[i].Pos)
+            local fPos, fAng = LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, bPos, bAng) --puppeteer:LocalToWorld(puppeteer:WorldToLocal(bPos) + targetPose[i].Pos)
             phys:EnableMotion(false)
             phys:SetPos(fPos)
             -- Finally, set angle of puppet itself
-            phys:SetAngles(bAng + targetPose[i].Ang)
+            phys:SetAngles(fAng)
             phys:Wake()
         end
     end
@@ -110,9 +107,7 @@ local function setNonPhysicalBonePoseOf(puppet, targetPose)
     for b = 0, puppet:GetBoneCount() - 1 do
         puppet:ManipulateBonePosition(b, targetPose[b].Pos)
         puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
-        if targetPose[b].Scale then
-            puppet:ManipulateBoneScale(b, targetPose[b].Scale)
-        end
+        if targetPose[b].Scale then puppet:ManipulateBoneScale(b, targetPose[b].Scale) end
     end
 end
 
@@ -158,7 +153,6 @@ local function getDefaultBonePoseOf(ent)
 
         defaultPose[b] = {pos1, ang1, pos2, ang2}
     end
-
     return defaultPose
 end
 
@@ -184,19 +178,15 @@ local function getBoneOffsetsOf(puppeteer, child)
     m:Rotate(defaultBonePose[parent][2])
     m:Rotate(fAng)
     local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child][1], defaultBonePose[child][2])
-
     return dPos, dAng
 end
 
 local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
-    if bonesReset then
-        bonesReset = false
-    end
-
+    if bonesReset then bonesReset = false end
     for b = 0, puppeteer:GetBoneCount() - 1 do
         -- Reset bone position and angles
         if puppeteer:GetBoneParent(b) > -1 then
-            local dPos, dAng = getBoneOffsetsOf(puppeteer, b)
+            local _, dAng = getBoneOffsetsOf(puppeteer, b)
             --puppet:ManipulateBonePosition(b, dPos)
             puppet:ManipulateBoneAngles(b, dAng)
         end
@@ -204,13 +194,11 @@ local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
 end
 
 local function setPositionOf(puppeteer, puppet)
-    local tr = util.TraceLine(
-        {
-            start = puppet:GetPos(),
-            endpos = puppet:GetPos() - Vector(0, 0, 3000),
-            filter = function(e) return e:GetClass() == game.GetWorld() end,
-        }
-    )
+    local tr = util.TraceLine({
+        start = puppet:GetPos(),
+        endpos = puppet:GetPos() - Vector(0, 0, 3000),
+        filter = function(e) return e:GetClass() == game.GetWorld() end,
+    })
 
     puppeteer:SetPos(tr.HitPos)
 end
@@ -246,10 +234,7 @@ function TOOL:LeftClick(tr)
     end
 
     local animPuppeteer = ents.Create("prop_dynamic")
-    if self:GetAnimationPuppet() ~= ragdollPuppet then
-        self:Cleanup()
-    end
-
+    if self:GetAnimationPuppet() ~= ragdollPuppet then self:Cleanup() end
     animPuppeteer:SetModel(ragdollPuppet:GetModel())
     self:SetAnimationPuppet(ragdollPuppet)
     self:SetAnimationPuppeteer(animPuppeteer)
@@ -291,47 +276,34 @@ function TOOL:LeftClick(tr)
     end
 
     -- Network hooks from client
-    net.Receive(
-        "onFrameChange",
-        function()
-            local isSequence = net.ReadBool()
-            if isSequence then
-                local cycle = net.ReadFloat()
-                local animatingNonPhys = net.ReadBool()
-                setPuppeteerPose(cycle, animatingNonPhys)
-            else
-                readSMHPose()
-            end
+    net.Receive("onFrameChange", function()
+        local isSequence = net.ReadBool()
+        if isSequence then
+            local cycle = net.ReadFloat()
+            local animatingNonPhys = net.ReadBool()
+            setPuppeteerPose(cycle, animatingNonPhys)
+        else
+            readSMHPose()
         end
-    )
+    end)
 
-    net.Receive(
-        "onSequenceChange",
-        function()
-            if not IsValid(animPuppeteer) then return end
-            local isSequence = net.ReadBool()
-            if isSequence then
-                local seqIndex = net.ReadInt(14)
-                local animatingNonPhys = net.ReadBool()
-                currentIndex = seqIndex
-                setPuppeteerPose(0, animatingNonPhys)
-            else
-                readSMHPose()
-            end
+    net.Receive("onSequenceChange", function()
+        if not IsValid(animPuppeteer) then return end
+        local isSequence = net.ReadBool()
+        if isSequence then
+            local seqIndex = net.ReadInt(14)
+            local animatingNonPhys = net.ReadBool()
+            currentIndex = seqIndex
+            setPuppeteerPose(0, animatingNonPhys)
+        else
+            readSMHPose()
         end
-    )
+    end)
 
     -- -- End of lifecycle events
-    ragdollPuppet:CallOnRemove(
-        "RemoveAnimPuppeteer",
-        function()
-            self:Cleanup()
-        end
-    )
-
+    ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function() self:Cleanup() end)
     -- Set stages for showing control panel for selected puppet
     self:SetStage(1)
-
     return true
 end
 
@@ -343,43 +315,33 @@ function TOOL:RightClick(tr)
         prevServerAnimPuppet = nil
         net.Start("removeClientAnimPuppeteer")
         net.Send(self:GetOwner())
-
         return true
     end
 end
 
 -- Concommands
-concommand.Add(
-    "ragdollpuppeteer_updateposition",
-    function(ply, _, _)
-        if not IsValid(ply) then return end
-        local tool = ply:GetTool("ragdollpuppeteer")
-        local puppeteer = tool:GetAnimationPuppeteer()
-        local puppet = tool:GetAnimationPuppet()
-        if not IsValid(puppet) or not IsValid(puppeteer) then return end
-        setPlacementOf(puppeteer, puppet, ply)
-        defaultBonePose = getDefaultBonePoseOf(puppeteer)
-        -- Update client puppeteer position, which calls the above function for the client puppeteer
-        net.Start("updateClientPosition")
-        net.Send(ply)
-    end
-)
+concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
+    if not IsValid(ply) then return end
+    local tool = ply:GetTool("ragdollpuppeteer")
+    local puppeteer = tool:GetAnimationPuppeteer()
+    local puppet = tool:GetAnimationPuppet()
+    if not IsValid(puppet) or not IsValid(puppeteer) then return end
+    setPlacementOf(puppeteer, puppet, ply)
+    defaultBonePose = getDefaultBonePoseOf(puppeteer)
+    -- Update client puppeteer position, which calls the above function for the client puppeteer
+    net.Start("updateClientPosition")
+    net.Send(ply)
+end)
 
-concommand.Add(
-    "ragdollpuppeteer_previousframe",
-    function(ply)
-        net.Start("onFramePrevious")
-        net.Send(ply)
-    end
-)
+concommand.Add("ragdollpuppeteer_previousframe", function(ply)
+    net.Start("onFramePrevious")
+    net.Send(ply)
+end)
 
-concommand.Add(
-    "ragdollpuppeteer_nextframe",
-    function(ply)
-        net.Start("onFrameNext")
-        net.Send(ply)
-    end
-)
+concommand.Add("ragdollpuppeteer_nextframe", function(ply)
+    net.Start("onFrameNext")
+    net.Send(ply)
+end)
 
 if SERVER then return end
 include("ragdollpuppeteer/smh.lua")
@@ -403,7 +365,6 @@ local function constructSequenceList(cPanel)
     animationList:AddColumn("FPS")
     animationList:AddColumn("Duration (frames)")
     cPanel:AddItem(animationList)
-
     return animationList
 end
 
@@ -413,7 +374,6 @@ local function constructSMHEntityList(cPanel)
     animationList:AddColumn("Name")
     animationList:AddColumn("Duration (frames)")
     cPanel:AddItem(animationList)
-
     return animationList
 end
 
@@ -423,7 +383,6 @@ local function constructSMHFileBrowser(cPanel)
     fileBrowser:SetBaseFolder("smh")
     fileBrowser:SetCurrentFolder("smh")
     cPanel:AddItem(fileBrowser)
-
     return fileBrowser
 end
 
@@ -435,7 +394,6 @@ local function constructAngleNumSliders(dForm, names)
         slider:SetValue(0)
         sliders[i] = slider
     end
-
     return sliders
 end
 
@@ -450,7 +408,6 @@ local function constructAngleNumSliderTrio(cPanel, names, label)
             angleSliders[i]:SetValue(0)
         end
     end
-
     return angleSliders
 end
 
@@ -463,11 +420,8 @@ local function findLongestAnimationIn(sequenceInfo, puppeteer)
     for _, anim in pairs(sequenceInfo.anims) do
         local animInfo = puppeteer:GetAnimInfo(anim)
         if not (animInfo and animInfo.numframes) then continue end
-        if animInfo.numframes > longestAnim.numframes then
-            longestAnim = animInfo
-        end
+        if animInfo.numframes > longestAnim.numframes then longestAnim = animInfo end
     end
-
     return longestAnim
 end
 
@@ -495,9 +449,7 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
             end
 
             lmax = (pFrames > nFrames) and pFrames or nFrames
-            if lmax > maxFrames then
-                maxFrames = lmax
-            end
+            if lmax > maxFrames then maxFrames = lmax end
         end
 
         local line = seqList:AddLine(entity.Properties.Name, maxFrames)
@@ -539,7 +491,6 @@ end
 function TOOL.BuildCPanel(cPanel, puppet, ply)
     if not IsValid(puppet) then
         cPanel:Help("No puppet selected")
-
         return
     end
 
@@ -547,10 +498,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     local prevFrame = 0
     local model = puppet:GetModel()
     local animPuppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-    if IsValid(prevClientAnimPuppeteer) then
-        prevClientAnimPuppeteer:Remove()
-    end
-
+    if IsValid(prevClientAnimPuppeteer) then prevClientAnimPuppeteer:Remove() end
     animPuppeteer:SetModel(model)
     setPlacementOf(animPuppeteer, puppet, ply)
     animPuppeteer:Spawn()
@@ -607,29 +555,21 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     function searchBar:OnEnter(text)
         if sourceBox:GetSelected() == "Sequence" then
             clearList(sequenceList)
-            populateSequenceList(
-                sequenceList,
-                animPuppeteer,
-                function(seqInfo)
-                    if text:len() > 0 then
-                        return string.find(seqInfo.label, text)
-                    else
-                        return true
-                    end
+            populateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
+                if text:len() > 0 then
+                    return string.find(seqInfo.label, text)
+                else
+                    return true
                 end
-            )
+            end)
         else
-            populateSMHEntitiesList(
-                smhList,
-                animPuppeteer,
-                function(entProp)
-                    if text:len() > 0 then
-                        return entProp == text
-                    else
-                        return true
-                    end
+            populateSMHEntitiesList(smhList, animPuppeteer, function(entProp)
+                if text:len() > 0 then
+                    return entProp == text
+                else
+                    return true
                 end
-            )
+            end)
         end
     end
 
@@ -702,53 +642,29 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     end
 
     -- Network hooks from server
-    net.Receive(
-        "onFramePrevious",
-        function()
-            numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
+    net.Receive("onFramePrevious", function() numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax()) end)
+    net.Receive("onFrameNext", function() numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax()) end)
+    net.Receive("updateClientPosition", function() setPlacementOf(animPuppeteer, puppet, ply) end)
+    net.Receive("removeClientAnimPuppeteer", function()
+        if IsValid(animPuppeteer) then
+            animPuppeteer:Remove()
+            prevClientAnimPuppeteer = nil
+            clearList(sequenceList)
+            clearList(smhList)
+            puppetLabel:SetText("No puppet selected.")
         end
-    )
-
-    net.Receive(
-        "onFrameNext",
-        function()
-            numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
-        end
-    )
-
-    net.Receive(
-        "updateClientPosition",
-        function()
-            setPlacementOf(animPuppeteer, puppet, ply)
-        end
-    )
-
-    net.Receive(
-        "removeClientAnimPuppeteer",
-        function()
-            if IsValid(animPuppeteer) then
-                animPuppeteer:Remove()
-                prevClientAnimPuppeteer = nil
-                clearList(sequenceList)
-                clearList(smhList)
-                puppetLabel:SetText("No puppet selected.")
-            end
-        end
-    )
+    end)
 
     -- End of lifecycle events
-    puppet:CallOnRemove(
-        "RemoveAnimPuppeteer",
-        function()
-            if IsValid(animPuppeteer) then
-                animPuppeteer:Remove()
-                prevClientAnimPuppeteer = nil
-                clearList(sequenceList)
-                clearList(smhList)
-                puppetLabel:SetText("No puppet selected.")
-            end
+    puppet:CallOnRemove("RemoveAnimPuppeteer", function()
+        if IsValid(animPuppeteer) then
+            animPuppeteer:Remove()
+            prevClientAnimPuppeteer = nil
+            clearList(sequenceList)
+            clearList(smhList)
+            puppetLabel:SetText("No puppet selected.")
         end
-    )
+    end)
 
     prevClientAnimPuppeteer = animPuppeteer
 end

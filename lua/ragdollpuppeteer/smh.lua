@@ -7,11 +7,10 @@ function parseSMHFile(filePath, model)
     if not string.find(json, model) then return end
     local smhData = util.JSONToTable(json)
     if not smhData then return end
-
     return smhData
 end
 
-local function generateLerpPose(currentFrame, prevFrame, nextFrame, lerpMultiplier)
+local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
     prevFrame = prevFrame or nextFrame
     nextFrame = nextFrame or prevFrame
     if not nextFrame or not prevFrame then return {} end
@@ -27,32 +26,33 @@ local function generateLerpPose(currentFrame, prevFrame, nextFrame, lerpMultipli
                 lerpPose[i].LocalAng = LerpLinearAngle(prevFrame[i].LocalAng, nextFrame[i].LocalAng, lerpMultiplier)
             end
 
-            if prevFrame[i].Scale then
-                lerpPose[i].Scale = LerpLinear(prevFrame[i].Scale, nextFrame[i].Scale, lerpMultiplier)
-            end
+            if prevFrame[i].Scale then lerpPose[i].Scale = LerpLinear(prevFrame[i].Scale, nextFrame[i].Scale, lerpMultiplier) end
         end
     end
-
     return lerpPose
 end
 
 local function deltaPose(poseData, originPose)
     local targetPose = poseData[0]
     local newPose = poseData
-    newPose[0].Pos = targetPose.Pos - originPose.Pos
-    newPose[0].Ang = targetPose.Ang - originPose.Ang
-    PrintTable(newPose)
-
+    --PrintTable(targetPose)
+    local wpos, wang = WorldToLocal(targetPose.Pos, targetPose.Ang, originPose.Pos, originPose.Ang)
+    local pos, ang = LocalToWorld(wpos, wang, vector_origin, angle_zero)
+    newPose[0].Pos = pos --targetPose.Pos - originPose.Pos
+    newPose[0].Ang = ang --targetPose.Ang - originPose.Ang
+    --PrintTable(originPose)
+    --print()
     return newPose
 end
 
 function getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
     local originPose = smhFrames[1].EntityData[modifier][0]
+    --PrintTable(originPose)
+    --print()
     for _, frameData in ipairs(smhFrames) do
         -- If no pose data exists, continue to the next frame
         if not frameData.EntityData[modifier] then continue end
         local prevFrame, nextFrame, lerpMultiplier = getClosestKeyframes(smhFrames, poseFrame, false, modifier)
-
-        return deltaPose(generateLerpPose(poseFrame, prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier), originPose)
+        return deltaPose(generateLerpPose(prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier), originPose)
     end
 end
