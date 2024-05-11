@@ -193,25 +193,25 @@ local function matchNonPhysicalBonePoseOf(puppet, puppeteer)
     end
 end
 
-local function setPositionOf(puppeteer, puppet)
+local function setPositionOf(puppeteer, target)
     local tr = util.TraceLine({
-        start = puppet:GetPos(),
-        endpos = puppet:GetPos() - Vector(0, 0, 3000),
+        start = target:GetPos(),
+        endpos = target:GetPos() - Vector(0, 0, 3000),
         filter = function(e) return e:GetClass() == game.GetWorld() end,
     })
 
     puppeteer:SetPos(tr.HitPos)
 end
 
-local function setAngleOf(puppeteer, puppet, ply)
-    local angle = (ply:GetPos() - puppet:GetPos()):Angle()
+local function setAngleOf(puppeteer, target)
+    local angle = (target:GetPos() - puppeteer:GetPos()):Angle()
     defaultAngle = angle
     puppeteer:SetAngles(Angle(0, angle.y, 0))
 end
 
 local function setPlacementOf(puppeteer, puppet, ply)
     setPositionOf(puppeteer, puppet)
-    setAngleOf(puppeteer, puppet, ply)
+    setAngleOf(puppeteer, ply)
 end
 
 local function resetAllNonphysicalBonesOf(ent)
