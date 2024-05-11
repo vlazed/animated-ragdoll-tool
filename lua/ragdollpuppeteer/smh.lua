@@ -45,8 +45,19 @@ local function deltaPose(poseData, originPose)
     return newPose
 end
 
+-- We assume the lowest frame is the origin of the entity
+local function getOriginPose(smhFrames, modifier)
+    local lowestFrame = math.huge
+    for frameIndex, frameData in ipairs(smhFrames) do
+        -- We shouldn't set the lowest frame if it doesn't exist for the modifier we're looking for
+        if not frameData.EntityData[modifier] then continue end
+        if lowestFrame > frameData.Position then lowestFrame = frameIndex end
+    end
+    return smhFrames[lowestFrame].EntityData[modifier][0]
+end
+
 function getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
-    local originPose = smhFrames[1].EntityData[modifier][0]
+    local originPose = getOriginPose(smhFrames, modifier) --smhFrames[1].EntityData[modifier][0]
     --PrintTable(originPose)
     --print()
     for _, frameData in ipairs(smhFrames) do
