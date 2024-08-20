@@ -233,6 +233,7 @@ function TOOL:LeftClick(tr)
         if not validPuppet or not isRagdoll or samePuppet then return false end
     end
 
+    if CLIENT then return false end
     local animPuppeteer = ents.Create("prop_dynamic")
     if self:GetAnimationPuppet() ~= ragdollPuppet then self:Cleanup() end
     animPuppeteer:SetModel(ragdollPuppet:GetModel())
