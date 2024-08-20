@@ -704,18 +704,18 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
     prevClientAnimPuppeteer = animPuppeteer
 end
 
+local COLOR_WHITE = Color(200, 200, 200)
+local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
+local COLOR_GREY = Color(128, 128, 128)
 function TOOL:DrawToolScreen(width, height)
     --surface.SetDrawColor(Color(20, 20, 20))
-    local white = Color(200, 200, 200)
-    local brightWhite = Color(255, 255, 255)
-    local grey = Color(128, 128, 128)
     local y = 19.25 * height / 32
     local ySize = height / 18
     local frame = GetConVar("ragdollpuppeteer_frame")
-    draw.SimpleText("Ragdoll Puppeteer", "DermaLarge", width / 2, height - height / 1.75, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-    draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    draw.RoundedBox(2, 0, y, width, ySize, grey)
-    draw.RoundedBox(2, 0, y, width * frame:GetFloat() / maxAnimFrames, ySize, brightWhite)
+    draw.SimpleText("Ragdoll Puppeteer", "DermaLarge", width / 2, height - height / 1.75, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+    draw.SimpleText("Current Frame: " .. frame:GetString(), "GModToolSubtitle", width / 2, height / 2, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+    draw.RoundedBox(2, 0, y, width, ySize, COLOR_GREY)
+    draw.RoundedBox(2, 0, y, width * frame:GetFloat() / maxAnimFrames, ySize, COLOR_WHITE_BRIGHT)
 end
 
 TOOL.Information = {
