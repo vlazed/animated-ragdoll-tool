@@ -1,5 +1,8 @@
 -- TODO: move clientside code to another file
-include("ragdollpuppeteer/vendor.lua")
+
+---@module "ragdollpuppeteer.vendor"
+local Vendor = include("ragdollpuppeteer/vendor.lua")
+
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
 TOOL.Command = nil
@@ -83,7 +86,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
-		local parent = puppet:GetPhysicsObjectNum(GetPhysBoneParent(puppet, i))
+		local parent = puppet:GetPhysicsObjectNum(Vendor.GetPhysBoneParent(puppet, i))
 		if not targetPose[i] then
 			continue
 		end
@@ -404,7 +407,10 @@ end)
 if SERVER then
 	return
 end
-include("ragdollpuppeteer/smh.lua")
+
+---@module "ragdollpuppeteer.smh"
+local SMH = include("ragdollpuppeteer/smh.lua")
+
 local prevClientAnimPuppeteer = nil
 local currentSequence = {
 	label = "",
@@ -438,7 +444,7 @@ local function constructSMHEntityList(cPanel)
 end
 
 local function constructSMHFileBrowser(cPanel)
-	local fileBrowser = vgui.Create("DFileBrowser", CPanel)
+	local fileBrowser = vgui.Create("DFileBrowser", cPanel)
 	fileBrowser:SetPath("DATA")
 	fileBrowser:SetBaseFolder("smh")
 	fileBrowser:SetCurrentFolder("smh")
@@ -618,7 +624,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		if not smhList:GetSelected()[1] then
 			return
 		end
-		local physBonePose = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+		local physBonePose = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
 		-- local compressedData = compressTableToJSON(physBonePose)
 		local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 		net.Start(netString, true)
@@ -630,7 +636,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		net.WriteData(compressedOffset)
 		net.WriteBool(nonPhysCheckbox:GetChecked())
 		if nonPhysCheckbox:GetChecked() then
-			local nonPhysBoneData = getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
+			local nonPhysBoneData = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
 			local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
 			net.WriteUInt(#compressedNonPhysPose, 16)
 			net.WriteData(compressedNonPhysPose)
@@ -735,7 +741,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 
 	function smhBrowser:OnSelect(filePath)
 		clearList(smhList)
-		local data = parseSMHFile(filePath, model)
+		local data = SMH.parseSMHFile(filePath, model)
 		populateSMHEntitiesList(smhList, model, data, function(_)
 			return true
 		end)
