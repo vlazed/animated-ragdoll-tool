@@ -19,7 +19,7 @@ In addition, the ragdoll puppet may not exactly match the pose of the puppeteer.
 
 ## Pull Requests
 
-When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua (no redundant spaces in function parentheses). If you use Visual Studio Code, I accompanied the repo with settings.json; make sure to install the required extensions.
+When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua. I used the Stylua formatting style.
 
 ## Acknowledgements and Credits
 
