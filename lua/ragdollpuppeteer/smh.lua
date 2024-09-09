@@ -1,5 +1,5 @@
 ---@module "ragdollpuppeteer.vendor"
-local Vendor = include("lua/ragdollpuppeteer/vendor.lua")
+local Vendor = include("ragdollpuppeteer/vendor.lua")
 
 local SMH = {}
 
