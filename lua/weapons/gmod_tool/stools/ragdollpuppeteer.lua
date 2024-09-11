@@ -37,6 +37,8 @@ if SERVER then
 	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
 end
 
+local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
+
 local id = "ragdollpuppeteer_puppet"
 local id2 = "ragdollpuppeteer_puppeteer"
 local prevServerAnimPuppet = nil
@@ -102,8 +104,6 @@ end
 ---@param puppeteer Entity
 ---@param offset Angle
 local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
-	local minimumVector = Vector(-16384, -16384, -16384)
-
 	offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
@@ -112,7 +112,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
 		if not targetPose[i] then
 			continue
 		end
-		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= minimumVector then
+		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
 			local pos, ang =
 				LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
 			phys:EnableMotion(false)
@@ -702,7 +702,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 			net.WriteVector(pose[i].Pos or vector_origin)
 			net.WriteAngle(pose[i].Ang or angle_zero)
 			net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-			net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
+			net.WriteVector(pose[i].LocalPos or MINIMUM_VECTOR)
 			net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
 		end
 	end
