@@ -1,5 +1,3 @@
--- TODO: move clientside code to another file
-
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
 ---@module "ragdollpuppeteer.vendor"
@@ -658,10 +656,10 @@ local lastWidth
 local lastFrame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
 
 function TOOL:DrawToolScreen(width, height)
-
 	local y = height * BAR_Y_POS
 	local ySize = height * BAR_HEIGHT
 	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+	local maxAnimFrames = uiState.maxFrames
 
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
