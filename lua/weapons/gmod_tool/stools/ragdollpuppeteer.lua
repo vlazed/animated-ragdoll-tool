@@ -2,18 +2,6 @@
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
----@class AnimInfo
----@field numframes number
-
----@class SMHBonePose
----@field Pos Vector
----@field LocalPos Vector?
----@field LocalAng Angle?
----@field Ang Angle
----@field Scale Vector
-
----@alias SMHPose SMHBonePose[]
-
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
@@ -49,10 +37,6 @@ local function styleServerPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(255, 255, 255, 0))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 	puppeteer:AddEffects(EF_NODRAW)
-end
-
-local function compressTableToJSON(tab)
-	return util.Compress(util.TableToJSON(tab))
 end
 
 local function decompressJSONToTable(json)
@@ -167,33 +151,6 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer)
 			phys:Wake()
 		end
 	end
-end
-
----Get the pose of every bone of the entity, for nonphysical bone matching
----@param ent Entity
----@return DefaultBonePose
-local function getDefaultBonePoseOf(ent)
-	local defaultPose = {}
-	local entPos = ent:GetPos()
-	local entAngles = ent:GetAngles()
-	for b = 0, ent:GetBoneCount() - 1 do
-		local parent = ent:GetBoneParent(b)
-		local bMatrix = ent:GetBoneMatrix(b)
-		local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
-		local pos2, ang2 = pos1 * 1, ang1 * 1
-		if parent > -1 then
-			local pMatrix = ent:GetBoneMatrix(parent)
-			pos2, ang2 = WorldToLocal(
-				bMatrix:GetTranslation(),
-				bMatrix:GetAngles(),
-				pMatrix:GetTranslation(),
-				pMatrix:GetAngles()
-			)
-		end
-
-		defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
-	end
-	return defaultPose
 end
 
 ---Instead of finding the default bone pose on the server, find them in the client
@@ -368,14 +325,17 @@ function TOOL:LeftClick(tr)
 		else
 			readSMHPose()
 		end
+
+		net.Start("onSequenceChange")
+		net.Send(ply)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do
-			newPose[b - 1] = net.ReadTable(true)
-			newPose[b - 1].Pos = newPose[b - 1][1]
-			newPose[b - 1].Ang = newPose[b - 1][2]
+			newPose[b - 1] = {}
+			newPose[b - 1].Pos = net.ReadVector()
+			newPose[b - 1].Ang = net.ReadAngle()
 		end
 		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
 	end)
@@ -432,183 +392,60 @@ if SERVER then
 	return
 end
 
----@module "ragdollpuppeteer.smh"
-local SMH = include("ragdollpuppeteer/smh.lua")
+---@module "ragdollpuppeteer.ui"
+local UI = include("ragdollpuppeteer/ui.lua")
 
----@type DefaultBonePose
-local defaultBonePose = {}
-
----@type CSEnt?
-local prevClientAnimPuppeteer = nil
-local currentSequence = {
-	label = "",
+---@type PanelState
+local uiState = {
+	maxFrames = 0,
+	defaultBonePose = {},
+	previousPuppeteer = nil,
 }
-
-local maxAnimFrames = 0
 
 TOOL:BuildConVarList()
 
+---@param puppeteer Entity
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(0, 0, 255, 128))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 end
 
-local function constructSequenceList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Id")
-	animationList:AddColumn("Name")
-	animationList:AddColumn("FPS")
-	animationList:AddColumn("Duration (frames)")
-	cPanel:AddItem(animationList)
-	return animationList
-end
+---Get the pose of every bone of the entity, for nonphysical bone matching
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@param ent Entity
+---@return DefaultBonePose
+local function getDefaultBonePoseOf(ent)
+	local defaultPose = {}
+	local entPos = ent:GetPos()
+	local entAngles = ent:GetAngles()
+	for b = 0, ent:GetBoneCount() - 1 do
+		local parent = ent:GetBoneParent(b)
+		local bMatrix = ent:GetBoneMatrix(b)
+		local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
+		local pos2, ang2 = pos1 * 1, ang1 * 1
+		if parent > -1 then
+			local pMatrix = ent:GetBoneMatrix(parent)
+			pos2, ang2 = WorldToLocal(
+				bMatrix:GetTranslation(),
+				bMatrix:GetAngles(),
+				pMatrix:GetTranslation(),
+				pMatrix:GetAngles()
+			)
+		end
 
-local function constructSMHEntityList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Name")
-	animationList:AddColumn("Duration (frames)")
-	cPanel:AddItem(animationList)
-	return animationList
-end
-
-local function constructSMHFileBrowser(cPanel)
-	local fileBrowser = vgui.Create("DFileBrowser", cPanel)
-	fileBrowser:SetPath("DATA")
-	fileBrowser:SetBaseFolder("smh")
-	fileBrowser:SetCurrentFolder("smh")
-	cPanel:AddItem(fileBrowser)
-	return fileBrowser
-end
-
-local function constructAngleNumSliders(dForm, names)
-	local sliders = {}
-	for i = 1, 3 do
-		local slider = dForm:NumSlider(names[i], "", -180, 180)
-		slider:Dock(TOP)
-		slider:SetValue(0)
-		sliders[i] = slider
+		defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
 	end
-	return sliders
+	return defaultPose
 end
 
-local function constructAngleNumSliderTrio(cPanel, names, label)
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel(label)
-	local angleSliders = constructAngleNumSliders(dForm, names)
-	cPanel:AddItem(dForm)
-	local resetAngles = dForm:Button("Reset Angles")
-	function resetAngles:DoClick()
-		for i = 1, 3 do
-			angleSliders[i]:SetValue(0)
-		end
-	end
-	return angleSliders
-end
-
----Find the longest animation of the sequence
----The longest animation is assumed to be the main animation for the sequence
----@param sequenceInfo SequenceInfo
----@param puppeteer Entity
----@return AnimInfo
-local function findLongestAnimationIn(sequenceInfo, puppeteer)
-	local longestAnim = {
-		numframes = -1,
-	}
-
-	for _, anim in pairs(sequenceInfo.anims) do
-		---@type AnimInfo?
-		local animInfo = puppeteer:GetAnimInfo(anim)
-		if not (animInfo and animInfo.numframes) then
-			continue
-		end
-		if animInfo.numframes > longestAnim.numframes then
-			longestAnim = animInfo
-		end
-	end
-
-	return longestAnim
-end
-
--- Populate the DList with compatible SMH entities (compatible meaning the SMH entity has the same model as the puppet)
-local function populateSMHEntitiesList(seqList, model, data, predicate)
-	if not data then
-		return
-	end
-	local maxFrames = 0
-	for _, entity in pairs(data.Entities) do
-		if entity.Properties.Model ~= model then
-			continue
-		end
-		if not predicate(entity.Properties) then
-			continue
-		end
-		local physFrames = {}
-		local nonPhysFrames = {}
-		local pFrames = 0
-		local nFrames = 0
-		local lmax = 0
-		for _, fdata in pairs(entity.Frames) do
-			if fdata.EntityData and fdata.EntityData.physbones then
-				table.insert(physFrames, fdata)
-				pFrames = fdata.Position
-			end
-
-			if fdata.EntityData and fdata.EntityData.bones then
-				table.insert(nonPhysFrames, fdata)
-				nFrames = fdata.Position
-			end
-
-			lmax = (pFrames > nFrames) and pFrames or nFrames
-			if lmax > maxFrames then
-				maxFrames = lmax
-			end
-		end
-
-		local line = seqList:AddLine(entity.Properties.Name, maxFrames)
-		line:SetSortValue(3, physFrames)
-		line:SetSortValue(4, nonPhysFrames)
-	end
-end
-
--- Populate the DList with the puppeteer sequence
-local function populateSequenceList(seqList, puppeteer, predicate)
-	local defaultMaxFrame = 60
-	local defaultFPS = 30
-	for i = 0, puppeteer:GetSequenceCount() - 1 do
-		local seqInfo = puppeteer:GetSequenceInfo(i)
-		if not predicate(seqInfo) then
-			continue
-		end
-		local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
-		local fps = defaultFPS
-		local maxFrame = defaultMaxFrame
-		-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
-		if longestAnim.numframes > -1 then
-			maxFrame = longestAnim.numframes
-			fps = longestAnim.fps
-		end
-
-		seqList:AddLine(i, seqInfo.label, fps, maxFrame)
-	end
-end
-
-local function clearList(dList)
-	for i = 1, #dList:GetLines() do
-		dList:RemoveLine(i)
-	end
-end
-
-local function getAngleTrio(trio)
-	return { trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue() }
-end
-
+---Calculate the bone offsets with respect to the parent
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity
 ---@param child integer
 ---@return Vector
 ---@return Angle
 local function getBoneOffsetsOf(puppeteer, child)
+	local defaultBonePose = uiState.defaultBonePose
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
 	local cMatrix = puppeteer:GetBoneMatrix(child)
@@ -630,8 +467,12 @@ local function getBoneOffsetsOf(puppeteer, child)
 	return dPos, dAng
 end
 
+---@alias BoneOffset table<Vector, Angle>
+---@alias BoneOffsetArray BoneOffset[]
+
 ---Try to manipulate the bone angles of the puppet to match the puppeteer
 ---@param puppeteer Entity
+---@return BoneOffsetArray
 local function matchNonPhysicalBonePoseOf(puppeteer)
 	local newPose = {}
 
@@ -652,229 +493,136 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 	return newPose
 end
 
+---@param model string
+---@param puppet Entity
+---@param ply Player
+---@return CSEnt
+local function createClientPuppeteer(model, puppet, ply)
+	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+	if uiState.previousPuppeteer and IsValid(uiState.previousPuppeteer) then
+		uiState.previousPuppeteer:Remove()
+	end
+	puppeteer:SetModel(model)
+	setPlacementOf(puppeteer, puppet, ply)
+	puppeteer:Spawn()
+	styleClientPuppeteer(puppeteer)
+	return puppeteer
+end
+
 function TOOL.BuildCPanel(cPanel, puppet, ply)
 	if not IsValid(puppet) then
 		cPanel:Help("No puppet selected")
 		return
 	end
 
-	local defaultMaxFrame = 60
-	local prevFrame = 0
 	local model = puppet:GetModel()
 
 	---@type CSEnt
-	local animPuppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-	if prevClientAnimPuppeteer and IsValid(prevClientAnimPuppeteer) then
-		prevClientAnimPuppeteer:Remove()
-	end
-	animPuppeteer:SetModel(model)
-	setPlacementOf(animPuppeteer, puppet, ply)
-	animPuppeteer:Spawn()
-	styleClientPuppeteer(animPuppeteer)
+	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
+
 	-- UI Elements
-	local puppetLabel = cPanel:Help("Current Puppet: " .. model)
-	local numSlider = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, defaultMaxFrame - 1, 0)
-	local angOffset = constructAngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
-	local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
-	cPanel:Button("Update Puppeteer Position", "ragdollpuppeteer_updateposition", animPuppeteer)
-	local sourceBox = cPanel:ComboBox("Source")
-	sourceBox:AddChoice("Sequence")
-	sourceBox:AddChoice("Stop Motion Helper")
-	sourceBox:ChooseOption("Sequence", 1)
-	local searchBar = cPanel:TextEntry("Search Bar:")
-	searchBar:SetPlaceholderText("Search for a sequence...")
-	local sequenceList = constructSequenceList(cPanel)
-	local smhBrowser = constructSMHFileBrowser(cPanel)
-	local smhList = constructSMHEntityList(cPanel)
-	sequenceList:Dock(TOP)
-	smhList:Dock(TOP)
-	smhBrowser:Dock(TOP)
-	populateSequenceList(sequenceList, animPuppeteer, function(_)
-		return true
-	end)
-	smhList:SizeTo(-1, 0, 0.5)
-	smhBrowser:SizeTo(-1, 0, 0.5)
-	sequenceList:SizeTo(-1, 500, 0.5)
+	local puppetLabel = UI.PuppetLabel(cPanel, model)
+	local numSlider = UI.FrameSlider(cPanel)
+	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
+	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
+	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, animPuppeteer)
+	local sourceBox = UI.AnimationSourceBox(cPanel)
+	local searchBar = UI.SearchBar(cPanel)
+	local sequenceList = UI.SequenceList(cPanel)
+	local smhBrowser = UI.SMHFileBrowser(cPanel)
+	local smhList = UI.SMHEntityList(cPanel)
 
-	local function encodePose(pose)
-		net.WriteUInt(#pose, 16)
-		for i = 0, #pose do
-			net.WriteVector(pose[i].Pos or vector_origin)
-			net.WriteAngle(pose[i].Ang or angle_zero)
-			net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-			net.WriteVector(pose[i].LocalPos or MINIMUM_VECTOR)
-			net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
-		end
-	end
-
-	local function writeSMHPose(netString, frame)
-		if not smhList:GetSelected()[1] then
-			return
-		end
-		local physBonePose = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-		local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
-		net.Start(netString, true)
-		net.WriteBool(false)
-		encodePose(physBonePose)
-		net.WriteUInt(#compressedOffset, 16)
-		net.WriteData(compressedOffset)
-		net.WriteBool(nonPhysCheckbox:GetChecked())
-		if nonPhysCheckbox:GetChecked() then
-			local nonPhysBoneData = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
-			local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
-			net.WriteUInt(#compressedNonPhysPose, 16)
-			net.WriteData(compressedNonPhysPose)
-		end
-
-		net.SendToServer()
-	end
-
-	local function onAngleTrioValueChange()
-		writeSMHPose("onFrameChange", numSlider:GetValue())
-	end
+	UI.Layout(sequenceList, smhList, smhBrowser, animPuppeteer)
 
 	-- UI Hooks
-	function searchBar:OnEnter(text)
-		if sourceBox:GetSelected() == "Sequence" then
-			clearList(sequenceList)
-			populateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
-				if text:len() > 0 then
-					return string.find(seqInfo.label, text)
-				else
-					return true
-				end
-			end)
-		else
-			populateSMHEntitiesList(smhList, animPuppeteer, function(entProp)
-				if text:len() > 0 then
-					return entProp == text
-				else
-					return true
-				end
-			end)
-		end
-	end
+	UI.HookPanel({
+		smhBrowser = smhBrowser,
+		smhList = smhList,
+		numSlider = numSlider,
+		angOffset = angOffset,
+		sequenceList = sequenceList,
+		nonPhysCheckBox = nonPhysCheckbox,
+		searchBar = searchBar,
+		sourceBox = sourceBox,
+	}, {
+		model = model,
+		puppeteer = animPuppeteer,
+	}, uiState)
 
-	function sequenceList:OnRowSelected(index, row)
-		local seqInfo = animPuppeteer:GetSequenceInfo(row:GetValue(1))
-		if currentSequence.label ~= seqInfo.label then
-			currentSequence = seqInfo
-			animPuppeteer:ResetSequence(row:GetValue(1))
-			animPuppeteer:SetCycle(0)
-			animPuppeteer:SetPlaybackRate(0)
-			numSlider:SetMax(row:GetValue(4) - 1)
-			maxAnimFrames = row:GetValue(4) - 1
-			net.Start("onSequenceChange")
-			net.WriteBool(true)
-			net.WriteInt(row:GetValue(1), 14)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			net.SendToServer()
-		end
-	end
+	UI.NetHookPanel(numSlider)
 
-	-- TODO: Set a limit to how many times a new frame can be sent to the server to prevent spamming
-	function numSlider:OnValueChanged(val)
-		-- Only send when we go frame by frame
-		if math.abs(prevFrame - val) < 1 then
-			return
-		end
-		local option, _ = sourceBox:GetSelected()
-		if option == "Sequence" then
-			if not currentSequence.anims then
-				return
-			end
-			if not IsValid(animPuppeteer) then
-				return
-			end
-			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
-			numSlider:SetValue(math.Clamp(val, 0, numframes))
-			local cycle = val / numframes
-			animPuppeteer:SetCycle(cycle)
-			net.Start("onFrameChange", true)
-			net.WriteBool(true)
-			net.WriteFloat(cycle)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			net.SendToServer()
-		else
-			writeSMHPose("onFrameChange", val)
-		end
-
-		prevFrame = val
-	end
-
-	angOffset[1].OnValueChanged = onAngleTrioValueChange
-	angOffset[2].OnValueChanged = onAngleTrioValueChange
-	angOffset[3].OnValueChanged = onAngleTrioValueChange
-	function sourceBox:OnSelect(ind, val, data)
-		if val == "Sequence" then
-			smhList:SizeTo(-1, 0, 0.5)
-			smhBrowser:SizeTo(-1, 0, 0.5)
-			sequenceList:SizeTo(-1, 500, 0.5)
-		else
-			sequenceList:SizeTo(-1, 0, 0.5)
-			smhList:SizeTo(-1, 250, 0.5)
-			smhBrowser:SizeTo(-1, 250, 0.5)
-		end
-	end
-
-	function smhList:OnRowSelected(index, row)
-		numSlider:SetMax(row:GetValue(2))
-		maxAnimFrames = row:GetValue(2)
-		writeSMHPose("onSequenceChange", 0)
-	end
-
-	function smhBrowser:OnSelect(filePath)
-		clearList(smhList)
-		local data = SMH.parseSMHFile(filePath, model)
-		populateSMHEntitiesList(smhList, model, data, function(_)
-			return true
-		end)
-	end
-
-	-- Network hooks from server
-	net.Receive("onFramePrevious", function()
-		numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
-	end)
-	net.Receive("onFrameNext", function()
-		numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
-	end)
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply)
 	end)
+
 	net.Receive("removeClientAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
-			prevClientAnimPuppeteer = nil
-			clearList(sequenceList)
-			clearList(smhList)
+			uiState.previousPuppeteer = nil
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
+
+	local floor = math.floor
+	-- Workaround for ensuring nonphysical bones are moved on sequence change
+	-- This is responsible for the "lerping" behavior you see on characters fingers
+	local correctionCount = 0
+	net.Receive("onSequenceChange", function()
+		-- On a different sequence, we want to reset
+		correctionCount = 0
+	end)
+
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		if #defaultBonePose == 0 then
+		if #uiState.defaultBonePose == 0 or correctionCount == 0 then
 			return
 		end
 
+		-- If we only changed to a frame of the animation, we assume that this frame's pose
+		-- and the previous frame's pose is almost similar. Our heuristic is to divide the
+		-- correction count so we can account for this, though this would only be effective
+		-- if we incremented (or decremented) the ragdollpuppeteer_frame one at a time.
+		correctionCount = floor(correctionCount / 4)
+	end)
+
+	-- Because the puppeteer is playing a sequence, it must build its bone positions at every tick.
+	-- This would be unnecessary if the sequence is paused, but this unique behavior allows us to
+	-- correct the serverside puppet's nonphysical bones at every tick
+	local callbackId = animPuppeteer:AddCallback("BuildBonePositions", function(ent, maxBoneCount)
+		-- If the correction count is greater than a heuristic for the minimal number of counts needed to
+		-- closely approximate the nonphysical bone pose, it will make unnecessary client calculations and
+		-- calls to the server
+		if correctionCount >= floor(maxBoneCount / 2) then
+			return
+		end
+
+		-- Correct the nonphysical bone pose on the server
+		local newPose = matchNonPhysicalBonePoseOf(ent)
 		net.Start("queryNonPhysBonePoseOfPuppet")
-		local newPose = matchNonPhysicalBonePoseOf(animPuppeteer)
-		for b = 1, animPuppeteer:GetBoneCount() do
-			net.WriteTable(newPose[b], true)
+		for b = 1, maxBoneCount do
+			net.WriteVector(newPose[b][1])
+			net.WriteAngle(newPose[b][2])
 		end
 		net.SendToServer()
+
+		-- Increment and try again
+		correctionCount = correctionCount + 1
 	end)
 
 	-- End of lifecycle events
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
+			animPuppeteer:RemoveCallback("BuildBonePositions", callbackId)
 			animPuppeteer:Remove()
-			prevClientAnimPuppeteer = nil
-			clearList(sequenceList)
-			clearList(smhList)
+			uiState.previousPuppeteer = nil
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
 
-	prevClientAnimPuppeteer = animPuppeteer
+	uiState.previousPuppeteer = animPuppeteer
 end
 
 net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
@@ -885,7 +633,8 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:DrawModel()
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
-	defaultBonePose = getDefaultBonePoseOf(csModel)
+	local defaultBonePose = getDefaultBonePoseOf(csModel)
+	uiState.defaultBonePose = defaultBonePose
 
 	for b = 1, csModel:GetBoneCount() do
 		net.WriteTable(defaultBonePose[b], true)
@@ -909,9 +658,11 @@ local lastWidth
 local lastFrame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
 
 function TOOL:DrawToolScreen(width, height)
+
 	local y = height * BAR_Y_POS
 	local ySize = height * BAR_HEIGHT
 	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
 		"DermaLarge",

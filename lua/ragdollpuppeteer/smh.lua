@@ -1,9 +1,16 @@
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
+---@module "ragdollpuppeteer.smhTypes"
+include("ragdollpuppeteer/smhTypes.lua")
+
 local SMH = {}
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/shared/saves.lua MGR.Load()
+---Parse the smh text file and return a table of it
+---@param filePath string
+---@param model string
+---@return SMHFile?
 function SMH.parseSMHFile(filePath, model)
 	-- Check if the file has the model somewhere in there
 	if not file.Exists(filePath, "DATA") then
@@ -21,12 +28,23 @@ function SMH.parseSMHFile(filePath, model)
 	return smhData
 end
 
+---Linearly interpolate between each frame, imitating the poses as seen in the SMH timeline
+---Takes inspiration from the following sources:
+---https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/bones.lua#L56
+---https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/physbones.lua#L116
+---@param prevFrame SMHFramePose[]?
+---@param nextFrame SMHFramePose[]?
+---@param lerpMultiplier number
+---@return SMHFramePose[]
 local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
 	prevFrame = prevFrame or nextFrame
 	nextFrame = nextFrame or prevFrame
 	if not nextFrame or not prevFrame then
 		return {}
 	end
+	---@cast prevFrame SMHFramePose[]
+	---@cast nextFrame SMHFramePose[]
+
 	local lerpPose = {}
 	local count = #prevFrame
 	for i = 0, count do
@@ -49,6 +67,10 @@ local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
 	return lerpPose
 end
 
+---Generate a displacement vector from the origin position to the current position
+---@param poseData SMHBonePose
+---@param originPose SMHBonePose
+---@return SMHBonePose
 local function deltaPose(poseData, originPose)
 	local targetPose = poseData[0]
 	local newPose = poseData
@@ -62,7 +84,11 @@ local function deltaPose(poseData, originPose)
 	return newPose
 end
 
--- We assume the lowest frame is the origin of the entity
+---Find the entity's origin in the timeline.
+---We assume the lowest frame is the origin of the entity
+---@param smhFrames SMHFrameData[]
+---@param modifier SMHModifiers
+---@return SMHBonePose
 local function getOriginPose(smhFrames, modifier)
 	local lowestFrame = math.huge
 	for frameIndex, frameData in ipairs(smhFrames) do
@@ -77,6 +103,10 @@ local function getOriginPose(smhFrames, modifier)
 	return smhFrames[lowestFrame].EntityData[modifier][0]
 end
 
+---@param poseFrame integer
+---@param smhFrames SMHFrameData[]
+---@param modifier SMHModifiers
+---@return SMHBonePose
 function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 	local originPose = getOriginPose(smhFrames, modifier) --smhFrames[1].EntityData[modifier][0]
 	--PrintTable(originPose)
@@ -87,6 +117,9 @@ function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 			continue
 		end
 		local prevFrame, nextFrame, lerpMultiplier = Vendor.getClosestKeyframes(smhFrames, poseFrame, false, modifier)
+		---@cast prevFrame SMHFrameData
+		---@cast nextFrame SMHFrameData
+
 		return deltaPose(
 			generateLerpPose(prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier),
 			originPose

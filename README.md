@@ -19,9 +19,9 @@ In addition, the ragdoll puppet may not exactly match the pose of the puppeteer.
 
 ## Pull Requests
 
-When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua. I used the Stylua formatting style.
+When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua. I used the default [Stylua](https://github.com/JohnnyMorganz/StyLua) formatting style.
 
 ## Acknowledgements and Credits
 
 - Winded and PenolAkushari: [Stand Poser](https://steamcommunity.com/sharedfiles/filedetails/?id=104576786) ([repo](https://github.com/Winded/StandingPoseTool/tree/master)) for inspiration on base implementation, [Ragdoll Mover](https://steamcommunity.com/sharedfiles/filedetails/?id=104575630) ([repo](https://github.com/Winded/RagdollMover/tree/master)) and [Stop Motion Helper](https://steamcommunity.com/sharedfiles/filedetails/?id=111895870) ([repo](https://github.com/Winded/StopMotionHelper)) for loading and handling SMH data
-- no loafing: [Animated Props](https://steamcommunity.com/sharedfiles/filedetails/?id=3214437941) for inspiration and a quick peek at the source code for hints on manipulating entity sequences
+- no loafing: [Animated Props](https://steamcommunity.com/sharedfiles/filedetails/?id=3214437941) ([repo](https://github.com/NO-LOAFING/AnimpropOverhaul/tree/main)) for inspiration and a quick peek at the source code for hints on manipulating entity sequences
