@@ -549,25 +549,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		maxFrames = maxAnimFrames,
 	})
 
-	-- Network hooks from server
-	net.Receive("onFramePrevious", function()
-		numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
-	end)
-	net.Receive("onFrameNext", function()
-		numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
-	end)
+	UI.NetHookPanel(numSlider)
+
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply)
 	end)
-	net.Receive("removeClientAnimPuppeteer", function()
-		if IsValid(animPuppeteer) then
-			animPuppeteer:Remove()
-			prevClientAnimPuppeteer = nil
-			UI.ClearList(sequenceList)
-			UI.ClearList(smhList)
-			puppetLabel:SetText("No puppet selected.")
-		end
-	end)
+
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
 		if #defaultBonePose == 0 then
 			return
@@ -579,6 +566,16 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 			net.WriteTable(newPose[b], true)
 		end
 		net.SendToServer()
+	end)
+
+	net.Receive("removeClientAnimPuppeteer", function()
+		if IsValid(animPuppeteer) then
+			animPuppeteer:Remove()
+			prevClientAnimPuppeteer = nil
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
+			puppetLabel:SetText("No puppet selected.")
+		end
 	end)
 
 	-- End of lifecycle events

@@ -253,6 +253,17 @@ function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	end
 end
 
+---@param numSlider DNumSlider
+function UI.NetHookPanel(numSlider)
+	-- Network hooks from server
+	net.Receive("onFramePrevious", function()
+		numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
+	end)
+	net.Receive("onFrameNext", function()
+		numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
+	end)
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@return integer
