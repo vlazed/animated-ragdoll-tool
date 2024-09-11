@@ -40,8 +40,6 @@ local prevServerAnimPuppet = nil
 local bonesReset = false
 local defaultAngle = angle_zero
 
----@type DefaultBonePose
-local defaultBonePose = {}
 local function styleServerPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(255, 255, 255, 0))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
@@ -91,7 +89,6 @@ function TOOL:Cleanup()
 	end
 	self:SetAnimationPuppet(nil)
 	self:SetAnimationPuppeteer(nil)
-	defaultBonePose = {}
 	self:SetStage(0)
 end
 
@@ -210,7 +207,6 @@ end
 ---We don't require the puppeteer as we always work with one puppet
 ---@param ply Player
 local function queryNonPhysBonePoseOfPuppet(ply)
-	print("Query")
 	net.Start("queryNonPhysBonePoseOfPuppet", false)
 	net.Send(ply)
 end
@@ -254,7 +250,6 @@ local function resetAllNonphysicalBonesOf(ent)
 		ent:ManipulateBonePosition(i, vector_origin)
 		ent:ManipulateBoneAngles(i, angle_zero)
 	end
-	print("Resetting nonphysical")
 
 	bonesReset = true
 end
@@ -292,6 +287,7 @@ function TOOL:LeftClick(tr)
 	animPuppeteer:Spawn()
 	styleServerPuppeteer(animPuppeteer)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
+
 	local currentIndex = 0
 	local function decodePose()
 		local pose = {}
@@ -371,15 +367,6 @@ function TOOL:LeftClick(tr)
 		end
 	end)
 
-	net.Receive("queryDefaultBonePoseOfPuppet", function(_)
-		local newPose = {}
-		for b = 1, animPuppeteer:GetBoneCount() do
-			newPose[b] = net.ReadTable(true)
-		end
-		defaultBonePose = newPose
-		print("Set new bone pose")
-	end)
-
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do
@@ -388,10 +375,9 @@ function TOOL:LeftClick(tr)
 			newPose[b - 1].Ang = newPose[b - 1][2]
 		end
 		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
-		print("Set new bone pose")
 	end)
 
-	-- -- End of lifecycle events
+	-- End of lifecycle events
 	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		self:Cleanup()
 	end)
@@ -446,6 +432,9 @@ end
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
+---@type DefaultBonePose
+local defaultBonePose = {}
+
 ---@type CSEnt?
 local prevClientAnimPuppeteer = nil
 local currentSequence = {
@@ -453,7 +442,9 @@ local currentSequence = {
 }
 
 local maxAnimFrames = 0
+
 TOOL:BuildConVarList()
+
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(0, 0, 255, 128))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
@@ -855,24 +846,11 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
-	net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
-		net.Start("queryDefaultBonePoseOfPuppet")
-		local netModel = net.ReadString()
-		local csModel = ents.CreateClientProp()
-		csModel:SetModel(netModel)
-		csModel:DrawModel()
-		csModel:SetupBones()
-		csModel:InvalidateBoneCache()
-		defaultBonePose = getDefaultBonePoseOf(csModel)
-
-		for b = 1, csModel:GetBoneCount() do
-			net.WriteTable(defaultBonePose[b], true)
+	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
+		if #defaultBonePose == 0 then
+			return
 		end
 
-		csModel:Remove()
-		net.SendToServer()
-	end)
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		local newPose = matchNonPhysicalBonePoseOf(animPuppeteer)
 		for b = 1, animPuppeteer:GetBoneCount() do
@@ -894,6 +872,24 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 
 	prevClientAnimPuppeteer = animPuppeteer
 end
+
+net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
+	net.Start("queryDefaultBonePoseOfPuppet")
+	local netModel = net.ReadString()
+	local csModel = ents.CreateClientProp()
+	csModel:SetModel(netModel)
+	csModel:DrawModel()
+	csModel:SetupBones()
+	csModel:InvalidateBoneCache()
+	defaultBonePose = getDefaultBonePoseOf(csModel)
+
+	for b = 1, csModel:GetBoneCount() do
+		net.WriteTable(defaultBonePose[b], true)
+	end
+
+	csModel:Remove()
+	net.SendToServer()
+end)
 
 local COLOR_WHITE = Color(200, 200, 200)
 local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
