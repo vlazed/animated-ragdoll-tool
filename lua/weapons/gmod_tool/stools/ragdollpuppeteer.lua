@@ -162,33 +162,6 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer)
 	end
 end
 
----Get the pose of every bone of the entity, for nonphysical bone matching
----@param ent Entity
----@return DefaultBonePose
-local function getDefaultBonePoseOf(ent)
-	local defaultPose = {}
-	local entPos = ent:GetPos()
-	local entAngles = ent:GetAngles()
-	for b = 0, ent:GetBoneCount() - 1 do
-		local parent = ent:GetBoneParent(b)
-		local bMatrix = ent:GetBoneMatrix(b)
-		local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
-		local pos2, ang2 = pos1 * 1, ang1 * 1
-		if parent > -1 then
-			local pMatrix = ent:GetBoneMatrix(parent)
-			pos2, ang2 = WorldToLocal(
-				bMatrix:GetTranslation(),
-				bMatrix:GetAngles(),
-				pMatrix:GetTranslation(),
-				pMatrix:GetAngles()
-			)
-		end
-
-		defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
-	end
-	return defaultPose
-end
-
 ---Instead of finding the default bone pose on the server, find them in the client
 ---We require the model so that we can build the client model with its default bone pose
 ---@param model string
@@ -361,14 +334,17 @@ function TOOL:LeftClick(tr)
 		else
 			readSMHPose()
 		end
+
+		net.Start("onSequenceChange")
+		net.Send(ply)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do
-			newPose[b - 1] = net.ReadTable(true)
-			newPose[b - 1].Pos = newPose[b - 1][1]
-			newPose[b - 1].Ang = newPose[b - 1][2]
+			newPose[b - 1] = {}
+			newPose[b - 1].Pos = net.ReadVector()
+			newPose[b - 1].Ang = net.ReadAngle()
 		end
 		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
 	end)
@@ -428,26 +404,57 @@ end
 ---@module "ragdollpuppeteer.ui"
 local UI = include("ragdollpuppeteer/ui.lua")
 
----@type DefaultBonePose
-local defaultBonePose = {}
-
----@type CSEnt?
-local prevClientAnimPuppeteer = nil
-
-local maxAnimFrames = 0
+---@type PanelState
+local uiState = {
+	maxFrames = 0,
+	defaultBonePose = {},
+	previousPuppeteer = nil,
+}
 
 TOOL:BuildConVarList()
 
+---@param puppeteer Entity
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(0, 0, 255, 128))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 end
 
+---Get the pose of every bone of the entity, for nonphysical bone matching
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@param ent Entity
+---@return DefaultBonePose
+local function getDefaultBonePoseOf(ent)
+	local defaultPose = {}
+	local entPos = ent:GetPos()
+	local entAngles = ent:GetAngles()
+	for b = 0, ent:GetBoneCount() - 1 do
+		local parent = ent:GetBoneParent(b)
+		local bMatrix = ent:GetBoneMatrix(b)
+		local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
+		local pos2, ang2 = pos1 * 1, ang1 * 1
+		if parent > -1 then
+			local pMatrix = ent:GetBoneMatrix(parent)
+			pos2, ang2 = WorldToLocal(
+				bMatrix:GetTranslation(),
+				bMatrix:GetAngles(),
+				pMatrix:GetTranslation(),
+				pMatrix:GetAngles()
+			)
+		end
+
+		defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+	end
+	return defaultPose
+end
+
+---Calculate the bone offsets with respect to the parent
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity
 ---@param child integer
 ---@return Vector
 ---@return Angle
 local function getBoneOffsetsOf(puppeteer, child)
+	local defaultBonePose = uiState.defaultBonePose
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
 	local cMatrix = puppeteer:GetBoneMatrix(child)
@@ -469,8 +476,12 @@ local function getBoneOffsetsOf(puppeteer, child)
 	return dPos, dAng
 end
 
+---@alias BoneOffset table<Vector, Angle>
+---@alias BoneOffsetArray BoneOffset[]
+
 ---Try to manipulate the bone angles of the puppet to match the puppeteer
 ---@param puppeteer Entity
+---@return BoneOffsetArray
 local function matchNonPhysicalBonePoseOf(puppeteer)
 	local newPose = {}
 
@@ -491,10 +502,14 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 	return newPose
 end
 
+---@param model string
+---@param puppet Entity
+---@param ply Player
+---@return CSEnt
 local function createClientPuppeteer(model, puppet, ply)
 	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-	if prevClientAnimPuppeteer and IsValid(prevClientAnimPuppeteer) then
-		prevClientAnimPuppeteer:Remove()
+	if uiState.previousPuppeteer and IsValid(uiState.previousPuppeteer) then
+		uiState.previousPuppeteer:Remove()
 	end
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
@@ -529,7 +544,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	UI.Layout(sequenceList, smhList, smhBrowser, animPuppeteer)
 
 	-- UI Hooks
-	maxAnimFrames = UI.HookPanel({
+	UI.HookPanel({
 		smhBrowser = smhBrowser,
 		smhList = smhList,
 		numSlider = numSlider,
@@ -541,8 +556,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	}, {
 		model = model,
 		puppeteer = animPuppeteer,
-		maxFrames = maxAnimFrames,
-	})
+	}, uiState)
 
 	UI.NetHookPanel(numSlider)
 
@@ -550,41 +564,74 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		setPlacementOf(animPuppeteer, puppet, ply)
 	end)
 
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		if #defaultBonePose == 0 then
-			return
-		end
-
-		net.Start("queryNonPhysBonePoseOfPuppet")
-		local newPose = matchNonPhysicalBonePoseOf(animPuppeteer)
-		for b = 1, animPuppeteer:GetBoneCount() do
-			net.WriteTable(newPose[b], true)
-		end
-		net.SendToServer()
-	end)
-
 	net.Receive("removeClientAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
-			prevClientAnimPuppeteer = nil
+			uiState.previousPuppeteer = nil
 			UI.ClearList(sequenceList)
 			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
+	end)
+
+	local floor = math.floor
+	-- Workaround for ensuring nonphysical bones are moved on sequence change
+	-- This is responsible for the "lerping" behavior you see on characters fingers
+	local correctionCount = 0
+	net.Receive("onSequenceChange", function()
+		-- On a different sequence, we want to reset
+		correctionCount = 0
+	end)
+
+	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
+		if #uiState.defaultBonePose == 0 or correctionCount == 0 then
+			return
+		end
+
+		-- If we only changed to a frame of the animation, we assume that this frame's pose
+		-- and the previous frame's pose is almost similar. Our heuristic is to divide the
+		-- correction count so we can account for this, though this would only be effective
+		-- if we incremented (or decremented) the ragdollpuppeteer_frame one at a time.
+		correctionCount = floor(correctionCount / 4)
+	end)
+
+	-- Because the puppeteer is playing a sequence, it must build its bone positions at every tick.
+	-- This would be unnecessary if the sequence is paused, but this unique behavior allows us to
+	-- correct the serverside puppet's nonphysical bones at every tick
+	local callbackId = animPuppeteer:AddCallback("BuildBonePositions", function(ent, maxBoneCount)
+		-- If the correction count is greater than a heuristic for the minimal number of counts needed to
+		-- closely approximate the nonphysical bone pose, it will make unnecessary client calculations and
+		-- calls to the server
+		if correctionCount >= floor(maxBoneCount / 2) then
+			return
+		end
+
+		-- Correct the nonphysical bone pose on the server
+		local newPose = matchNonPhysicalBonePoseOf(ent)
+		net.Start("queryNonPhysBonePoseOfPuppet")
+		for b = 1, maxBoneCount do
+			net.WriteVector(newPose[b][1])
+			net.WriteAngle(newPose[b][2])
+		end
+		net.SendToServer()
+
+		-- Increment and try again
+		correctionCount = correctionCount + 1
 	end)
 
 	-- End of lifecycle events
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
+			animPuppeteer:RemoveCallback("BuildBonePositions", callbackId)
 			animPuppeteer:Remove()
-			prevClientAnimPuppeteer = nil
+			uiState.previousPuppeteer = nil
 			UI.ClearList(sequenceList)
 			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
 
-	prevClientAnimPuppeteer = animPuppeteer
+	uiState.previousPuppeteer = animPuppeteer
 end
 
 net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
@@ -595,7 +642,8 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:DrawModel()
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
-	defaultBonePose = getDefaultBonePoseOf(csModel)
+	local defaultBonePose = getDefaultBonePoseOf(csModel)
+	uiState.defaultBonePose = defaultBonePose
 
 	for b = 1, csModel:GetBoneCount() do
 		net.WriteTable(defaultBonePose[b], true)
@@ -613,6 +661,8 @@ function TOOL:DrawToolScreen(width, height)
 	local y = 19.25 * height / 32
 	local ySize = height / 18
 	local frame = GetConVar("ragdollpuppeteer_frame")
+	local maxAnimFrames = uiState.maxFrames
+
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
 		"DermaLarge",

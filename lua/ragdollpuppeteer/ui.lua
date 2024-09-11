@@ -17,8 +17,12 @@ end
 
 ---@class PanelProps
 ---@field puppeteer Entity
----@field maxFrames integer
 ---@field model string
+
+---@class PanelState
+---@field maxFrames integer
+---@field previousPuppeteer Entity?
+---@field defaultBonePose DefaultBonePose
 
 local UI = {}
 
@@ -284,8 +288,8 @@ end
 
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
----@return integer
-function UI.HookPanel(panelChildren, panelProps)
+---@param panelState PanelState
+function UI.HookPanel(panelChildren, panelProps, panelState)
 	local prevFrame = 0
 
 	local smhList = panelChildren.smhList
@@ -298,7 +302,6 @@ function UI.HookPanel(panelChildren, panelProps)
 	local angOffset = panelChildren.angOffset
 
 	local animPuppeteer = panelProps.puppeteer
-	local maxAnimFrames = panelProps.maxFrames
 	local model = panelProps.model
 
 	local function encodePose(pose)
@@ -360,17 +363,18 @@ function UI.HookPanel(panelChildren, panelProps)
 	end
 
 	function sequenceList:OnRowSelected(index, row)
-		local seqInfo = animPuppeteer:GetSequenceInfo(row:GetValue(1))
+		local currentIndex = row:GetValue(1)
+		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
 		if currentSequence.label ~= seqInfo.label then
 			currentSequence = seqInfo
-			animPuppeteer:ResetSequence(row:GetValue(1))
+			animPuppeteer:ResetSequence(currentIndex)
 			animPuppeteer:SetCycle(0)
 			animPuppeteer:SetPlaybackRate(0)
 			numSlider:SetMax(row:GetValue(4) - 1)
-			maxAnimFrames = row:GetValue(4) - 1
+			panelState.maxFrames = row:GetValue(4) - 1
 			net.Start("onSequenceChange")
 			net.WriteBool(true)
-			net.WriteInt(row:GetValue(1), 14)
+			net.WriteInt(currentIndex, 14)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			net.SendToServer()
 		end
@@ -423,7 +427,7 @@ function UI.HookPanel(panelChildren, panelProps)
 
 	function smhList:OnRowSelected(index, row)
 		numSlider:SetMax(row:GetValue(2))
-		maxAnimFrames = row:GetValue(2)
+		panelState.maxFrames = row:GetValue(2)
 		writeSMHPose("onSequenceChange", 0)
 	end
 
@@ -434,8 +438,6 @@ function UI.HookPanel(panelChildren, panelProps)
 			return true
 		end)
 	end
-
-	return maxAnimFrames
 end
 
 return UI
