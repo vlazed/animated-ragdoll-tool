@@ -46,10 +46,6 @@ local function styleServerPuppeteer(puppeteer)
 	puppeteer:AddEffects(EF_NODRAW)
 end
 
-local function compressTableToJSON(tab)
-	return util.Compress(util.TableToJSON(tab))
-end
-
 local function decompressJSONToTable(json)
 	return util.JSONToTable(util.Decompress(json))
 end
@@ -429,9 +425,6 @@ if SERVER then
 	return
 end
 
----@module "ragdollpuppeteer.smh"
-local SMH = include("ragdollpuppeteer/smh.lua")
-
 ---@module "ragdollpuppeteer.ui"
 local UI = include("ragdollpuppeteer/ui.lua")
 
@@ -440,9 +433,6 @@ local defaultBonePose = {}
 
 ---@type CSEnt?
 local prevClientAnimPuppeteer = nil
-local currentSequence = {
-	label = "",
-}
 
 local maxAnimFrames = 0
 
@@ -451,103 +441,6 @@ TOOL:BuildConVarList()
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(0, 0, 255, 128))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
-end
-
----Find the longest animation of the sequence
----The longest animation is assumed to be the main animation for the sequence
----@param sequenceInfo SequenceInfo
----@param puppeteer Entity
----@return table|unknown
-local function findLongestAnimationIn(sequenceInfo, puppeteer)
-	local longestAnim = {
-		numframes = -1,
-	}
-
-	for _, anim in pairs(sequenceInfo.anims) do
-		local animInfo = puppeteer:GetAnimInfo(anim)
-		if not (animInfo and animInfo.numframes) then
-			continue
-		end
-		if animInfo.numframes > longestAnim.numframes then
-			longestAnim = animInfo
-		end
-	end
-
-	return longestAnim
-end
-
--- Populate the DList with compatible SMH entities (compatible meaning the SMH entity has the same model as the puppet)
-local function populateSMHEntitiesList(seqList, model, data, predicate)
-	if not data then
-		return
-	end
-	local maxFrames = 0
-	for _, entity in pairs(data.Entities) do
-		if entity.Properties.Model ~= model then
-			continue
-		end
-		if not predicate(entity.Properties) then
-			continue
-		end
-		local physFrames = {}
-		local nonPhysFrames = {}
-		local pFrames = 0
-		local nFrames = 0
-		local lmax = 0
-		for _, fdata in pairs(entity.Frames) do
-			if fdata.EntityData and fdata.EntityData.physbones then
-				table.insert(physFrames, fdata)
-				pFrames = fdata.Position
-			end
-
-			if fdata.EntityData and fdata.EntityData.bones then
-				table.insert(nonPhysFrames, fdata)
-				nFrames = fdata.Position
-			end
-
-			lmax = (pFrames > nFrames) and pFrames or nFrames
-			if lmax > maxFrames then
-				maxFrames = lmax
-			end
-		end
-
-		local line = seqList:AddLine(entity.Properties.Name, maxFrames)
-		line:SetSortValue(3, physFrames)
-		line:SetSortValue(4, nonPhysFrames)
-	end
-end
-
--- Populate the DList with the puppeteer sequence
-local function populateSequenceList(seqList, puppeteer, predicate)
-	local defaultMaxFrame = 60
-	local defaultFPS = 30
-	for i = 0, puppeteer:GetSequenceCount() - 1 do
-		local seqInfo = puppeteer:GetSequenceInfo(i)
-		if not predicate(seqInfo) then
-			continue
-		end
-		local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
-		local fps = defaultFPS
-		local maxFrame = defaultMaxFrame
-		-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
-		if longestAnim.numframes > -1 then
-			maxFrame = longestAnim.numframes
-			fps = longestAnim.fps
-		end
-
-		seqList:AddLine(i, seqInfo.label, fps, maxFrame)
-	end
-end
-
----@param dList DListView
-local function clearList(dList)
-	for i = 1, #dList:GetLines() do
-		dList:RemoveLine(i)
-	end
-end
-
-local function getAngleTrio(trio)
-	return { trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue() }
 end
 
 ---@param puppeteer Entity
@@ -604,8 +497,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		return
 	end
 
-	local defaultMaxFrame = 60
-	local prevFrame = 0
 	local model = puppet:GetModel()
 
 	---@type CSEnt
@@ -620,7 +511,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 
 	-- UI Elements
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
-	local numSlider = UI.FrameSlider(cPanel, defaultMaxFrame)
+	local numSlider = UI.FrameSlider(cPanel)
 	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
 	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, animPuppeteer)
@@ -634,7 +525,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	smhList:Dock(TOP)
 	smhBrowser:Dock(TOP)
 
-	populateSequenceList(sequenceList, animPuppeteer, function(_)
+	UI.PopulateSequenceList(sequenceList, animPuppeteer, function(_)
 		return true
 	end)
 
@@ -642,140 +533,21 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	smhBrowser:SizeTo(-1, 0, 0.5)
 	sequenceList:SizeTo(-1, 500, 0.5)
 
-	local function encodePose(pose)
-		net.WriteUInt(#pose, 16)
-		for i = 0, #pose do
-			net.WriteVector(pose[i].Pos or vector_origin)
-			net.WriteAngle(pose[i].Ang or angle_zero)
-			net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-			net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
-			net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
-		end
-	end
-
-	local function writeSMHPose(netString, frame)
-		if not smhList:GetSelected()[1] then
-			return
-		end
-		local physBonePose = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-		local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
-		net.Start(netString, true)
-		net.WriteBool(false)
-		encodePose(physBonePose)
-		net.WriteUInt(#compressedOffset, 16)
-		net.WriteData(compressedOffset)
-		net.WriteBool(nonPhysCheckbox:GetChecked())
-		if nonPhysCheckbox:GetChecked() then
-			local nonPhysBoneData = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
-			local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
-			net.WriteUInt(#compressedNonPhysPose, 16)
-			net.WriteData(compressedNonPhysPose)
-		end
-
-		net.SendToServer()
-	end
-
-	local function onAngleTrioValueChange()
-		writeSMHPose("onFrameChange", numSlider:GetValue())
-	end
-
 	-- UI Hooks
-	function searchBar:OnEnter(text)
-		if sourceBox:GetSelected() == "Sequence" then
-			clearList(sequenceList)
-			populateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
-				if text:len() > 0 then
-					return string.find(seqInfo.label, text)
-				else
-					return true
-				end
-			end)
-		else
-			populateSMHEntitiesList(smhList, animPuppeteer, function(entProp)
-				if text:len() > 0 then
-					return entProp == text
-				else
-					return true
-				end
-			end)
-		end
-	end
-
-	function sequenceList:OnRowSelected(index, row)
-		local seqInfo = animPuppeteer:GetSequenceInfo(row:GetValue(1))
-		if currentSequence.label ~= seqInfo.label then
-			currentSequence = seqInfo
-			animPuppeteer:ResetSequence(row:GetValue(1))
-			animPuppeteer:SetCycle(0)
-			animPuppeteer:SetPlaybackRate(0)
-			numSlider:SetMax(row:GetValue(4) - 1)
-			maxAnimFrames = row:GetValue(4) - 1
-			net.Start("onSequenceChange")
-			net.WriteBool(true)
-			net.WriteInt(row:GetValue(1), 14)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			net.SendToServer()
-		end
-	end
-
-	-- TODO: Set a limit to how many times a new frame can be sent to the server to prevent spamming
-	function numSlider:OnValueChanged(val)
-		-- Only send when we go frame by frame
-		if math.abs(prevFrame - val) < 1 then
-			return
-		end
-		local option, _ = sourceBox:GetSelected()
-		if option == "Sequence" then
-			if not currentSequence.anims then
-				return
-			end
-			if not IsValid(animPuppeteer) then
-				return
-			end
-			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
-			numSlider:SetValue(math.Clamp(val, 0, numframes))
-			local cycle = val / numframes
-			animPuppeteer:SetCycle(cycle)
-			net.Start("onFrameChange", true)
-			net.WriteBool(true)
-			net.WriteFloat(cycle)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			net.SendToServer()
-		else
-			writeSMHPose("onFrameChange", val)
-		end
-
-		prevFrame = val
-	end
-
-	angOffset[1].OnValueChanged = onAngleTrioValueChange
-	angOffset[2].OnValueChanged = onAngleTrioValueChange
-	angOffset[3].OnValueChanged = onAngleTrioValueChange
-	function sourceBox:OnSelect(ind, val, data)
-		if val == "Sequence" then
-			smhList:SizeTo(-1, 0, 0.5)
-			smhBrowser:SizeTo(-1, 0, 0.5)
-			sequenceList:SizeTo(-1, 500, 0.5)
-		else
-			sequenceList:SizeTo(-1, 0, 0.5)
-			smhList:SizeTo(-1, 250, 0.5)
-			smhBrowser:SizeTo(-1, 250, 0.5)
-		end
-	end
-
-	function smhList:OnRowSelected(index, row)
-		numSlider:SetMax(row:GetValue(2))
-		maxAnimFrames = row:GetValue(2)
-		writeSMHPose("onSequenceChange", 0)
-	end
-
-	function smhBrowser:OnSelect(filePath)
-		clearList(smhList)
-		local data = SMH.parseSMHFile(filePath, model)
-		populateSMHEntitiesList(smhList, model, data, function(_)
-			return true
-		end)
-	end
+	maxAnimFrames = UI.HookPanel({
+		smhBrowser = smhBrowser,
+		smhList = smhList,
+		numSlider = numSlider,
+		angOffset = angOffset,
+		sequenceList = sequenceList,
+		nonPhysCheckBox = nonPhysCheckbox,
+		searchBar = searchBar,
+		sourceBox = sourceBox,
+	}, {
+		model = model,
+		puppeteer = animPuppeteer,
+		maxFrames = maxAnimFrames,
+	})
 
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
@@ -791,8 +563,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
 			prevClientAnimPuppeteer = nil
-			clearList(sequenceList)
-			clearList(smhList)
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
@@ -814,8 +586,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
 			prevClientAnimPuppeteer = nil
-			clearList(sequenceList)
-			clearList(smhList)
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
 			puppetLabel:SetText("No puppet selected.")
 		end
 	end)
