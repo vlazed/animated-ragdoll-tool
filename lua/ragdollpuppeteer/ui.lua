@@ -253,6 +253,24 @@ function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	end
 end
 
+---@param sequenceList DListView
+---@param smhList DListView
+---@param smhBrowser DFileBrowser
+---@param puppeteer Entity
+function UI.Layout(sequenceList, smhList, smhBrowser, puppeteer)
+	sequenceList:Dock(TOP)
+	smhList:Dock(TOP)
+	smhBrowser:Dock(TOP)
+
+	UI.PopulateSequenceList(sequenceList, puppeteer, function(_)
+		return true
+	end)
+
+	smhList:SizeTo(-1, 0, 0.5)
+	smhBrowser:SizeTo(-1, 0, 0.5)
+	sequenceList:SizeTo(-1, 500, 0.5)
+end
+
 ---@param numSlider DNumSlider
 function UI.NetHookPanel(numSlider)
 	-- Network hooks from server

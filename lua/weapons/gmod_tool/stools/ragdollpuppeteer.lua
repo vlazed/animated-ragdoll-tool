@@ -491,6 +491,18 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 	return newPose
 end
 
+local function createClientPuppeteer(model, puppet, ply)
+	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+	if prevClientAnimPuppeteer and IsValid(prevClientAnimPuppeteer) then
+		prevClientAnimPuppeteer:Remove()
+	end
+	puppeteer:SetModel(model)
+	setPlacementOf(puppeteer, puppet, ply)
+	puppeteer:Spawn()
+	styleClientPuppeteer(puppeteer)
+	return puppeteer
+end
+
 function TOOL.BuildCPanel(cPanel, puppet, ply)
 	if not IsValid(puppet) then
 		cPanel:Help("No puppet selected")
@@ -500,14 +512,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	local model = puppet:GetModel()
 
 	---@type CSEnt
-	local animPuppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-	if prevClientAnimPuppeteer and IsValid(prevClientAnimPuppeteer) then
-		prevClientAnimPuppeteer:Remove()
-	end
-	animPuppeteer:SetModel(model)
-	setPlacementOf(animPuppeteer, puppet, ply)
-	animPuppeteer:Spawn()
-	styleClientPuppeteer(animPuppeteer)
+	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
 
 	-- UI Elements
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
@@ -521,17 +526,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	local smhBrowser = UI.SMHFileBrowser(cPanel)
 	local smhList = UI.SMHEntityList(cPanel)
 
-	sequenceList:Dock(TOP)
-	smhList:Dock(TOP)
-	smhBrowser:Dock(TOP)
-
-	UI.PopulateSequenceList(sequenceList, animPuppeteer, function(_)
-		return true
-	end)
-
-	smhList:SizeTo(-1, 0, 0.5)
-	smhBrowser:SizeTo(-1, 0, 0.5)
-	sequenceList:SizeTo(-1, 500, 0.5)
+	UI.Layout(sequenceList, smhList, smhBrowser, animPuppeteer)
 
 	-- UI Hooks
 	maxAnimFrames = UI.HookPanel({
