@@ -21,7 +21,7 @@ In addition, the ragdoll puppet may not exactly match the pose of the puppeteer.
 
 ## Pull Requests
 
-When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua. I used the default [Stylua](https://github.com/JohnnyMorganz/StyLua) formatting style.
+When making a pull request, make sure to confine to the style as that seen in ragdollpuppeteer.lua. I used the default [StyLua](https://github.com/JohnnyMorganz/StyLua) formatting style.
 
 ## Acknowledgements and Credits
 
