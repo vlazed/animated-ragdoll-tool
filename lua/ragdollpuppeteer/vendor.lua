@@ -1,6 +1,12 @@
+---@module "ragdollpuppeteer.smhTypes"
+include("ragdollpuppeteer/smhTypes.lua")
+
 local Vendor = {}
 
--- https://github.com/Winded/RagdollMover/blob/master/lua/autorun/ragdollmover.lua
+---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
+---@param entity Entity
+---@param bone integer
+---@return integer
 function Vendor.GetPhysBoneParent(entity, bone)
 	local b = Vendor.PhysBoneToBone(entity, bone)
 	local i = 1
@@ -18,10 +24,17 @@ function Vendor.GetPhysBoneParent(entity, bone)
 	return -1
 end
 
+---@param ent Entity
+---@param bone integer
+---@return integer
 function Vendor.PhysBoneToBone(ent, bone)
 	return ent:TranslatePhysBoneToBone(bone)
 end
 
+---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L201
+---@param ent Entity
+---@param bone integer
+---@return integer
 function Vendor.BoneToPhysBone(ent, bone)
 	for i = 0, ent:GetPhysicsObjectCount() - 1 do
 		local b = ent:TranslatePhysBoneToBone(i)
@@ -32,21 +45,47 @@ function Vendor.BoneToPhysBone(ent, bone)
 	return -1
 end
 
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/server/easing.lua
+---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L5
+---@param s number | Vector
+---@param e number | Vector
+---@param p number
+---@return number | Vector
 function Vendor.LerpLinear(s, e, p)
+	-- Internally, lerp uses the __add, __sub, and __mul metamethods, and these operations are defined
+	-- for Vectors. We're casting here so we don't get any linting warnings.
+	---@cast s number
+	---@cast e number
 	return Lerp(p, s, e)
 end
 
+---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L11
+---@param s Vector
+---@param e Vector
+---@param p number
+---@return Vector
 function Vendor.LerpLinearVector(s, e, p)
 	return LerpVector(p, s, e)
 end
 
+---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L17
+---@param s Angle
+---@param e Angle
+---@param p number
+---@return Angle
 function Vendor.LerpLinearAngle(s, e, p)
 	return LerpAngle(p, s, e)
 end
 
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/server/keyframe_data.lua
--- Modified to directly work with json translation
+---Find the closest keyframe corresponding to the frame of keyframes
+---Source: https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
+---Modified to directly work with json translation
+---@param keyframes SMHFrameData[]
+---@param frame integer
+---@param ignoreCurrentFrame boolean
+---@param modname SMHModifiers
+---@return SMHFrameData?
+---@return SMHFrameData?
+---@return integer
 function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modname)
 	if ignoreCurrentFrame == nil then
 		ignoreCurrentFrame = false
@@ -82,6 +121,9 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	elseif not nextKeyframe then
 		nextKeyframe = prevKeyframe
 	end
+
+	---@cast prevKeyframe SMHFrameData
+	---@cast nextKeyframe SMHFrameData
 
 	local lerpMultiplier = 0
 	if prevKeyframe.Position ~= nextKeyframe.Position then
