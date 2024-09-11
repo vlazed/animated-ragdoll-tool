@@ -432,6 +432,9 @@ end
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
+---@module "ragdollpuppeteer.ui"
+local UI = include("ragdollpuppeteer/ui.lua")
+
 ---@type DefaultBonePose
 local defaultBonePose = {}
 
@@ -448,60 +451,6 @@ TOOL:BuildConVarList()
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(0, 0, 255, 128))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
-end
-
-local function constructSequenceList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Id")
-	animationList:AddColumn("Name")
-	animationList:AddColumn("FPS")
-	animationList:AddColumn("Duration (frames)")
-	cPanel:AddItem(animationList)
-	return animationList
-end
-
-local function constructSMHEntityList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Name")
-	animationList:AddColumn("Duration (frames)")
-	cPanel:AddItem(animationList)
-	return animationList
-end
-
-local function constructSMHFileBrowser(cPanel)
-	local fileBrowser = vgui.Create("DFileBrowser", cPanel)
-	fileBrowser:SetPath("DATA")
-	fileBrowser:SetBaseFolder("smh")
-	fileBrowser:SetCurrentFolder("smh")
-	cPanel:AddItem(fileBrowser)
-	return fileBrowser
-end
-
-local function constructAngleNumSliders(dForm, names)
-	local sliders = {}
-	for i = 1, 3 do
-		local slider = dForm:NumSlider(names[i], "", -180, 180)
-		slider:Dock(TOP)
-		slider:SetValue(0)
-		sliders[i] = slider
-	end
-	return sliders
-end
-
-local function constructAngleNumSliderTrio(cPanel, names, label)
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel(label)
-	local angleSliders = constructAngleNumSliders(dForm, names)
-	cPanel:AddItem(dForm)
-	local resetAngles = dForm:Button("Reset Angles")
-	function resetAngles:DoClick()
-		for i = 1, 3 do
-			angleSliders[i]:SetValue(0)
-		end
-	end
-	return angleSliders
 end
 
 ---Find the longest animation of the sequence
@@ -590,6 +539,7 @@ local function populateSequenceList(seqList, puppeteer, predicate)
 	end
 end
 
+---@param dList DListView
 local function clearList(dList)
 	for i = 1, #dList:GetLines() do
 		dList:RemoveLine(i)
@@ -667,27 +617,27 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	setPlacementOf(animPuppeteer, puppet, ply)
 	animPuppeteer:Spawn()
 	styleClientPuppeteer(animPuppeteer)
+
 	-- UI Elements
-	local puppetLabel = cPanel:Help("Current Puppet: " .. model)
-	local numSlider = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, defaultMaxFrame - 1, 0)
-	local angOffset = constructAngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
-	local nonPhysCheckbox = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
-	cPanel:Button("Update Puppeteer Position", "ragdollpuppeteer_updateposition", animPuppeteer)
-	local sourceBox = cPanel:ComboBox("Source")
-	sourceBox:AddChoice("Sequence")
-	sourceBox:AddChoice("Stop Motion Helper")
-	sourceBox:ChooseOption("Sequence", 1)
-	local searchBar = cPanel:TextEntry("Search Bar:")
-	searchBar:SetPlaceholderText("Search for a sequence...")
-	local sequenceList = constructSequenceList(cPanel)
-	local smhBrowser = constructSMHFileBrowser(cPanel)
-	local smhList = constructSMHEntityList(cPanel)
+	local puppetLabel = UI.PuppetLabel(cPanel, model)
+	local numSlider = UI.FrameSlider(cPanel, defaultMaxFrame)
+	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
+	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
+	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, animPuppeteer)
+	local sourceBox = UI.AnimationSourceBox(cPanel)
+	local searchBar = UI.SearchBar(cPanel)
+	local sequenceList = UI.SequenceList(cPanel)
+	local smhBrowser = UI.SMHFileBrowser(cPanel)
+	local smhList = UI.SMHEntityList(cPanel)
+
 	sequenceList:Dock(TOP)
 	smhList:Dock(TOP)
 	smhBrowser:Dock(TOP)
+
 	populateSequenceList(sequenceList, animPuppeteer, function(_)
 		return true
 	end)
+
 	smhList:SizeTo(-1, 0, 0.5)
 	smhBrowser:SizeTo(-1, 0, 0.5)
 	sequenceList:SizeTo(-1, 500, 0.5)
