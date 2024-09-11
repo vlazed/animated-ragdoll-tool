@@ -68,9 +68,9 @@ local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
 end
 
 ---Generate a displacement vector from the origin position to the current position
----@param poseData SMHBonePose
----@param originPose SMHBonePose
----@return SMHBonePose
+---@param poseData SMHFramePose
+---@param originPose SMHFramePose
+---@return SMHFramePose
 local function deltaPose(poseData, originPose)
 	local targetPose = poseData[0]
 	local newPose = poseData
@@ -88,7 +88,7 @@ end
 ---We assume the lowest frame is the origin of the entity
 ---@param smhFrames SMHFrameData[]
 ---@param modifier SMHModifiers
----@return SMHBonePose
+---@return SMHFramePose
 local function getOriginPose(smhFrames, modifier)
 	local lowestFrame = math.huge
 	for frameIndex, frameData in ipairs(smhFrames) do
@@ -106,7 +106,7 @@ end
 ---@param poseFrame integer
 ---@param smhFrames SMHFrameData[]
 ---@param modifier SMHModifiers
----@return SMHBonePose
+---@return SMHFramePose
 function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 	local originPose = getOriginPose(smhFrames, modifier) --smhFrames[1].EntityData[modifier][0]
 	--PrintTable(originPose)

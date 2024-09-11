@@ -2,15 +2,6 @@
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
----@class SMHBonePose
----@field Pos Vector
----@field LocalPos Vector?
----@field LocalAng Angle?
----@field Ang Angle
----@field Scale Vector
-
----@alias SMHPose SMHBonePose[]
-
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
@@ -91,7 +82,7 @@ end
 ---Set the puppet's physical bones to a target pose specified from the puppeteer, while offsetting with an angle
 ---Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 ---@param puppet Entity
----@param targetPose SMHPose
+---@param targetPose SMHFramePose
 ---@param puppeteer Entity
 ---@param offset Angle
 local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
@@ -130,7 +121,7 @@ end
 
 ---Directly influence the ragdoll nonphysical bones from SMH data
 ---@param puppet Entity
----@param targetPose SMHPose
+---@param targetPose SMHFramePose
 local function setNonPhysicalBonePoseOf(puppet, targetPose)
 	for b = 0, puppet:GetBoneCount() - 1 do
 		puppet:ManipulateBonePosition(b, targetPose[b].Pos)
