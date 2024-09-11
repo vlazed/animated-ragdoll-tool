@@ -2,6 +2,9 @@
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
+---@class AnimInfo
+---@field numframes number
+
 ---@class SMHBonePose
 ---@field Pos Vector
 ---@field LocalPos Vector?
@@ -508,13 +511,14 @@ end
 ---The longest animation is assumed to be the main animation for the sequence
 ---@param sequenceInfo SequenceInfo
 ---@param puppeteer Entity
----@return table|unknown
+---@return AnimInfo
 local function findLongestAnimationIn(sequenceInfo, puppeteer)
 	local longestAnim = {
 		numframes = -1,
 	}
 
 	for _, anim in pairs(sequenceInfo.anims) do
+		---@type AnimInfo?
 		local animInfo = puppeteer:GetAnimInfo(anim)
 		if not (animInfo and animInfo.numframes) then
 			continue
@@ -894,31 +898,48 @@ end)
 local COLOR_WHITE = Color(200, 200, 200)
 local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
 local COLOR_GREY = Color(128, 128, 128)
+
+-- Relative sizes with respect to the width and height of the tool screen
+local TEXT_WIDTH_MODIFIER = 0.5
+local TEXT_HEIGHT_MODIFIER = 0.428571429
+local BAR_HEIGHT = 0.0555555556
+local BAR_Y_POS = 0.6015625
+
+local lastWidth
+local lastFrame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+
 function TOOL:DrawToolScreen(width, height)
-	--surface.SetDrawColor(Color(20, 20, 20))
-	local y = 19.25 * height / 32
-	local ySize = height / 18
-	local frame = GetConVar("ragdollpuppeteer_frame")
+	local y = height * BAR_Y_POS
+	local ySize = height * BAR_HEIGHT
+	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
 		"DermaLarge",
-		width / 2,
-		height - height / 1.75,
+		width * TEXT_WIDTH_MODIFIER,
+		height * TEXT_HEIGHT_MODIFIER,
 		COLOR_WHITE,
 		TEXT_ALIGN_CENTER,
 		TEXT_ALIGN_BOTTOM
 	)
 	draw.SimpleText(
-		"Current Frame: " .. frame:GetString(),
+		"Current Frame: " .. tostring(frame),
 		"GModToolSubtitle",
-		width / 2,
-		height / 2,
+		width * 0.5,
+		height * 0.5,
 		COLOR_WHITE,
 		TEXT_ALIGN_CENTER,
 		TEXT_ALIGN_CENTER
 	)
-	draw.RoundedBox(2, 0, y, width, ySize, COLOR_GREY)
-	draw.RoundedBox(2, 0, y, width * frame:GetFloat() / maxAnimFrames, ySize, COLOR_WHITE_BRIGHT)
+
+	-- Don't calculate the bar width if the last frame is the same as the first
+	if lastFrame ~= frame or not lastWidth then
+		lastWidth = width * frame / maxAnimFrames
+	end
+
+	draw.RoundedBox(0, 0, y, width, ySize, COLOR_GREY)
+	draw.RoundedBox(0, 0, y, lastWidth, ySize, COLOR_WHITE_BRIGHT)
+
+	lastFrame = frame
 end
 
 TOOL.Information = {
