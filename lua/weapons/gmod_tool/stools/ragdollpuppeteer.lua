@@ -2,15 +2,6 @@
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
----@class SMHBonePose
----@field Pos Vector
----@field LocalPos Vector?
----@field LocalAng Angle?
----@field Ang Angle
----@field Scale Vector
-
----@alias SMHPose SMHBonePose[]
-
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
@@ -33,6 +24,8 @@ if SERVER then
 	util.AddNetworkString("queryDefaultBonePoseOfPuppet")
 	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
 end
+
+local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 
 local id = "ragdollpuppeteer_puppet"
 local id2 = "ragdollpuppeteer_puppeteer"
@@ -95,8 +88,6 @@ end
 ---@param puppeteer Entity
 ---@param offset Angle
 local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
-	local minimumVector = Vector(-16384, -16384, -16384)
-
 	offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
@@ -105,7 +96,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
 		if not targetPose[i] then
 			continue
 		end
-		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= minimumVector then
+		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
 			local pos, ang =
 				LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
 			phys:EnableMotion(false)
@@ -656,33 +647,50 @@ end)
 local COLOR_WHITE = Color(200, 200, 200)
 local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
 local COLOR_GREY = Color(128, 128, 128)
+
+-- Relative sizes with respect to the width and height of the tool screen
+local TEXT_WIDTH_MODIFIER = 0.5
+local TEXT_HEIGHT_MODIFIER = 0.428571429
+local BAR_HEIGHT = 0.0555555556
+local BAR_Y_POS = 0.6015625
+
+local lastWidth
+local lastFrame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+
 function TOOL:DrawToolScreen(width, height)
-	--surface.SetDrawColor(Color(20, 20, 20))
-	local y = 19.25 * height / 32
-	local ySize = height / 18
-	local frame = GetConVar("ragdollpuppeteer_frame")
-	local maxAnimFrames = uiState.maxFrames
+
+	local y = height * BAR_Y_POS
+	local ySize = height * BAR_HEIGHT
+	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
 
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
 		"DermaLarge",
-		width / 2,
-		height - height / 1.75,
+		width * TEXT_WIDTH_MODIFIER,
+		height * TEXT_HEIGHT_MODIFIER,
 		COLOR_WHITE,
 		TEXT_ALIGN_CENTER,
 		TEXT_ALIGN_BOTTOM
 	)
 	draw.SimpleText(
-		"Current Frame: " .. frame:GetString(),
+		"Current Frame: " .. tostring(frame),
 		"GModToolSubtitle",
-		width / 2,
-		height / 2,
+		width * 0.5,
+		height * 0.5,
 		COLOR_WHITE,
 		TEXT_ALIGN_CENTER,
 		TEXT_ALIGN_CENTER
 	)
-	draw.RoundedBox(2, 0, y, width, ySize, COLOR_GREY)
-	draw.RoundedBox(2, 0, y, width * frame:GetFloat() / maxAnimFrames, ySize, COLOR_WHITE_BRIGHT)
+
+	-- Don't calculate the bar width if the last frame is the same as the first
+	if lastFrame ~= frame or not lastWidth then
+		lastWidth = width * frame / maxAnimFrames
+	end
+
+	draw.RoundedBox(0, 0, y, width, ySize, COLOR_GREY)
+	draw.RoundedBox(0, 0, y, lastWidth, ySize, COLOR_WHITE_BRIGHT)
+
+	lastFrame = frame
 end
 
 TOOL.Information = {
