@@ -653,7 +653,7 @@ local BAR_HEIGHT = 0.0555555556
 local BAR_Y_POS = 0.6015625
 
 local lastWidth
-local lastFrame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+local lastFrame = 0
 
 function TOOL:DrawToolScreen(width, height)
 	local y = height * BAR_Y_POS
