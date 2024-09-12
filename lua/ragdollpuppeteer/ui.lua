@@ -1,10 +1,6 @@
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
-local function compressTableToJSON(tab)
-	return util.Compress(util.TableToJSON(tab))
-end
-
 ---@class PanelChildren
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
@@ -28,13 +24,18 @@ end
 ---@field defaultBonePose DefaultBonePose
 ---@field sequenceOrFrameChange boolean
 
-local UI = {}
-
 local DEFAULT_MAX_FRAME = 60
+local SEQUENCE_CHANGE_DELAY = 0.2
+
+local UI = {}
 
 local currentSequence = {
 	label = "",
 }
+
+local function compressTableToJSON(tab)
+	return util.Compress(util.TableToJSON(tab))
+end
 
 ---@param cPanel DForm
 ---@param model string
@@ -422,6 +423,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function sequenceList:OnRowSelected(index, row)
+		if panelState.sequenceOrFrameChange then
+			return
+		end
+
 		local currentIndex = row:GetValue(1)
 		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
 		if currentSequence.label ~= seqInfo.label then
@@ -431,14 +436,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			animPuppeteer:SetPlaybackRate(0)
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
-			panelState.sequenceOrFrameChange = true
-			net.Start("onSequenceChange")
-			net.WriteBool(true)
-			net.WriteInt(currentIndex, 14)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount)
-			net.SendToServer()
-			panelState.sequenceOrFrameChange = false
+			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
+				panelState.sequenceOrFrameChange = true
+				net.Start("onSequenceChange")
+				net.WriteBool(true)
+				net.WriteInt(currentIndex, 14)
+				net.WriteBool(nonPhysCheckbox:GetChecked())
+				writeSequencePose(animPuppeteer, puppet, physicsCount)
+				net.SendToServer()
+				panelState.sequenceOrFrameChange = false
+			end)
 		end
 	end
 
@@ -450,7 +457,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 		local option, _ = sourceBox:GetSelected()
 		if option == "Sequence" then
-			if not currentSequence.anims then
+			if not currentSequence.anims or panelState.sequenceOrFrameChange then
 				return
 			end
 			if not IsValid(animPuppeteer) then
