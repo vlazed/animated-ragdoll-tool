@@ -6,6 +6,7 @@ local function compressTableToJSON(tab)
 end
 
 ---@class PanelChildren
+---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
 ---@field smhList DListView
 ---@field sequenceList DListView
@@ -16,6 +17,8 @@ end
 ---@field angOffset DNumSlider[]
 
 ---@class PanelProps
+---@field puppet Entity
+---@field physicsCount integer
 ---@field puppeteer Entity
 ---@field model string
 
@@ -23,6 +26,7 @@ end
 ---@field maxFrames integer
 ---@field previousPuppeteer Entity?
 ---@field defaultBonePose DefaultBonePose
+---@field sequenceOrFrameChange boolean
 
 local UI = {}
 
@@ -286,6 +290,38 @@ function UI.NetHookPanel(numSlider)
 	end)
 end
 
+---Construct the ragdoll puppeteer control panel and return its components
+---@param panelProps PanelProps
+---@return PanelChildren
+function UI.ConstructPanel(cPanel, panelProps)
+	local model = panelProps.model
+	local puppeteer = panelProps.puppeteer
+
+	local puppetLabel = UI.PuppetLabel(cPanel, model)
+	local numSlider = UI.FrameSlider(cPanel)
+	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
+	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
+	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, puppeteer)
+	local sourceBox = UI.AnimationSourceBox(cPanel)
+	local searchBar = UI.SearchBar(cPanel)
+	local sequenceList = UI.SequenceList(cPanel)
+	local smhBrowser = UI.SMHFileBrowser(cPanel)
+	local smhList = UI.SMHEntityList(cPanel)
+
+	return {
+		puppetLabel = puppetLabel,
+		numSlider = numSlider,
+		angOffset = angOffset,
+		nonPhysCheckBox = nonPhysCheckbox,
+		updatePuppeteerButton = updatePuppeteerButton,
+		sourceBox = sourceBox,
+		searchBar = searchBar,
+		sequenceList = sequenceList,
+		smhBrowser = smhBrowser,
+		smhList = smhList,
+	}
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
@@ -302,7 +338,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local angOffset = panelChildren.angOffset
 
 	local animPuppeteer = panelProps.puppeteer
+	local puppet = panelProps.puppet
 	local model = panelProps.model
+	local physicsCount = panelProps.physicsCount
 
 	local function encodePose(pose)
 		net.WriteUInt(#pose, 16)
@@ -362,6 +400,27 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
+	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
+	---@param ent Entity
+	---@param rag Entity
+	local function writeSequencePose(ent, rag, physicsObjects)
+		if game.SinglePlayer() then
+			for i = 0, physicsObjects do
+				local b = rag:TranslatePhysBoneToBone(i)
+				local pos, ang = ent:GetBonePosition(b)
+				if pos == ent:GetPos() then
+					local matrix = ent:GetBoneMatrix(b)
+					if matrix then
+						pos = matrix:GetTranslation()
+						ang = matrix:GetAngles()
+					end
+				end
+				net.WriteVector(pos)
+				net.WriteAngle(ang)
+			end
+		end
+	end
+
 	function sequenceList:OnRowSelected(index, row)
 		local currentIndex = row:GetValue(1)
 		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
@@ -372,11 +431,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			animPuppeteer:SetPlaybackRate(0)
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
+			panelState.sequenceOrFrameChange = true
 			net.Start("onSequenceChange")
 			net.WriteBool(true)
 			net.WriteInt(currentIndex, 14)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
+			writeSequencePose(animPuppeteer, puppet, physicsCount)
 			net.SendToServer()
+			panelState.sequenceOrFrameChange = false
 		end
 	end
 
@@ -398,13 +460,19 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			numSlider:SetValue(math.Clamp(val, 0, numframes))
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
+
+			panelState.sequenceOrFrameChange = true
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
+			writeSequencePose(animPuppeteer, puppet, physicsCount)
 			net.SendToServer()
+			panelState.sequenceOrFrameChange = false
 		else
+			panelState.sequenceOrFrameChange = true
 			writeSMHPose("onFrameChange", val)
+			panelState.sequenceOrFrameChange = false
 		end
 
 		prevFrame = val
@@ -428,7 +496,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(index, row)
 		numSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
+		panelState.sequenceOrFrameChange = true
 		writeSMHPose("onSequenceChange", 0)
+		panelState.sequenceOrFrameChange = false
 	end
 
 	function smhBrowser:OnSelect(filePath)

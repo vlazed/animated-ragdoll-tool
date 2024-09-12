@@ -27,6 +27,7 @@ local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 
 local id = "ragdollpuppeteer_puppet"
 local id2 = "ragdollpuppeteer_puppeteer"
+local id3 = "ragdollpuppeteer_puppetCount"
 local prevServerAnimPuppet = nil
 local bonesReset = false
 local defaultAngle = angle_zero
@@ -43,29 +44,47 @@ end
 
 function TOOL:Think()
 	-- Do not rebuild control panel for the same puppet
-	if self:GetAnimationPuppet() == prevServerAnimPuppet then
+	local currentPuppet = self:GetAnimationPuppet()
+	local physicsCount = self:GetPuppetPhysicsCount()
+
+	if (IsValid(currentPuppet) and IsValid(prevServerAnimPuppet)) and currentPuppet == prevServerAnimPuppet then
 		return
 	end
-	prevServerAnimPuppet = self:GetAnimationPuppet()
-	print(self:GetAnimationPuppet())
+	prevServerAnimPuppet = currentPuppet
 	if CLIENT then
 		-- FIXME: Left clicking after right clicking should still rebuild the control panel for the same entity
-		self:RebuildControlPanel(self:GetAnimationPuppet(), self:GetOwner())
+		self:RebuildControlPanel(currentPuppet, self:GetOwner(), physicsCount)
 	end
 end
 
-function TOOL:SetAnimationPuppet(puppet)
-	return self:GetWeapon():SetNWEntity(id, puppet)
+---@return integer
+function TOOL:GetPuppetPhysicsCount()
+	return self:GetWeapon():GetNW2Int(id3, 0)
 end
 
+---@param count integer
+function TOOL:SetPuppetPhysicsCount(count)
+	self:GetWeapon():SetNW2Int(id3, count)
+end
+
+---@param puppet Entity?
+function TOOL:SetAnimationPuppet(puppet)
+	---@cast puppet Entity
+	self:GetWeapon():SetNWEntity(id, puppet)
+end
+
+---@return Entity
 function TOOL:GetAnimationPuppet()
 	return self:GetWeapon():GetNWEntity(id)
 end
 
+---@param puppeteer Entity?
 function TOOL:SetAnimationPuppeteer(puppeteer)
-	return self:GetWeapon():SetNWEntity(id2, puppeteer)
+	---@cast puppeteer Entity
+	self:GetWeapon():SetNWEntity(id2, puppeteer)
 end
 
+---@return Entity
 function TOOL:GetAnimationPuppeteer()
 	return self:GetWeapon():GetNWEntity(id2)
 end
@@ -130,23 +149,37 @@ local function setNonPhysicalBonePoseOf(puppet, targetPose)
 	end
 end
 
----Move and orient each physical bone of the puppet to the puppeteer
----Source: https://github.com/Winded/StandingPoseTool/blob/master/lua/weapons/gmod_tool/stools/ragdollstand.lua
+---Move and orient each physical bone of the puppet using the poses sent to us from the client
+---Source: https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua
 ---@param puppet Entity
----@param puppeteer Entity
 local function matchPhysicalBonePoseOf(puppet, puppeteer)
-	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-		local phys = puppet:GetPhysicsObjectNum(i)
-		local b = puppet:TranslatePhysBoneToBone(i)
-		local pos, ang = puppeteer:GetBonePosition(b)
-		phys:EnableMotion(false)
-		phys:SetPos(pos)
-		phys:SetAngles(ang)
-		if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
+	if game.SinglePlayer() then
+		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+			local phys = puppet:GetPhysicsObjectNum(i)
+			local pos, ang = net.ReadVector(), net.ReadAngle()
 			phys:EnableMotion(true)
 			phys:Wake()
-		else
+			phys:SetPos(pos)
+			phys:SetAngles(ang)
+			phys:EnableMotion(false)
 			phys:Wake()
+		end
+	else
+		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+			local phys = puppet:GetPhysicsObjectNum(i)
+			local b = puppet:TranslatePhysBoneToBone(i)
+			local pos, ang = puppeteer:GetBonePosition(b)
+			phys:EnableMotion(true)
+			phys:Wake()
+			phys:SetPos(pos)
+			phys:SetAngles(ang)
+			if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
+				phys:EnableMotion(true)
+				phys:Wake()
+			else
+				phys:EnableMotion(false)
+				phys:Wake()
+			end
 		end
 	end
 end
@@ -231,6 +264,10 @@ function TOOL:LeftClick(tr)
 		return false
 	end
 
+	---@cast ragdollPuppet Entity
+
+	self:SetPuppetPhysicsCount(ragdollPuppet:GetPhysicsObjectCount())
+
 	local puppetModel = ragdollPuppet:GetModel()
 
 	---@type Entity
@@ -284,13 +321,13 @@ function TOOL:LeftClick(tr)
 		end
 	end
 
-	local function setPuppeteerPose(cycle, animatingNonPhys)
+	local function setPuppeteerPose(cycle, animatingNonPhys, sequenceChanged)
 		-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
 		animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
 		animPuppeteer:ResetSequence(currentIndex)
 		animPuppeteer:SetCycle(cycle)
 		animPuppeteer:SetPlaybackRate(0)
-		matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
+		matchPhysicalBonePoseOf(ragdollPuppet, sequenceChanged)
 		if animatingNonPhys then
 			queryNonPhysBonePoseOfPuppet(ply)
 		elseif not bonesReset then
@@ -304,7 +341,7 @@ function TOOL:LeftClick(tr)
 		if isSequence then
 			local cycle = net.ReadFloat()
 			local animatingNonPhys = net.ReadBool()
-			setPuppeteerPose(cycle, animatingNonPhys)
+			setPuppeteerPose(cycle, animatingNonPhys, false)
 		else
 			readSMHPose()
 		end
@@ -394,10 +431,11 @@ end
 local UI = include("ragdollpuppeteer/ui.lua")
 
 ---@type PanelState
-local uiState = {
+local panelState = {
 	maxFrames = 0,
 	defaultBonePose = {},
 	previousPuppeteer = nil,
+	sequenceOrFrameChange = false,
 }
 
 TOOL:BuildConVarList()
@@ -443,7 +481,7 @@ end
 ---@return Vector
 ---@return Angle
 local function getBoneOffsetsOf(puppeteer, child)
-	local defaultBonePose = uiState.defaultBonePose
+	local defaultBonePose = panelState.defaultBonePose
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
 	local cMatrix = puppeteer:GetBoneMatrix(child)
@@ -491,24 +529,32 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 	return newPose
 end
 
+---@param puppeteer CSEnt
+local function disablePuppeteerJiggle(puppeteer)
+	for b = 0, puppeteer:GetBoneCount() - 1 do
+		puppeteer:ManipulateBoneJiggle(b, 0)
+	end
+end
+
 ---@param model string
 ---@param puppet Entity
 ---@param ply Player
 ---@return CSEnt
 local function createClientPuppeteer(model, puppet, ply)
 	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
-	if uiState.previousPuppeteer and IsValid(uiState.previousPuppeteer) then
-		uiState.previousPuppeteer:Remove()
+	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
+		panelState.previousPuppeteer:Remove()
 	end
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
+	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
 	return puppeteer
 end
 
-function TOOL.BuildCPanel(cPanel, puppet, ply)
-	if not IsValid(puppet) then
+function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
+	if not puppet or not IsValid(puppet) then
 		cPanel:Help("No puppet selected")
 		return
 	end
@@ -518,36 +564,22 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	---@type CSEnt
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
 
-	-- UI Elements
-	local puppetLabel = UI.PuppetLabel(cPanel, model)
-	local numSlider = UI.FrameSlider(cPanel)
-	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
-	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
-	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, animPuppeteer)
-	local sourceBox = UI.AnimationSourceBox(cPanel)
-	local searchBar = UI.SearchBar(cPanel)
-	local sequenceList = UI.SequenceList(cPanel)
-	local smhBrowser = UI.SMHFileBrowser(cPanel)
-	local smhList = UI.SMHEntityList(cPanel)
-
-	UI.Layout(sequenceList, smhList, smhBrowser, animPuppeteer)
-
-	-- UI Hooks
-	UI.HookPanel({
-		smhBrowser = smhBrowser,
-		smhList = smhList,
-		numSlider = numSlider,
-		angOffset = angOffset,
-		sequenceList = sequenceList,
-		nonPhysCheckBox = nonPhysCheckbox,
-		searchBar = searchBar,
-		sourceBox = sourceBox,
-	}, {
+	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
-	}, uiState)
+		puppet = puppet,
+		physicsCount = physicsCount,
+	}
 
-	UI.NetHookPanel(numSlider)
+	-- UI Elements
+	local panelChildren = UI.ConstructPanel(cPanel, panelProps)
+
+	UI.Layout(panelChildren.sequenceList, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
+
+	-- UI Hooks
+	UI.HookPanel(panelChildren, panelProps, panelState)
+
+	UI.NetHookPanel(panelChildren.numSlider)
 
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply)
@@ -556,10 +588,10 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	net.Receive("removeClientAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
-			uiState.previousPuppeteer = nil
-			UI.ClearList(sequenceList)
-			UI.ClearList(smhList)
-			puppetLabel:SetText("No puppet selected.")
+			panelState.previousPuppeteer = nil
+			UI.ClearList(panelChildren.sequenceList)
+			UI.ClearList(panelChildren.smhList)
+			panelChildren.puppetLabel:SetText("No puppet selected.")
 		end
 	end)
 
@@ -573,7 +605,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		if #uiState.defaultBonePose == 0 or correctionCount == 0 then
+		if #panelState.defaultBonePose == 0 or correctionCount == 0 then
 			return
 		end
 
@@ -595,6 +627,11 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 			return
 		end
 
+		-- Make sure no other network messages are happening
+		if panelState.sequenceOrFrameChange then
+			return
+		end
+
 		-- Correct the nonphysical bone pose on the server
 		local newPose = matchNonPhysicalBonePoseOf(ent)
 		net.Start("queryNonPhysBonePoseOfPuppet")
@@ -613,14 +650,14 @@ function TOOL.BuildCPanel(cPanel, puppet, ply)
 		if IsValid(animPuppeteer) then
 			animPuppeteer:RemoveCallback("BuildBonePositions", callbackId)
 			animPuppeteer:Remove()
-			uiState.previousPuppeteer = nil
-			UI.ClearList(sequenceList)
-			UI.ClearList(smhList)
-			puppetLabel:SetText("No puppet selected.")
+			panelState.previousPuppeteer = nil
+			UI.ClearList(panelChildren.sequenceList)
+			UI.ClearList(panelChildren.smhList)
+			panelChildren.puppetLabel:SetText("No puppet selected.")
 		end
 	end)
 
-	uiState.previousPuppeteer = animPuppeteer
+	panelState.previousPuppeteer = animPuppeteer
 end
 
 net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
@@ -632,7 +669,7 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
 	local defaultBonePose = getDefaultBonePoseOf(csModel)
-	uiState.defaultBonePose = defaultBonePose
+	panelState.defaultBonePose = defaultBonePose
 
 	for b = 1, csModel:GetBoneCount() do
 		net.WriteTable(defaultBonePose[b], true)
@@ -659,7 +696,7 @@ function TOOL:DrawToolScreen(width, height)
 	local y = height * BAR_Y_POS
 	local ySize = height * BAR_HEIGHT
 	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
-	local maxAnimFrames = uiState.maxFrames
+	local maxAnimFrames = panelState.maxFrames
 
 	draw.SimpleText(
 		"Ragdoll Puppeteer",
