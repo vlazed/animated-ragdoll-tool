@@ -197,8 +197,9 @@ end
 ---Instead of finding the nonphysical bone poses on the server, find them in the client
 ---We don't require the puppeteer as we always work with one puppet
 ---@param ply Player
-local function queryNonPhysBonePoseOfPuppet(ply)
+local function queryNonPhysBonePoseOfPuppet(ply, cycle)
 	net.Start("queryNonPhysBonePoseOfPuppet", false)
+	net.WriteFloat(cycle)
 	net.Send(ply)
 end
 
@@ -321,15 +322,15 @@ function TOOL:LeftClick(tr)
 		end
 	end
 
-	local function setPuppeteerPose(cycle, animatingNonPhys, sequenceChanged)
+	local function setPuppeteerPose(cycle, animatingNonPhys, cycle)
 		-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
 		animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
 		animPuppeteer:ResetSequence(currentIndex)
 		animPuppeteer:SetCycle(cycle)
 		animPuppeteer:SetPlaybackRate(0)
-		matchPhysicalBonePoseOf(ragdollPuppet, sequenceChanged)
+		matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
 		if animatingNonPhys then
-			queryNonPhysBonePoseOfPuppet(ply)
+			queryNonPhysBonePoseOfPuppet(ply, cycle)
 		elseif not bonesReset then
 			resetAllNonphysicalBonesOf(ragdollPuppet)
 		end
@@ -341,7 +342,7 @@ function TOOL:LeftClick(tr)
 		if isSequence then
 			local cycle = net.ReadFloat()
 			local animatingNonPhys = net.ReadBool()
-			setPuppeteerPose(cycle, animatingNonPhys, false)
+			setPuppeteerPose(cycle, animatingNonPhys, cycle)
 		else
 			readSMHPose()
 		end
@@ -356,7 +357,7 @@ function TOOL:LeftClick(tr)
 			local seqIndex = net.ReadInt(14)
 			local animatingNonPhys = net.ReadBool()
 			currentIndex = seqIndex
-			setPuppeteerPose(0, animatingNonPhys)
+			setPuppeteerPose(0, animatingNonPhys, 0)
 		else
 			readSMHPose()
 		end
@@ -437,6 +438,8 @@ local panelState = {
 	previousPuppeteer = nil,
 	sequenceOrFrameChange = false,
 }
+
+local lastFrame = 0
 
 TOOL:BuildConVarList()
 
@@ -596,9 +599,14 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	end)
 
 	local floor = math.floor
+	local ceil = math.ceil
+	local abs = math.abs
 	-- Workaround for ensuring nonphysical bones are moved on sequence change
-	-- This is responsible for the "lerping" behavior you see on characters fingers
 	local correctionCount = 0
+	local defaultCorrection = 1 / 24
+
+	-- Make corrections for about this amount multiplied by the max bones of the entity
+	local maxCountHeuristic = 0.25
 	net.Receive("onSequenceChange", function()
 		-- On a different sequence, we want to reset
 		correctionCount = 0
@@ -609,11 +617,15 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 			return
 		end
 
+		-- When the difference between frames are high, then we need to correct more
+		local currentFrame = net.ReadFloat() / panelState.maxFrames
+		local correctionModifier = defaultCorrection / ceil(abs(currentFrame - lastFrame))
+
 		-- If we only changed to a frame of the animation, we assume that this frame's pose
 		-- and the previous frame's pose is almost similar. Our heuristic is to divide the
 		-- correction count so we can account for this, though this would only be effective
 		-- if we incremented (or decremented) the ragdollpuppeteer_frame one at a time.
-		correctionCount = floor(correctionCount / 4)
+		correctionCount = floor(correctionCount * correctionModifier)
 	end)
 
 	-- Because the puppeteer is playing a sequence, it must build its bone positions at every tick.
@@ -623,7 +635,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 		-- If the correction count is greater than a heuristic for the minimal number of counts needed to
 		-- closely approximate the nonphysical bone pose, it will make unnecessary client calculations and
 		-- calls to the server
-		if correctionCount >= floor(maxBoneCount / 2) then
+		if correctionCount >= floor(maxBoneCount * maxCountHeuristic) then
 			return
 		end
 
@@ -690,7 +702,6 @@ local BAR_HEIGHT = 0.0555555556
 local BAR_Y_POS = 0.6015625
 
 local lastWidth
-local lastFrame = 0
 
 function TOOL:DrawToolScreen(width, height)
 	local y = height * BAR_Y_POS
