@@ -268,19 +268,14 @@ end
 
 ---@param puppet Entity
 ---@param puppetModel string
----@param tool TOOL
+---@param ply Player
 ---@return Entity
-local function createServerPuppeteer(puppet, puppetModel, tool)
+local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
-	if tool:GetAnimationPuppet() ~= puppet then
-		tool:Cleanup()
-	end
 	puppeteer:SetModel(puppetModel)
-	tool:SetAnimationPuppet(puppet)
-	tool:SetAnimationPuppeteer(puppeteer)
-	setPlacementOf(puppeteer, puppet, tool:GetOwner(), true)
+	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
-	styleServerPuppeteer(puppet)
+	styleServerPuppeteer(puppeteer)
 
 	return puppeteer
 end
@@ -311,7 +306,12 @@ function TOOL:LeftClick(tr)
 	local puppetModel = ragdollPuppet:GetModel()
 
 	---@type Entity
-	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, self)
+	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
+	if self:GetAnimationPuppet() ~= ragdollPuppet then
+		self:Cleanup()
+	end
+	self:SetAnimationPuppet(ragdollPuppet)
+	self:SetAnimationPuppeteer(animPuppeteer)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
 
 	local currentIndex = 0
@@ -365,6 +365,7 @@ function TOOL:LeftClick(tr)
 		animPuppeteer:ResetSequence(currentIndex)
 		animPuppeteer:SetCycle(cycle)
 		animPuppeteer:SetPlaybackRate(0)
+		print("Setting pose")
 		matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
 		if animatingNonPhys then
 			queryNonPhysBonePoseOfPuppet(ply, cycle)
