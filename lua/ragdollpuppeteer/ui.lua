@@ -16,6 +16,7 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field sourceBox DComboBox
 ---@field angOffset DNumSlider[]
 ---@field poseParams PoseParameterSlider[]
+---@field findFloor DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -97,6 +98,14 @@ end
 ---@return DCheckBoxLabel
 function UI.NonPhysCheckBox(cPanel)
 	local panel = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
+	---@cast panel DCheckBoxLabel
+	return panel
+end
+
+---@param cPanel DForm
+---@return DCheckBoxLabel
+function UI.FindFloor(cPanel)
+	local panel = cPanel:CheckBox("Teleport to Floor", "ragdollpuppeteer_updateposition_floors")
 	---@cast panel DCheckBoxLabel
 	return panel
 end
@@ -347,6 +356,17 @@ function UI.NetHookPanel(numSlider)
 	end)
 end
 
+---@param cPanel DForm
+---@return DForm
+function UI.Settings(cPanel)
+	local settings = vgui.Create("DForm", cPanel)
+	settings:SetLabel("Settings")
+
+	cPanel:AddItem(settings)
+
+	return settings
+end
+
 ---Construct the ragdoll puppeteer control panel and return its components
 ---@param panelProps PanelProps
 ---@return PanelChildren
@@ -358,7 +378,9 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local numSlider = UI.FrameSlider(cPanel)
 	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
 	local poseParams = UI.PoseParameters(cPanel, puppeteer)
-	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
+	local settings = UI.Settings(cPanel)
+	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
+	local findFloor = UI.FindFloor(settings)
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, puppeteer)
 	local sourceBox = UI.AnimationSourceBox(cPanel)
 	local searchBar = UI.SearchBar(cPanel)
@@ -378,6 +400,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		smhBrowser = smhBrowser,
 		smhList = smhList,
 		poseParams = poseParams,
+		findFloor = findFloor,
 	}
 end
 

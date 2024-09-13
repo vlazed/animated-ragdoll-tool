@@ -9,6 +9,7 @@ TOOL.Command = nil
 TOOL.ConfigName = ""
 TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = "false"
+TOOL.ClientConVar["updateposition_floors"] = "false"
 
 if SERVER then
 	util.AddNetworkString("onFrameChange")
@@ -24,7 +25,9 @@ if SERVER then
 	util.AddNetworkString("onPoseParamChange")
 end
 
+local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
+local MAX_PELVIS_LOOKUP = 4
 
 local id = "ragdollpuppeteer_puppet"
 local id2 = "ragdollpuppeteer_puppeteer"
@@ -207,16 +210,31 @@ end
 ---Move the puppeteer to the target entity's position, with the option to move to the ground
 ---@param puppeteer Entity
 ---@param target Entity
-local function setPositionOf(puppeteer, target)
-	local tr = util.TraceLine({
-		start = target:GetPos(),
-		endpos = target:GetPos() - Vector(0, 0, 3000),
-		filter = function(e)
-			return e:GetClass() == game.GetWorld()
-		end,
-	})
-
-	puppeteer:SetPos(tr.HitPos)
+---@param findFloor boolean?
+local function setPositionOf(puppeteer, target, findFloor)
+	if findFloor then
+		local tr = util.TraceLine({
+			start = target:GetPos(),
+			endpos = target:GetPos() - Vector(0, 0, 3000),
+			filter = function(e)
+				return e:GetClass() == game.GetWorld()
+			end,
+		})
+		puppeteer:SetPos(tr.HitPos)
+	else
+		-- If the puppeteer has a root bone in the same position as the its puppeteer:GetPos(), then it may have its pelvis
+		-- as a child in the bone tree. We'll use the bone that has a significant difference from puppeteer:GetPos()
+		puppeteer:SetPos(target:GetPos())
+		local oldBonePos = puppeteer:GetBonePosition(0)
+		local puppeteerPos = puppeteer:GetPos()
+		local boneIndex = 1
+		while boneIndex < MAX_PELVIS_LOOKUP and puppeteerPos:DistToSqr(oldBonePos) < EPSILON do
+			oldBonePos = puppeteer:GetBonePosition(boneIndex)
+			boneIndex = boneIndex + 1
+		end
+		local corrector = target:GetPos() - oldBonePos
+		puppeteer:SetPos(puppeteer:GetPos() + corrector)
+	end
 end
 
 ---Make the puppeteer face the target
@@ -232,8 +250,9 @@ end
 ---@param puppeteer Entity
 ---@param puppet Entity
 ---@param ply Player | Entity
-local function setPlacementOf(puppeteer, puppet, ply)
-	setPositionOf(puppeteer, puppet)
+---@param findFloor boolean?
+local function setPlacementOf(puppeteer, puppet, ply, findFloor)
+	setPositionOf(puppeteer, puppet, findFloor)
 	setAngleOf(puppeteer, ply)
 end
 
@@ -280,7 +299,7 @@ function TOOL:LeftClick(tr)
 	animPuppeteer:SetModel(puppetModel)
 	self:SetAnimationPuppet(ragdollPuppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
-	setPlacementOf(animPuppeteer, ragdollPuppet, ply)
+	setPlacementOf(animPuppeteer, ragdollPuppet, ply, true)
 	animPuppeteer:Spawn()
 	styleServerPuppeteer(animPuppeteer)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
@@ -429,13 +448,22 @@ concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
 	if not IsValid(ply) then
 		return
 	end
+
+	local findFloor = GetConVar("ragdollpuppeteer_updateposition_floors"):GetInt()
+	local findFloorBool = false
+	if findFloor <= 0 then
+		findFloorBool = false
+	else
+		findFloorBool = true
+	end
+
 	local tool = ply:GetTool("ragdollpuppeteer")
 	local puppeteer = tool:GetAnimationPuppeteer()
 	local puppet = tool:GetAnimationPuppet()
 	if not IsValid(puppet) or not IsValid(puppeteer) then
 		return
 	end
-	setPlacementOf(puppeteer, puppet, ply)
+	setPlacementOf(puppeteer, puppet, ply, findFloorBool)
 	-- Update client puppeteer position, which calls the above function for the client puppeteer
 	net.Start("updateClientPosition")
 	net.Send(ply)
@@ -576,7 +604,7 @@ local function createClientPuppeteer(model, puppet, ply)
 		panelState.previousPuppeteer:Remove()
 	end
 	puppeteer:SetModel(model)
-	setPlacementOf(puppeteer, puppet, ply)
+	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
@@ -612,7 +640,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	UI.NetHookPanel(panelChildren.numSlider)
 
 	net.Receive("updateClientPosition", function()
-		setPlacementOf(animPuppeteer, puppet, ply)
+		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
 	end)
 
 	net.Receive("removeClientAnimPuppeteer", function()
