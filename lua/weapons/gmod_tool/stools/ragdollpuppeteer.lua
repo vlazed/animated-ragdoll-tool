@@ -21,6 +21,7 @@ if SERVER then
 	util.AddNetworkString("removeClientAnimPuppeteer")
 	util.AddNetworkString("queryDefaultBonePoseOfPuppet")
 	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
+	util.AddNetworkString("onPoseParamChange")
 end
 
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
@@ -322,7 +323,7 @@ function TOOL:LeftClick(tr)
 		end
 	end
 
-	local function setPuppeteerPose(cycle, animatingNonPhys, cycle)
+	local function setPuppeteerPose(cycle, animatingNonPhys)
 		-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
 		animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
 		animPuppeteer:ResetSequence(currentIndex)
@@ -342,7 +343,7 @@ function TOOL:LeftClick(tr)
 		if isSequence then
 			local cycle = net.ReadFloat()
 			local animatingNonPhys = net.ReadBool()
-			setPuppeteerPose(cycle, animatingNonPhys, cycle)
+			setPuppeteerPose(cycle, animatingNonPhys)
 		else
 			readSMHPose()
 		end
@@ -357,13 +358,39 @@ function TOOL:LeftClick(tr)
 			local seqIndex = net.ReadInt(14)
 			local animatingNonPhys = net.ReadBool()
 			currentIndex = seqIndex
-			setPuppeteerPose(0, animatingNonPhys, 0)
+			setPuppeteerPose(0, animatingNonPhys)
 		else
 			readSMHPose()
 		end
 
 		net.Start("onSequenceChange")
 		net.Send(ply)
+	end)
+
+	net.Receive("onSequenceChange", function()
+		if not IsValid(animPuppeteer) then
+			return
+		end
+		local isSequence = net.ReadBool()
+		if isSequence then
+			local seqIndex = net.ReadInt(14)
+			local animatingNonPhys = net.ReadBool()
+			currentIndex = seqIndex
+			setPuppeteerPose(0, animatingNonPhys)
+		else
+			readSMHPose()
+		end
+
+		net.Start("onSequenceChange")
+		net.Send(ply)
+	end)
+
+	net.Receive("onPoseParamChange", function()
+		local animatingNonPhys = net.ReadBool()
+		local paramValue = net.ReadFloat()
+		local paramName = net.ReadString()
+		animPuppeteer:SetPoseParameter(paramName, paramValue)
+		setPuppeteerPose(currentIndex, animatingNonPhys)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)

@@ -1,6 +1,10 @@
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
+---@class PoseParameterSlider
+---@field slider DNumSlider
+---@field name string
+
 ---@class PanelChildren
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
@@ -11,6 +15,7 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
 ---@field angOffset DNumSlider[]
+---@field poseParams PoseParameterSlider[]
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -163,7 +168,58 @@ function UI.AngleNumSliderTrio(cPanel, names, label)
 			angleSliders[i]:SetValue(0)
 		end
 	end
+
+	dForm:DoExpansion(false)
+
 	return angleSliders
+end
+
+---@param index integer
+---@param entity Entity
+---@param dForm DForm
+---@return PoseParameterSlider
+local function poseParameterSlider(index, entity, dForm)
+	local poseParameterName = entity:GetPoseParameterName(index - 1)
+	local min, max = entity:GetPoseParameterRange(index - 1)
+
+	local paramSlider = dForm:NumSlider(poseParameterName, "", min, max)
+	---@cast paramSlider DNumSlider
+	paramSlider:Dock(TOP)
+	paramSlider:SetDefaultValue(0)
+	paramSlider:SetValue(0)
+
+	return { slider = paramSlider, name = poseParameterName }
+end
+
+---@param cPanel DForm
+---@param puppeteer Entity
+---@return PoseParameterSlider[]
+function UI.PoseParameters(cPanel, puppeteer)
+	---@type PoseParameterSlider[]
+	local poseParams = {}
+
+	---@type DForm
+	local dForm = vgui.Create("DForm")
+	dForm:SetLabel("Pose Parameters")
+	local numParameters = puppeteer:GetNumPoseParameters()
+
+	for i = 1, numParameters do
+		poseParams[i] = poseParameterSlider(i, puppeteer, dForm)
+	end
+
+	---@diagnostic disable-next-line
+	local resetParams = dForm:Button("Reset parameters")
+	function resetParams:DoClick()
+		for i = 1, numParameters do
+			poseParams[i].slider:ResetToDefaultValue()
+		end
+		puppeteer:ClearPoseParameters()
+	end
+
+	cPanel:AddItem(dForm)
+	dForm:DoExpansion(false)
+
+	return poseParams
 end
 
 local function getAngleTrio(trio)
@@ -301,6 +357,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
 	local numSlider = UI.FrameSlider(cPanel)
 	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
+	local poseParams = UI.PoseParameters(cPanel, puppeteer)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(cPanel)
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, puppeteer)
 	local sourceBox = UI.AnimationSourceBox(cPanel)
@@ -320,6 +377,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		sequenceList = sequenceList,
 		smhBrowser = smhBrowser,
 		smhList = smhList,
+		poseParams = poseParams,
 	}
 end
 
@@ -337,6 +395,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local nonPhysCheckbox = panelChildren.nonPhysCheckBox
 	local searchBar = panelChildren.searchBar
 	local angOffset = panelChildren.angOffset
+	local poseParams = panelChildren.poseParams
 
 	local animPuppeteer = panelProps.puppeteer
 	local puppet = panelProps.puppet
@@ -351,6 +410,27 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
 			net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
 			net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
+		end
+	end
+
+	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
+	---@param ent Entity
+	---@param rag Entity
+	local function writeSequencePose(ent, rag, physicsObjects)
+		if game.SinglePlayer() then
+			for i = 0, physicsObjects do
+				local b = rag:TranslatePhysBoneToBone(i)
+				local pos, ang = ent:GetBonePosition(b)
+				if pos == ent:GetPos() then
+					local matrix = ent:GetBoneMatrix(b)
+					if matrix then
+						pos = matrix:GetTranslation()
+						ang = matrix:GetAngles()
+					end
+				end
+				net.WriteVector(pos)
+				net.WriteAngle(ang)
+			end
 		end
 	end
 
@@ -380,6 +460,38 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		writeSMHPose("onFrameChange", numSlider:GetValue())
 	end
 
+	angOffset[1].OnValueChanged = onAngleTrioValueChange
+	angOffset[2].OnValueChanged = onAngleTrioValueChange
+	angOffset[3].OnValueChanged = onAngleTrioValueChange
+
+	---@param newValue number
+	---@param paramName string
+	---@param slider DNumSlider
+	local function onPoseParamChange(newValue, paramName, slider)
+		animPuppeteer:SetPoseParameter(paramName, newValue)
+		animPuppeteer:InvalidateBoneCache()
+
+		-- If the user has stopped dragging on the sequence, send the update
+		timer.Simple(0.2, function()
+			if sourceBox:GetSelected() == "Sequence" and not slider:IsEditing() then
+				panelState.sequenceOrFrameChange = true
+				net.Start("onPoseParamChange", true)
+				net.WriteBool(nonPhysCheckbox:GetChecked())
+				net.WriteFloat(newValue)
+				net.WriteString(paramName)
+				writeSequencePose(animPuppeteer, puppet, physicsCount)
+				net.SendToServer()
+				panelState.sequenceOrFrameChange = false
+			end
+		end)
+	end
+
+	for i = 1, #poseParams do
+		poseParams[i].slider.OnValueChanged = function(_, newValue)
+			onPoseParamChange(newValue, poseParams[i].name, poseParams[i].slider)
+		end
+	end
+
 	function searchBar:OnEnter(text)
 		if sourceBox:GetSelected() == "Sequence" then
 			UI.ClearList(sequenceList)
@@ -398,27 +510,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					return true
 				end
 			end)
-		end
-	end
-
-	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
-	---@param ent Entity
-	---@param rag Entity
-	local function writeSequencePose(ent, rag, physicsObjects)
-		if game.SinglePlayer() then
-			for i = 0, physicsObjects do
-				local b = rag:TranslatePhysBoneToBone(i)
-				local pos, ang = ent:GetBonePosition(b)
-				if pos == ent:GetPos() then
-					local matrix = ent:GetBoneMatrix(b)
-					if matrix then
-						pos = matrix:GetTranslation()
-						ang = matrix:GetAngles()
-					end
-				end
-				net.WriteVector(pos)
-				net.WriteAngle(ang)
-			end
 		end
 	end
 
@@ -485,9 +576,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		prevFrame = val
 	end
 
-	angOffset[1].OnValueChanged = onAngleTrioValueChange
-	angOffset[2].OnValueChanged = onAngleTrioValueChange
-	angOffset[3].OnValueChanged = onAngleTrioValueChange
 	function sourceBox:OnSelect(ind, val, data)
 		if val == "Sequence" then
 			smhList:SizeTo(-1, 0, 0.5)
