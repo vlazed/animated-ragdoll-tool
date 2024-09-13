@@ -266,7 +266,28 @@ local function resetAllNonphysicalBonesOf(ent)
 	bonesReset = true
 end
 
--- Select a ragdoll as a puppet to puppeteer
+---@param puppet Entity
+---@param puppetModel string
+---@param tool TOOL
+---@return Entity
+local function createServerPuppeteer(puppet, puppetModel, tool)
+	local puppeteer = ents.Create("prop_dynamic")
+	if tool:GetAnimationPuppet() ~= puppet then
+		tool:Cleanup()
+	end
+	puppeteer:SetModel(puppetModel)
+	tool:SetAnimationPuppet(puppet)
+	tool:SetAnimationPuppeteer(puppeteer)
+	setPlacementOf(puppeteer, puppet, tool:GetOwner(), true)
+	puppeteer:Spawn()
+	styleServerPuppeteer(puppet)
+
+	return puppeteer
+end
+
+---Select a ragdoll as a puppet to puppeteer
+---@param tr TraceResult
+---@return boolean
 function TOOL:LeftClick(tr)
 	---@type Player
 	local ply = self:GetOwner()
@@ -285,26 +306,18 @@ function TOOL:LeftClick(tr)
 		return false
 	end
 
-	---@cast ragdollPuppet Entity
-
 	self:SetPuppetPhysicsCount(ragdollPuppet:GetPhysicsObjectCount())
 
 	local puppetModel = ragdollPuppet:GetModel()
 
 	---@type Entity
-	local animPuppeteer = ents.Create("prop_dynamic")
-	if self:GetAnimationPuppet() ~= ragdollPuppet then
-		self:Cleanup()
-	end
-	animPuppeteer:SetModel(puppetModel)
-	self:SetAnimationPuppet(ragdollPuppet)
-	self:SetAnimationPuppeteer(animPuppeteer)
-	setPlacementOf(animPuppeteer, ragdollPuppet, ply, true)
-	animPuppeteer:Spawn()
-	styleServerPuppeteer(animPuppeteer)
+	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, self)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
 
 	local currentIndex = 0
+
+	---Decode the SMH pose from the client
+	---@return SMHFramePose
 	local function decodePose()
 		local pose = {}
 		local poseSize = net.ReadUInt(16)
@@ -326,6 +339,7 @@ function TOOL:LeftClick(tr)
 		return pose
 	end
 
+	---Helper for setting poses for SMH animations
 	local function readSMHPose()
 		-- Assumes that we are in the networking scope
 		local targetPose = decodePose()
@@ -342,6 +356,9 @@ function TOOL:LeftClick(tr)
 		end
 	end
 
+	---Helper for setting poses for sequences
+	---@param cycle number
+	---@param animatingNonPhys boolean
 	local function setPuppeteerPose(cycle, animatingNonPhys)
 		-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
 		animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
@@ -431,7 +448,9 @@ function TOOL:LeftClick(tr)
 	return true
 end
 
--- Stop puppeteering a ragdoll
+---Stop puppeteering a ragdoll
+---@param tr TraceResult
+---@return boolean?
 function TOOL:RightClick(tr)
 	-- FIXME: Properly clear any animation entities, clientside and serverside
 	if IsValid(self:GetAnimationPuppet()) then
