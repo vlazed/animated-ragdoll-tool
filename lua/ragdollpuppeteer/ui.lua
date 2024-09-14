@@ -34,7 +34,6 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field maxFrames integer
 ---@field previousPuppeteer Entity?
 ---@field defaultBonePose DefaultBonePose
----@field stateChange boolean
 
 local DEFAULT_MAX_FRAME = 60
 local SEQUENCE_CHANGE_DELAY = 0.2
@@ -583,11 +582,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		node.locked = not node.locked
 		node:SetIcon(node.locked and boneIcons[#boneIcons] or node.boneIcon)
 		filteredBones[node.boneId + 1] = node.locked
-		panelState.stateChange = true
 		net.Start("onBoneFilterChange")
 		net.WriteTable(filteredBones, true)
 		net.SendToServer()
-		panelState.stateChange = false
 	end
 
 	local function encodePose(pose)
@@ -662,14 +659,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 			if sourceBox:GetSelected() == "Sequence" and not slider:IsEditing() then
-				panelState.stateChange = true
 				net.Start("onPoseParamChange", true)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
 				writeSequencePose(animPuppeteer, puppet, physicsCount)
 				net.SendToServer()
-				panelState.stateChange = false
 			end
 		end)
 	end
@@ -711,10 +706,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function sequenceList:OnRowSelected(index, row)
-		if panelState.stateChange then
-			return
-		end
-
 		local currentIndex = row:GetValue(1)
 		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
 		if currentSequence.label ~= seqInfo.label then
@@ -725,14 +716,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-				panelState.stateChange = true
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(animPuppeteer, puppet, physicsCount)
 				net.SendToServer()
-				panelState.stateChange = false
 			end)
 		end
 	end
@@ -745,7 +734,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 		local option, _ = sourceBox:GetSelected()
 		if option == "Sequence" then
-			if not currentSequence.anims or panelState.stateChange then
+			if not currentSequence.anims then
 				return
 			end
 			if not IsValid(animPuppeteer) then
@@ -756,18 +745,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
 
-			panelState.stateChange = true
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			writeSequencePose(animPuppeteer, puppet, physicsCount)
 			net.SendToServer()
-			panelState.stateChange = false
 		else
-			panelState.stateChange = true
 			writeSMHPose("onFrameChange", val)
-			panelState.stateChange = false
 		end
 
 		prevFrame = val
@@ -788,9 +773,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(index, row)
 		numSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
-		panelState.stateChange = true
 		writeSMHPose("onSequenceChange", 0)
-		panelState.stateChange = false
 	end
 
 	function smhBrowser:OnSelect(filePath)

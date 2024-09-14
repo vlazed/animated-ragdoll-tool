@@ -528,7 +528,6 @@ local panelState = {
 	maxFrames = 0,
 	defaultBonePose = {},
 	previousPuppeteer = nil,
-	stateChange = false,
 }
 
 local lastFrame = 0
