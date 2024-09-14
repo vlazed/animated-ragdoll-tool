@@ -87,9 +87,11 @@ function UI.UpdatePuppeteerButton(cPanel, puppeteer)
 end
 
 ---@param cPanel DForm
+---@param label string
 ---@return DNumSlider
-function UI.FrameSlider(cPanel)
-	local panel = cPanel:NumSlider("Frame", "ragdollpuppeteer_frame", 0, DEFAULT_MAX_FRAME - 1, 0)
+function UI.FrameSlider(cPanel, label)
+	label = label or "Frame"
+	local panel = cPanel:NumSlider(label, "ragdollpuppeteer_frame", 0, DEFAULT_MAX_FRAME - 1, 0)
 	---@cast panel DNumSlider
 	return panel
 end
@@ -362,6 +364,7 @@ function UI.NetHookPanel(numSlider)
 	end)
 end
 
+---Container for ConVar settings
 ---@param cPanel DForm
 ---@return DForm
 function UI.Settings(cPanel)
@@ -373,6 +376,36 @@ function UI.Settings(cPanel)
 	return settings
 end
 
+---Container for lists
+---@param cPanel DForm
+---@return DForm
+function UI.Lists(cPanel)
+	local lists = vgui.Create("DForm", cPanel)
+	lists:SetLabel("Hide Animation List")
+	cPanel:AddItem(lists)
+
+	function lists:OnToggle(expanded)
+		if expanded then
+			lists:SetLabel("Hide Animation List")
+		else
+			lists:SetLabel("Show Animation List")
+		end
+	end
+
+	return lists
+end
+
+---Container for timelines
+---@param cPanel DForm
+---@return DForm
+function UI.Timelines(cPanel)
+	local timelines = vgui.Create("DForm", cPanel)
+	timelines:SetLabel("Timelines")
+	cPanel:AddItem(timelines)
+
+	return timelines
+end
+
 ---Construct the ragdoll puppeteer control panel and return its components
 ---@param panelProps PanelProps
 ---@return PanelChildren
@@ -381,18 +414,21 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local puppeteer = panelProps.puppeteer
 
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
-	local numSlider = UI.FrameSlider(cPanel)
+	local timelines = UI.Timelines(cPanel)
+	local numSlider = UI.FrameSlider(timelines, "Base")
 	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
 	local poseParams = UI.PoseParameters(cPanel, puppeteer)
 	local settings = UI.Settings(cPanel)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
 	local findFloor = UI.FindFloor(settings)
-	local updatePuppeteerButton = UI.UpdatePuppeteerButton(cPanel, puppeteer)
-	local sourceBox = UI.AnimationSourceBox(cPanel)
-	local searchBar = UI.SearchBar(cPanel)
-	local sequenceList = UI.SequenceList(cPanel)
-	local smhBrowser = UI.SMHFileBrowser(cPanel)
-	local smhList = UI.SMHEntityList(cPanel)
+	local updatePuppeteerButton = UI.UpdatePuppeteerButton(settings, puppeteer)
+	local lists = UI.Lists(cPanel)
+
+	local sourceBox = UI.AnimationSourceBox(lists)
+	local searchBar = UI.SearchBar(lists)
+	local sequenceList = UI.SequenceList(lists)
+	local smhBrowser = UI.SMHFileBrowser(lists)
+	local smhList = UI.SMHEntityList(lists)
 
 	return {
 		puppetLabel = puppetLabel,
