@@ -242,7 +242,11 @@ function UI.ClearList(dList)
 	end
 end
 
--- Populate the DList with compatible SMH entities (compatible meaning the SMH entity has the same model as the puppet)
+---Populate the DList with compatible SMH entities (compatible meaning the SMH entity has the same model as the puppet)
+---@param seqList DListView
+---@param model string
+---@param data SMHFile?
+---@param predicate fun(SMHProperties: SMHProperties): boolean
 local function populateSMHEntitiesList(seqList, model, data, predicate)
 	if not data then
 		return
@@ -278,6 +282,8 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 		end
 
 		local line = seqList:AddLine(entity.Properties.Name, maxFrames)
+		---@cast line DListView_Line
+
 		line:SetSortValue(3, physFrames)
 		line:SetSortValue(4, nonPhysFrames)
 	end
@@ -425,6 +431,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local model = panelProps.model
 	local physicsCount = panelProps.physicsCount
 
+	local smhData
+
 	local function encodePose(pose)
 		net.WriteUInt(#pose, 16)
 		for i = 0, #pose do
@@ -516,19 +524,27 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function searchBar:OnEnter(text)
+		---@cast text string
 		if sourceBox:GetSelected() == "Sequence" then
 			UI.ClearList(sequenceList)
 			UI.PopulateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
+				---@cast seqInfo SequenceInfo
+
 				if text:len() > 0 then
-					return string.find(seqInfo.label, text)
+					return string.find(seqInfo.label:lower(), text:lower())
 				else
 					return true
 				end
 			end)
 		else
-			populateSMHEntitiesList(smhList, animPuppeteer, function(entProp)
+			UI.ClearList(smhList)
+			populateSMHEntitiesList(smhList, model, smhData, function(entProp)
 				if text:len() > 0 then
-					return entProp == text
+					local result = entProp.Class:lower():find(text:lower())
+						or entProp.Model:lower():find(text:lower())
+						or entProp.Name:lower():find(text:lower())
+
+					return result ~= nil
 				else
 					return true
 				end
@@ -621,8 +637,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	function smhBrowser:OnSelect(filePath)
 		UI.ClearList(smhList)
-		local data = SMH.parseSMHFile(filePath, model)
-		populateSMHEntitiesList(smhList, model, data, function(_)
+		smhData = SMH.parseSMHFile(filePath, model)
+		populateSMHEntitiesList(smhList, model, smhData, function(_)
 			return true
 		end)
 	end
