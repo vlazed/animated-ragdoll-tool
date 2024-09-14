@@ -365,7 +365,6 @@ function TOOL:LeftClick(tr)
 		animPuppeteer:ResetSequence(currentIndex)
 		animPuppeteer:SetCycle(cycle)
 		animPuppeteer:SetPlaybackRate(0)
-		print("Setting pose")
 		matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
 		if animatingNonPhys then
 			queryNonPhysBonePoseOfPuppet(ply, cycle)
