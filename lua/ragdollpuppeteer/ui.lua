@@ -43,6 +43,7 @@ local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
 end
 
+---@package
 ---@param cPanel DForm
 ---@param model string
 ---@return DLabel
@@ -52,6 +53,7 @@ function UI.PuppetLabel(cPanel, model)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DTextEntry
 function UI.SearchBar(cPanel)
@@ -63,6 +65,7 @@ function UI.SearchBar(cPanel)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DComboBox
 function UI.AnimationSourceBox(cPanel)
@@ -77,6 +80,7 @@ function UI.AnimationSourceBox(cPanel)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@param puppeteer Entity
 ---@return DButton
@@ -86,6 +90,7 @@ function UI.UpdatePuppeteerButton(cPanel, puppeteer)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@param label string
 ---@return DNumSlider
@@ -96,6 +101,7 @@ function UI.FrameSlider(cPanel, label)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DCheckBoxLabel
 function UI.NonPhysCheckBox(cPanel)
@@ -104,6 +110,7 @@ function UI.NonPhysCheckBox(cPanel)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DCheckBoxLabel
 function UI.FindFloor(cPanel)
@@ -112,6 +119,7 @@ function UI.FindFloor(cPanel)
 	return panel
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DListView
 function UI.SequenceList(cPanel)
@@ -125,6 +133,7 @@ function UI.SequenceList(cPanel)
 	return animationList
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DListView
 function UI.SMHEntityList(cPanel)
@@ -136,6 +145,7 @@ function UI.SMHEntityList(cPanel)
 	return animationList
 end
 
+---@package
 ---@param cPanel DForm
 ---@return DFileBrowser
 function UI.SMHFileBrowser(cPanel)
@@ -163,6 +173,7 @@ function UI.AngleNumSliders(dForm, names)
 	return sliders
 end
 
+---@package
 ---@param cPanel DForm
 ---@param names string[]
 ---@param label string
@@ -202,6 +213,7 @@ local function poseParameterSlider(index, entity, dForm)
 	return { slider = paramSlider, name = poseParameterName }
 end
 
+---@package
 ---@param cPanel DForm
 ---@param puppeteer Entity
 ---@return PoseParameterSlider[]
@@ -314,7 +326,11 @@ local function findLongestAnimationIn(sequenceInfo, puppeteer)
 	return longestAnim
 end
 
--- Populate the DList with the puppeteer sequence
+---@package
+---Populate the DList with the puppeteer sequence
+---@param seqList DListView
+---@param puppeteer Entity
+---@param predicate fun(seqInfo: SequenceInfo): boolean
 function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	local defaultFPS = 30
 	for i = 0, puppeteer:GetSequenceCount() - 1 do
@@ -364,6 +380,7 @@ function UI.NetHookPanel(numSlider)
 	end)
 end
 
+---@package
 ---Container for ConVar settings
 ---@param cPanel DForm
 ---@return DForm
@@ -376,6 +393,7 @@ function UI.Settings(cPanel)
 	return settings
 end
 
+---@package
 ---Container for lists
 ---@param cPanel DForm
 ---@return DForm
@@ -395,6 +413,7 @@ function UI.Lists(cPanel)
 	return lists
 end
 
+---@package
 ---Container for timelines
 ---@param cPanel DForm
 ---@return DForm
@@ -567,7 +586,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				---@cast seqInfo SequenceInfo
 
 				if text:len() > 0 then
-					return string.find(seqInfo.label:lower(), text:lower())
+					local result = string.find(seqInfo.label:lower(), text:lower())
+					return result ~= nil
 				else
 					return true
 				end
