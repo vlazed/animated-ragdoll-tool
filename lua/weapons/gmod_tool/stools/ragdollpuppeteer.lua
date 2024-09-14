@@ -23,6 +23,7 @@ if SERVER then
 	util.AddNetworkString("queryDefaultBonePoseOfPuppet")
 	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
 	util.AddNetworkString("onPoseParamChange")
+	util.AddNetworkString("onBoneFilterChange")
 end
 
 local EPSILON = 1e-3
@@ -35,6 +36,7 @@ local id3 = "ragdollpuppeteer_puppetCount"
 local prevServerAnimPuppet = nil
 local bonesReset = false
 local defaultAngle = angle_zero
+local filteredBones = {}
 
 local function styleServerPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(255, 255, 255, 0))
@@ -114,7 +116,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
 		local parent = puppet:GetPhysicsObjectNum(Vendor.GetPhysBoneParent(puppet, i))
-		if not targetPose[i] then
+		if not targetPose[i] or filteredBones[b + 1] then
 			continue
 		end
 		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
@@ -145,6 +147,10 @@ end
 ---@param targetPose SMHFramePose
 local function setNonPhysicalBonePoseOf(puppet, targetPose)
 	for b = 0, puppet:GetBoneCount() - 1 do
+		if filteredBones[b + 1] then
+			continue
+		end
+
 		puppet:ManipulateBonePosition(b, targetPose[b].Pos)
 		puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
 		if targetPose[b].Scale then
@@ -160,7 +166,13 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer)
 	if game.SinglePlayer() then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local phys = puppet:GetPhysicsObjectNum(i)
+			local b = puppet:TranslatePhysBoneToBone(i)
+
 			local pos, ang = net.ReadVector(), net.ReadAngle()
+			if filteredBones[b + 1] then
+				continue
+			end
+
 			phys:EnableMotion(true)
 			phys:Wake()
 			phys:SetPos(pos)
@@ -172,7 +184,12 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer)
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local phys = puppet:GetPhysicsObjectNum(i)
 			local b = puppet:TranslatePhysBoneToBone(i)
+			if filteredBones[b + 1] then
+				continue
+			end
+
 			local pos, ang = puppeteer:GetBonePosition(b)
+
 			phys:EnableMotion(true)
 			phys:Wake()
 			phys:SetPos(pos)
@@ -429,6 +446,10 @@ function TOOL:LeftClick(tr)
 		setPuppeteerPose(currentIndex, animatingNonPhys)
 	end)
 
+	net.Receive("onBoneFilterChange", function()
+		filteredBones = net.ReadTable(true)
+	end)
+
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do
@@ -510,7 +531,7 @@ local panelState = {
 	maxFrames = 0,
 	defaultBonePose = {},
 	previousPuppeteer = nil,
-	sequenceOrFrameChange = false,
+	stateChange = false,
 }
 
 local lastFrame = 0
@@ -714,7 +735,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 		end
 
 		-- Make sure no other network messages are happening
-		if panelState.sequenceOrFrameChange then
+		if panelState.stateChange then
 			return
 		end
 

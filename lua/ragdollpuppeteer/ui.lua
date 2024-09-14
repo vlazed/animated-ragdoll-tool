@@ -1,6 +1,11 @@
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
+---@class BoneTreeNode: DTree_Node
+---@field locked boolean
+---@field boneIcon string
+---@field boneId integer
+
 ---@class PoseParameterSlider
 ---@field slider DNumSlider
 ---@field name string
@@ -17,6 +22,7 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field angOffset DNumSlider[]
 ---@field poseParams PoseParameterSlider[]
 ---@field findFloor DCheckBoxLabel
+---@field boneTree DTree
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -28,7 +34,7 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field maxFrames integer
 ---@field previousPuppeteer Entity?
 ---@field defaultBonePose DefaultBonePose
----@field sequenceOrFrameChange boolean
+---@field stateChange boolean
 
 local DEFAULT_MAX_FRAME = 60
 local SEQUENCE_CHANGE_DELAY = 0.2
@@ -425,6 +431,78 @@ function UI.Timelines(cPanel)
 	return timelines
 end
 
+local boneIcons = {
+	"icon16/brick.png",
+	"icon16/connect.png",
+	"icon16/lock.png",
+}
+
+---@param bone integer
+---@param puppet Entity
+---@return string
+local function boneIcon(bone, puppet)
+	local physOrNonPhys = puppet:TranslateBoneToPhysBone(bone) > -1 and 1 or 2
+
+	return boneIcons[physOrNonPhys]
+end
+
+---Add the bone nodes for the boneTree from the puppet
+---@param puppet Entity
+---@param boneTree DTree
+local function setupBoneNodesOf(puppet, boneTree)
+	---@type BoneTreeNode[]
+	local nodes = {}
+
+	for b = 0, puppet:GetBoneCount() - 1 do
+		local boneIcon = boneIcon(b, puppet)
+		local boneName = puppet:GetBoneName(b)
+		if boneName == "__INVALIDBONE__" then
+			continue
+		end
+
+		local boneParent = puppet:GetBoneParent(b)
+
+		if boneParent == -1 then
+			---@diagnostic disable-next-line
+			nodes[b + 1] = boneTree:AddNode(boneName, boneIcon)
+			nodes[b + 1].boneIcon = boneIcon
+			nodes[b + 1].boneId = b
+		else
+			local boneParentName = puppet:GetBoneName(boneParent)
+			for c = 0, puppet:GetBoneCount() - 1 do
+				if nodes[c + 1] and nodes[c + 1]:GetText() == boneParentName then
+					---@diagnostic disable-next-line
+					nodes[b + 1] = nodes[c + 1]:AddNode(boneName, boneIcon)
+					nodes[b + 1].boneIcon = boneIcon
+					nodes[b + 1].boneId = b
+					break
+				end
+			end
+		end
+	end
+end
+
+---@package
+---@param cPanel DForm
+---@return DTree
+function UI.BoneTree(cPanel)
+	local boneTreeContainer = vgui.Create("DForm", cPanel)
+	cPanel:AddItem(boneTreeContainer)
+	boneTreeContainer:SetLabel("Bone Tree")
+	boneTreeContainer:Help("Toggle bones for animation by clicking on a node on the tree.")
+	boneTreeContainer:Dock(TOP)
+
+	local boneTree = vgui.Create("DTree", boneTreeContainer)
+	boneTreeContainer:AddItem(boneTree)
+	boneTree:Dock(TOP)
+
+	boneTree:SizeTo(-1, 250, 0)
+
+	boneTreeContainer:SetExpanded(false)
+
+	return boneTree
+end
+
 ---Construct the ragdoll puppeteer control panel and return its components
 ---@param panelProps PanelProps
 ---@return PanelChildren
@@ -441,6 +519,9 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
 	local findFloor = UI.FindFloor(settings)
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(settings, puppeteer)
+
+	local boneTree = UI.BoneTree(cPanel)
+
 	local lists = UI.Lists(cPanel)
 
 	local sourceBox = UI.AnimationSourceBox(lists)
@@ -462,6 +543,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		smhList = smhList,
 		poseParams = poseParams,
 		findFloor = findFloor,
+		boneTree = boneTree,
 	}
 end
 
@@ -480,6 +562,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local searchBar = panelChildren.searchBar
 	local angOffset = panelChildren.angOffset
 	local poseParams = panelChildren.poseParams
+	local boneTree = panelChildren.boneTree
 
 	local animPuppeteer = panelProps.puppeteer
 	local puppet = panelProps.puppet
@@ -487,6 +570,25 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local physicsCount = panelProps.physicsCount
 
 	local smhData
+
+	setupBoneNodesOf(puppet, boneTree)
+
+	local filteredBones = {}
+	for b = 1, puppet:GetBoneCount() do
+		filteredBones[b] = false
+	end
+
+	---@param node BoneTreeNode
+	function boneTree:DoClick(node)
+		node.locked = not node.locked
+		node:SetIcon(node.locked and boneIcons[#boneIcons] or node.boneIcon)
+		filteredBones[node.boneId + 1] = node.locked
+		panelState.stateChange = true
+		net.Start("onBoneFilterChange")
+		net.WriteTable(filteredBones, true)
+		net.SendToServer()
+		panelState.stateChange = false
+	end
 
 	local function encodePose(pose)
 		net.WriteUInt(#pose, 16)
@@ -558,16 +660,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		animPuppeteer:InvalidateBoneCache()
 
 		-- If the user has stopped dragging on the sequence, send the update
-		timer.Simple(0.2, function()
+		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 			if sourceBox:GetSelected() == "Sequence" and not slider:IsEditing() then
-				panelState.sequenceOrFrameChange = true
+				panelState.stateChange = true
 				net.Start("onPoseParamChange", true)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
 				writeSequencePose(animPuppeteer, puppet, physicsCount)
 				net.SendToServer()
-				panelState.sequenceOrFrameChange = false
+				panelState.stateChange = false
 			end
 		end)
 	end
@@ -609,7 +711,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function sequenceList:OnRowSelected(index, row)
-		if panelState.sequenceOrFrameChange then
+		if panelState.stateChange then
 			return
 		end
 
@@ -623,14 +725,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-				panelState.sequenceOrFrameChange = true
+				panelState.stateChange = true
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(animPuppeteer, puppet, physicsCount)
 				net.SendToServer()
-				panelState.sequenceOrFrameChange = false
+				panelState.stateChange = false
 			end)
 		end
 	end
@@ -643,7 +745,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 		local option, _ = sourceBox:GetSelected()
 		if option == "Sequence" then
-			if not currentSequence.anims or panelState.sequenceOrFrameChange then
+			if not currentSequence.anims or panelState.stateChange then
 				return
 			end
 			if not IsValid(animPuppeteer) then
@@ -654,18 +756,18 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
 
-			panelState.sequenceOrFrameChange = true
+			panelState.stateChange = true
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			writeSequencePose(animPuppeteer, puppet, physicsCount)
 			net.SendToServer()
-			panelState.sequenceOrFrameChange = false
+			panelState.stateChange = false
 		else
-			panelState.sequenceOrFrameChange = true
+			panelState.stateChange = true
 			writeSMHPose("onFrameChange", val)
-			panelState.sequenceOrFrameChange = false
+			panelState.stateChange = false
 		end
 
 		prevFrame = val
@@ -686,9 +788,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(index, row)
 		numSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
-		panelState.sequenceOrFrameChange = true
+		panelState.stateChange = true
 		writeSMHPose("onSequenceChange", 0)
-		panelState.sequenceOrFrameChange = false
+		panelState.stateChange = false
 	end
 
 	function smhBrowser:OnSelect(filePath)
