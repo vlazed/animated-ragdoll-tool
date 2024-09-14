@@ -488,7 +488,7 @@ end
 function UI.BoneTree(cPanel)
 	local boneTreeContainer = vgui.Create("DForm", cPanel)
 	cPanel:AddItem(boneTreeContainer)
-	boneTreeContainer:SetLabel("Bone Tree")
+	boneTreeContainer:SetLabel("Filter Bone Tree")
 	boneTreeContainer:Help("Toggle bones for animation by clicking on a node on the tree.")
 	boneTreeContainer:Dock(TOP)
 
