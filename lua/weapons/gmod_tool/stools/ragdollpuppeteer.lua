@@ -415,9 +415,6 @@ function TOOL:LeftClick(tr)
 		else
 			readSMHPose()
 		end
-
-		net.Start("onSequenceChange")
-		net.Send(ply)
 	end)
 
 	net.Receive("onSequenceChange", function()
@@ -693,69 +690,19 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 		end
 	end)
 
-	local floor = math.floor
-	local ceil = math.ceil
-	local abs = math.abs
-	-- Workaround for ensuring nonphysical bones are moved on sequence change
-	local correctionCount = 0
-	local defaultCorrection = 1 / 24
-
-	-- Make corrections for about this amount multiplied by the max bones of the entity
-	local maxCountHeuristic = 0.25
-	net.Receive("onSequenceChange", function()
-		-- On a different sequence, we want to reset
-		correctionCount = 0
-	end)
-
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		if #panelState.defaultBonePose == 0 or correctionCount == 0 then
-			return
-		end
-
-		-- When the difference between frames are high, then we need to correct more
-		local currentFrame = net.ReadFloat() / panelState.maxFrames
-		local correctionModifier = defaultCorrection / ceil(abs(currentFrame - lastFrame))
-
-		-- If we only changed to a frame of the animation, we assume that this frame's pose
-		-- and the previous frame's pose is almost similar. Our heuristic is to divide the
-		-- correction count so we can account for this, though this would only be effective
-		-- if we incremented (or decremented) the ragdollpuppeteer_frame one at a time.
-		correctionCount = floor(correctionCount * correctionModifier)
-	end)
-
-	-- Because the puppeteer is playing a sequence, it must build its bone positions at every tick.
-	-- This would be unnecessary if the sequence is paused, but this unique behavior allows us to
-	-- correct the serverside puppet's nonphysical bones at every tick
-	local callbackId = animPuppeteer:AddCallback("BuildBonePositions", function(ent, maxBoneCount)
-		-- If the correction count is greater than a heuristic for the minimal number of counts needed to
-		-- closely approximate the nonphysical bone pose, it will make unnecessary client calculations and
-		-- calls to the server
-		if correctionCount >= floor(maxBoneCount * maxCountHeuristic) then
-			return
-		end
-
-		-- Make sure no other network messages are happening
-		if panelState.stateChange then
-			return
-		end
-
-		-- Correct the nonphysical bone pose on the server
-		local newPose = matchNonPhysicalBonePoseOf(ent)
+		local newPose = matchNonPhysicalBonePoseOf(animPuppeteer)
 		net.Start("queryNonPhysBonePoseOfPuppet")
-		for b = 1, maxBoneCount do
+		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector(newPose[b][1])
 			net.WriteAngle(newPose[b][2])
 		end
 		net.SendToServer()
-
-		-- Increment and try again
-		correctionCount = correctionCount + 1
 	end)
 
 	-- End of lifecycle events
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
-			animPuppeteer:RemoveCallback("BuildBonePositions", callbackId)
 			animPuppeteer:Remove()
 			panelState.previousPuppeteer = nil
 			UI.ClearList(panelChildren.sequenceList)
