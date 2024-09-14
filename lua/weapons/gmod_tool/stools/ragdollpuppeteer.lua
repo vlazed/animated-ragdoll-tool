@@ -10,6 +10,7 @@ TOOL.ConfigName = ""
 TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = "false"
 TOOL.ClientConVar["updateposition_floors"] = "false"
+TOOL.ClientConVar["offsetroot"] = "false"
 
 if SERVER then
 	util.AddNetworkString("onFrameChange")
@@ -658,9 +659,15 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	---@type CSEnt
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
 
+	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
+	---@type CSEnt
+	local zeroPuppeteer = createClientPuppeteer(model, puppet, ply)
+	zeroPuppeteer:SetColor(Color(0, 0, 0, 0))
+
 	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
+		zeroPuppeteer = zeroPuppeteer,
 		puppet = puppet,
 		physicsCount = physicsCount,
 	}
@@ -677,6 +684,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
+		setPlacementOf(zeroPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
 	end)
 
 	net.Receive("removeClientAnimPuppeteer", function()
@@ -703,6 +711,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
+			zeroPuppeteer:Remove()
 			panelState.previousPuppeteer = nil
 			UI.ClearList(panelChildren.sequenceList)
 			UI.ClearList(panelChildren.smhList)

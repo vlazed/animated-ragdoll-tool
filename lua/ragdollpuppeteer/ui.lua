@@ -23,11 +23,13 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 ---@field poseParams PoseParameterSlider[]
 ---@field findFloor DCheckBoxLabel
 ---@field boneTree DTree
+---@field offsetRoot DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity
 ---@field physicsCount integer
 ---@field puppeteer Entity
+---@field zeroPuppeteer Entity
 ---@field model string
 
 ---@class PanelState
@@ -111,6 +113,15 @@ end
 ---@return DCheckBoxLabel
 function UI.NonPhysCheckBox(cPanel)
 	local panel = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
+	---@cast panel DCheckBoxLabel
+	return panel
+end
+
+---@package
+---@param cPanel DForm
+---@return DCheckBoxLabel
+function UI.OffsetRoot(cPanel)
+	local panel = cPanel:CheckBox("Offset Root", "ragdollpuppeteer_offsetroot")
 	---@cast panel DCheckBoxLabel
 	return panel
 end
@@ -517,6 +528,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local settings = UI.Settings(cPanel)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
 	local findFloor = UI.FindFloor(settings)
+	local offsetRoot = UI.OffsetRoot(settings)
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(settings, puppeteer)
 
 	local boneTree = UI.BoneTree(cPanel)
@@ -543,7 +555,16 @@ function UI.ConstructPanel(cPanel, panelProps)
 		poseParams = poseParams,
 		findFloor = findFloor,
 		boneTree = boneTree,
+		offsetRoot = offsetRoot,
 	}
+end
+
+---@param puppeteer Entity
+---@param sequenceIndex integer
+local function setSequenceOf(puppeteer, sequenceIndex)
+	puppeteer:ResetSequence(sequenceIndex)
+	puppeteer:SetCycle(0)
+	puppeteer:SetPlaybackRate(0)
 end
 
 ---@param panelChildren PanelChildren
@@ -564,11 +585,15 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local boneTree = panelChildren.boneTree
 
 	local animPuppeteer = panelProps.puppeteer
+	local zeroPuppeteer = panelProps.zeroPuppeteer
 	local puppet = panelProps.puppet
 	local model = panelProps.model
 	local physicsCount = panelProps.physicsCount
 
 	local smhData
+
+	print(zeroPuppeteer)
+	print(animPuppeteer)
 
 	setupBoneNodesOf(puppet, boneTree)
 
@@ -601,10 +626,22 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 	---@param ent Entity
 	---@param rag Entity
-	local function writeSequencePose(ent, rag, physicsObjects)
+	---@param physicsObjects integer
+	---@param originEnt Entity
+	local function writeSequencePose(ent, rag, physicsObjects, originEnt)
+		-- TODO: Use nonphysical bones move physical bones implementation
+		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
+
+		-- Origin position and angles in world coordinates
+		local originBone = rag:TranslatePhysBoneToBone(0)
+		local originPos, originAng = originEnt:GetBonePosition(originBone)
+
+		local newPose = {}
+
 		if game.SinglePlayer() then
 			for i = 0, physicsObjects do
 				local b = rag:TranslatePhysBoneToBone(i)
+				local p = rag:GetBoneParent(b)
 				local pos, ang = ent:GetBonePosition(b)
 				if pos == ent:GetPos() then
 					local matrix = ent:GetBoneMatrix(b)
@@ -613,9 +650,40 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 						ang = matrix:GetAngles()
 					end
 				end
+
+				-- If we're offsetting from the puppeteer, we're animating limbs with respect to the root/pelvis bone
+				if willOffset then
+					-- Query for the root/pelvis bone
+					if p == -1 or i == 0 then
+						-- FIXME: Offset angles rotate root bone inconsistently
+						-- Obtain the offset. Why? We want to preserve pelvis movements from sequence, so it won't look stiff
+						local offsetPos, offsetAng = WorldToLocal(pos, ang, originPos, originAng)
+						-- Replace pos, ang with the current position of the puppet's root/pelvis
+						pos, ang = rag:GetBonePosition(b)
+						-- Move pelvis with offset
+						pos, ang = LocalToWorld(offsetPos, offsetAng, pos, ang)
+					else
+						-- We have a parent, so obtain offset and angles with respect to the parent bone's location
+						if newPose[p] then
+							-- Get position and angles of the new parent pose, in world coordinates
+							local parentPos, parentAng = newPose[p][1], newPose[p][2]
+							-- Get position and angles of the old parent pose, in world coordinates
+							local puppeteerParentPos, puppeteerParentAng = ent:GetBonePosition(p)
+							-- Get relative position and angles of child bone with respect to parent pose
+							pos, ang = WorldToLocal(pos, ang, puppeteerParentPos, puppeteerParentAng)
+							-- Get world position and angles of child bone with respect to new parent pose
+							pos, ang = LocalToWorld(pos, ang, parentPos, parentAng)
+						end
+					end
+				end
+
+				-- Save the current bone pose, so later iterations can use it to offset their own bone poses with respect to this one
+				newPose[b] = { pos, ang }
+
 				net.WriteVector(pos)
 				net.WriteAngle(ang)
 			end
+			PrintTable(newPose)
 		end
 	end
 
@@ -663,7 +731,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
-				writeSequencePose(animPuppeteer, puppet, physicsCount)
+				writeSequencePose(animPuppeteer, puppet, physicsCount, zeroPuppeteer)
 				net.SendToServer()
 			end
 		end)
@@ -710,17 +778,18 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
 		if currentSequence.label ~= seqInfo.label then
 			currentSequence = seqInfo
-			animPuppeteer:ResetSequence(currentIndex)
-			animPuppeteer:SetCycle(0)
-			animPuppeteer:SetPlaybackRate(0)
+			setSequenceOf(animPuppeteer, currentIndex)
+			setSequenceOf(zeroPuppeteer, currentIndex)
+
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
+
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(animPuppeteer, puppet, physicsCount)
+				writeSequencePose(animPuppeteer, puppet, physicsCount, zeroPuppeteer)
 				net.SendToServer()
 			end)
 		end
@@ -749,7 +818,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount)
+			writeSequencePose(animPuppeteer, puppet, physicsCount, zeroPuppeteer)
 			net.SendToServer()
 		else
 			writeSMHPose("onFrameChange", val)
