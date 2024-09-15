@@ -274,6 +274,8 @@ function UI.PoseParameters(cPanel, puppeteer)
 	return poseParams
 end
 
+---@param trio DNumSlider[]
+---@return number[]
 local function getAngleTrio(trio)
 	return { trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue() }
 end
@@ -660,6 +662,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local originBone = rag:TranslatePhysBoneToBone(0)
 		local originPos, originAng = originEnt:GetBonePosition(originBone)
 
+		local angleTrio = getAngleTrio(angOffset)
+		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
+
 		local newPose = {}
 
 		if game.SinglePlayer() then
@@ -673,6 +678,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 						pos = matrix:GetTranslation()
 						ang = matrix:GetAngles()
 					end
+				end
+
+				if i == 0 then
+					ang = ang + angleOffset
 				end
 
 				-- If we're offsetting from the puppeteer, we're animating limbs with respect to the root/pelvis bone
@@ -735,7 +744,22 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	local function onAngleTrioValueChange()
-		writeSMHPose("onFrameChange", numSlider:GetValue())
+		local option, _ = sourceBox:GetSelected()
+		if option == "Sequence" then
+			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
+			local val = numSlider:GetValue()
+			local cycle = val / numframes
+			animPuppeteer:SetCycle(cycle)
+
+			net.Start("onFrameChange", true)
+			net.WriteBool(true)
+			net.WriteFloat(cycle)
+			net.WriteBool(nonPhysCheckbox:GetChecked())
+			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+			net.SendToServer()
+		else
+			writeSMHPose("onFrameChange", numSlider:GetValue())
+		end
 	end
 
 	angOffset[1].OnValueChanged = onAngleTrioValueChange
@@ -746,12 +770,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param paramName string
 	---@param slider DNumSlider
 	local function onPoseParamChange(newValue, paramName, slider)
+		local option, _ = sourceBox:GetSelected()
+
 		animPuppeteer:SetPoseParameter(paramName, newValue)
 		animPuppeteer:InvalidateBoneCache()
 
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-			if sourceBox:GetSelected() == "Sequence" and not slider:IsEditing() then
+			if option == "Sequence" and not slider:IsEditing() then
 				net.Start("onPoseParamChange", true)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
