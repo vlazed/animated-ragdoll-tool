@@ -5,15 +5,15 @@ local Vendor = {}
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
 ---@param entity Entity
----@param bone integer
+---@param physBone integer
 ---@return integer
-function Vendor.GetPhysBoneParent(entity, bone)
-	local b = Vendor.PhysBoneToBone(entity, bone)
+function Vendor.GetPhysBoneParent(entity, physBone)
+	local b = Vendor.PhysBoneToBone(entity, physBone)
 	local i = 1
 	while true do
 		b = entity:GetBoneParent(b)
 		local parent = Vendor.BoneToPhysBone(entity, b)
-		if parent >= 0 and parent ~= bone then
+		if parent >= 0 and parent ~= physBone then
 			return parent
 		end
 		i = i + 1

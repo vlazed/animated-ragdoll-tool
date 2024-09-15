@@ -1,5 +1,8 @@
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
+---@class PhysicsObject
+---@field parent integer
+
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
@@ -25,6 +28,7 @@ if SERVER then
 	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
 	util.AddNetworkString("onPoseParamChange")
 	util.AddNetworkString("onBoneFilterChange")
+	util.AddNetworkString("queryPhysObjects")
 end
 
 local EPSILON = 1e-3
@@ -49,15 +53,32 @@ local function decompressJSONToTable(json)
 	return util.JSONToTable(util.Decompress(json))
 end
 
+---@param ragdoll Entity
+---@param physicsCount integer
+---@param player Player
+local function queryPhysObjects(ragdoll, physicsCount, player)
+	net.Start("queryPhysObjects", false)
+	for i = 0, physicsCount do
+		net.WriteInt(Vendor.GetPhysBoneParent(ragdoll, i), 10)
+		net.WriteString(ragdoll:GetBoneName(ragdoll:TranslatePhysBoneToBone(i)))
+	end
+	net.Send(player)
+end
+
 function TOOL:Think()
 	-- Do not rebuild control panel for the same puppet
 	local currentPuppet = self:GetAnimationPuppet()
 	local physicsCount = self:GetPuppetPhysicsCount()
 
+	if not IsValid(currentPuppet) then
+		return
+	end
+
 	if (IsValid(currentPuppet) and IsValid(prevServerAnimPuppet)) and currentPuppet == prevServerAnimPuppet then
 		return
 	end
 	prevServerAnimPuppet = currentPuppet
+
 	if CLIENT then
 		-- FIXME: Left clicking after right clicking should still rebuild the control panel for the same entity
 		self:RebuildControlPanel(currentPuppet, self:GetOwner(), physicsCount)
@@ -319,8 +340,7 @@ function TOOL:LeftClick(tr)
 		return false
 	end
 
-	self:SetPuppetPhysicsCount(ragdollPuppet:GetPhysicsObjectCount())
-
+	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
 	local puppetModel = ragdollPuppet:GetModel()
 
 	---@type Entity
@@ -328,8 +348,10 @@ function TOOL:LeftClick(tr)
 	if self:GetAnimationPuppet() ~= ragdollPuppet then
 		self:Cleanup()
 	end
+	self:SetPuppetPhysicsCount(physicsCount)
 	self:SetAnimationPuppet(ragdollPuppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
+
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
 
 	local currentIndex = 0
@@ -458,6 +480,10 @@ function TOOL:LeftClick(tr)
 		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
 	end)
 
+	net.Receive("queryPhysObjects", function()
+		queryPhysObjects(ragdollPuppet, physicsCount, ply)
+	end)
+
 	-- End of lifecycle events
 	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		self:Cleanup()
@@ -529,6 +555,7 @@ local panelState = {
 	maxFrames = 0,
 	defaultBonePose = {},
 	previousPuppeteer = nil,
+	physicsObjects = {},
 }
 
 local lastFrame = 0
@@ -648,6 +675,10 @@ local function createClientPuppeteer(model, puppet, ply)
 	return puppeteer
 end
 
+---@param cPanel DForm
+---@param puppet Entity
+---@param ply Player
+---@param physicsCount integer
 function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	if not puppet or not IsValid(puppet) then
 		cPanel:Help("No puppet selected")
@@ -680,7 +711,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	-- UI Hooks
 	UI.HookPanel(panelChildren, panelProps, panelState)
 
-	UI.NetHookPanel(panelChildren.numSlider)
+	UI.NetHookPanel(panelChildren, panelProps, panelState)
 
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
