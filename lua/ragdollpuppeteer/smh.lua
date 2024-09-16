@@ -1,9 +1,6 @@
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
----@module "ragdollpuppeteer.smhTypes"
-include("ragdollpuppeteer/smhTypes.lua")
-
 local SMH = {}
 
 -- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/shared/saves.lua MGR.Load()

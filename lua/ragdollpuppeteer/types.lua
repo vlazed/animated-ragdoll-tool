@@ -1,4 +1,6 @@
-local modules = {}
+local types = {}
+
+-- Stop Motion Helper Types
 
 ---@alias SMHModifiers "advcamera" | "advlight" | "bodygroup" | "bones" | "color" | "eyetarget" | "flex" | "modelscale" | "physbones" | "poseparameter" | "position" | "skin" | "softlamps"
 
@@ -59,4 +61,50 @@ local modules = {}
 ---@field Map string
 ---@field Entities SMHData[]
 
-return modules
+--- UI Types
+
+---@class BoneTreeNode: DTree_Node
+---@field locked boolean
+---@field boneIcon string
+---@field boneId integer
+
+---@class PoseParameterSlider
+---@field slider DNumSlider
+---@field name string
+
+---@class PanelChildren
+---@field puppetLabel DLabel
+---@field smhBrowser DFileBrowser
+---@field smhList DListView
+---@field sequenceList DListView
+---@field nonPhysCheckBox DCheckBoxLabel
+---@field numSlider DNumSlider
+---@field searchBar DTextEntry
+---@field sourceBox DComboBox
+---@field angOffset DNumSlider[]
+---@field poseParams PoseParameterSlider[]
+---@field findFloor DCheckBoxLabel
+---@field boneTree DTree
+---@field offsetRoot DCheckBoxLabel
+
+---@class PanelProps
+---@field puppet Entity
+---@field physicsCount integer
+---@field puppeteer Entity
+---@field zeroPuppeteer Entity
+---@field model string
+
+---@class PanelState
+---@field maxFrames integer
+---@field previousPuppeteer Entity?
+---@field defaultBonePose DefaultBonePose
+---@field physicsObjects PhysicsObject[]
+
+-- Miscellaneous Types
+
+---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
+
+---@class PhysicsObject
+---@field parent integer
+
+return types

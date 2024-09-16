@@ -1,7 +1,7 @@
 if SERVER then
 	include("ragdollpuppeteer/net.lua")
 
-	AddCSLuaFile("ragdollpuppeteer/smhTypes.lua")
+	AddCSLuaFile("ragdollpuppeteer/types.lua")
 	AddCSLuaFile("ragdollpuppeteer/vendor.lua")
 	AddCSLuaFile("ragdollpuppeteer/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/ui.lua")

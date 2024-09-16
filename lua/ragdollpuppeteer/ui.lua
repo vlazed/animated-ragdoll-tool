@@ -1,43 +1,6 @@
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
 
----@class BoneTreeNode: DTree_Node
----@field locked boolean
----@field boneIcon string
----@field boneId integer
-
----@class PoseParameterSlider
----@field slider DNumSlider
----@field name string
-
----@class PanelChildren
----@field puppetLabel DLabel
----@field smhBrowser DFileBrowser
----@field smhList DListView
----@field sequenceList DListView
----@field nonPhysCheckBox DCheckBoxLabel
----@field numSlider DNumSlider
----@field searchBar DTextEntry
----@field sourceBox DComboBox
----@field angOffset DNumSlider[]
----@field poseParams PoseParameterSlider[]
----@field findFloor DCheckBoxLabel
----@field boneTree DTree
----@field offsetRoot DCheckBoxLabel
-
----@class PanelProps
----@field puppet Entity
----@field physicsCount integer
----@field puppeteer Entity
----@field zeroPuppeteer Entity
----@field model string
-
----@class PanelState
----@field maxFrames integer
----@field previousPuppeteer Entity?
----@field defaultBonePose DefaultBonePose
----@field physicsObjects PhysicsObject[]
-
 local DEFAULT_MAX_FRAME = 60
 local SEQUENCE_CHANGE_DELAY = 0.2
 

@@ -1,11 +1,6 @@
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 
----@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
-
----@class PhysicsObject
----@field parent integer
-
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
 TOOL.Command = nil
