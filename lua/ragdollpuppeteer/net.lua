@@ -1,0 +1,13 @@
+util.AddNetworkString("onFrameChange")
+util.AddNetworkString("onSequenceChange")
+util.AddNetworkString("onAngleChange")
+util.AddNetworkString("onFrameNext")
+util.AddNetworkString("onFramePrevious")
+-- TODO: direct way to update client animation puppet
+util.AddNetworkString("updateClientPosition")
+util.AddNetworkString("removeClientAnimPuppeteer")
+util.AddNetworkString("queryDefaultBonePoseOfPuppet")
+util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
+util.AddNetworkString("onPoseParamChange")
+util.AddNetworkString("onBoneFilterChange")
+util.AddNetworkString("queryPhysObjects")

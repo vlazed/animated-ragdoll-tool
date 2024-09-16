@@ -1,10 +1,10 @@
+---@module "ragdollpuppeteer.vendor"
+local Vendor = include("ragdollpuppeteer/vendor.lua")
+
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
 ---@class PhysicsObject
 ---@field parent integer
-
----@module "ragdollpuppeteer.vendor"
-local Vendor = include("ragdollpuppeteer/vendor.lua")
 
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
@@ -14,22 +14,6 @@ TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = "false"
 TOOL.ClientConVar["updateposition_floors"] = "false"
 TOOL.ClientConVar["offsetroot"] = "false"
-
-if SERVER then
-	util.AddNetworkString("onFrameChange")
-	util.AddNetworkString("onSequenceChange")
-	util.AddNetworkString("onAngleChange")
-	util.AddNetworkString("onFrameNext")
-	util.AddNetworkString("onFramePrevious")
-	-- TODO: direct way to update client animation puppet
-	util.AddNetworkString("updateClientPosition")
-	util.AddNetworkString("removeClientAnimPuppeteer")
-	util.AddNetworkString("queryDefaultBonePoseOfPuppet")
-	util.AddNetworkString("queryNonPhysBonePoseOfPuppet")
-	util.AddNetworkString("onPoseParamChange")
-	util.AddNetworkString("onBoneFilterChange")
-	util.AddNetworkString("queryPhysObjects")
-end
 
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
