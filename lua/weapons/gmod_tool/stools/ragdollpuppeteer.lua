@@ -665,7 +665,7 @@ end
 ---@param physicsCount integer
 function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	if not puppet or not IsValid(puppet) then
-		cPanel:Help("No puppet selected")
+		cPanel:Help("#ui.ragdollpuppeteer.label.none")
 		return
 	end
 
@@ -702,14 +702,19 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 		setPlacementOf(zeroPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
 	end)
 
-	net.Receive("removeClientAnimPuppeteer", function()
+	local function removePuppeteer()
 		if IsValid(animPuppeteer) then
 			animPuppeteer:Remove()
+			zeroPuppeteer:Remove()
 			panelState.previousPuppeteer = nil
 			UI.ClearList(panelChildren.sequenceList)
 			UI.ClearList(panelChildren.smhList)
-			panelChildren.puppetLabel:SetText("No puppet selected.")
+			panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
 		end
+	end
+
+	net.Receive("removeClientAnimPuppeteer", function()
+		removePuppeteer()
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
@@ -724,14 +729,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 
 	-- End of lifecycle events
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
-		if IsValid(animPuppeteer) then
-			animPuppeteer:Remove()
-			zeroPuppeteer:Remove()
-			panelState.previousPuppeteer = nil
-			UI.ClearList(panelChildren.sequenceList)
-			UI.ClearList(panelChildren.smhList)
-			panelChildren.puppetLabel:SetText("No puppet selected.")
-		end
+		removePuppeteer()
 	end)
 
 	panelState.previousPuppeteer = animPuppeteer
@@ -775,7 +773,7 @@ function TOOL:DrawToolScreen(width, height)
 	local maxAnimFrames = panelState.maxFrames
 
 	draw.SimpleText(
-		"Ragdoll Puppeteer",
+		"#tool.ragdollpuppeteer.name",
 		"DermaLarge",
 		width * TEXT_WIDTH_MODIFIER,
 		height * TEXT_HEIGHT_MODIFIER,
@@ -818,10 +816,3 @@ TOOL.Information = {
 		stage = 1,
 	},
 }
-
-language.Add("tool.ragdollpuppeteer.name", "Ragdoll Puppeteer")
-language.Add("tool.ragdollpuppeteer.desc", "Puppeteer a ragdoll to any animation frame")
-language.Add("tool.ragdollpuppeteer.0", "Select a ragdoll to puppeteer")
-language.Add("tool.ragdollpuppeteer.1", "Play animations through the context menu")
-language.Add("tool.ragdollpuppeteer.left", "Add puppeteer to ragdoll")
-language.Add("tool.ragdollpuppeteer.right", "Remove puppeteer from ragdoll")

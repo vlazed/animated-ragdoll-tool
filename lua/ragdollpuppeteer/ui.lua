@@ -68,7 +68,7 @@ end
 ---@param model string
 ---@return DLabel
 function UI.PuppetLabel(cPanel, model)
-	local panel = cPanel:Help("Current Puppet: " .. model)
+	local panel = cPanel:Help(language.GetPhrase("ui.ragdollpuppeteer.label.current") .. " " .. model)
 	---@cast panel DLabel
 	return panel
 end
@@ -78,9 +78,9 @@ end
 ---@return DTextEntry
 function UI.SearchBar(cPanel)
 	---@diagnostic disable-next-line
-	local panel = cPanel:TextEntry("Search Bar:")
+	local panel = cPanel:TextEntry("#ui.ragdollpuppeteer.label.search")
 	---@cast panel DTextEntry
-	panel:SetPlaceholderText("Search for a sequence...")
+	panel:SetPlaceholderText("#ui.ragdollpuppeteer.tooltip.search")
 
 	return panel
 end
@@ -90,13 +90,13 @@ end
 ---@return DComboBox
 function UI.AnimationSourceBox(cPanel)
 	---@diagnostic disable-next-line
-	local panel = cPanel:ComboBox("Source")
+	local panel = cPanel:ComboBox("#ui.ragdollpuppeteer.label.source")
 	---@cast panel DComboBox
 
-	panel:AddChoice("Sequence")
-	panel:AddChoice("Stop Motion Helper")
-	panel:ChooseOption("Sequence", 1)
-	panel:SetTooltip("Choose between the model's built-in sequences or custom Stop Motion Helper animations")
+	panel:AddChoice("#ui.ragdollpuppeteer.label.sequence", "sequence")
+	panel:AddChoice("#ui.ragdollpuppeteer.label.smh", "smh")
+	panel:ChooseOption("#ui.ragdollpuppeteer.label.sequence", 1)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.source")
 
 	return panel
 end
@@ -106,10 +106,10 @@ end
 ---@param puppeteer Entity
 ---@return DButton
 function UI.UpdatePuppeteerButton(cPanel, puppeteer)
-	local panel = cPanel:Button("Update Puppeteer Position", "ragdollpuppeteer_updateposition", puppeteer)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.updatepos", "ragdollpuppeteer_updateposition", puppeteer)
 	---@cast panel DButton
 
-	panel:SetTooltip("Choose between the puppet model's built-in sequences or custom Stop Motion Helper animations")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.updatepos")
 	return panel
 end
 
@@ -122,7 +122,7 @@ function UI.FrameSlider(cPanel, label)
 	local panel = cPanel:NumSlider(label, "ragdollpuppeteer_frame", 0, DEFAULT_MAX_FRAME - 1, 0)
 	---@cast panel DNumSlider
 
-	panel:SetTooltip("Drag on the timeline to set the frame of animation")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.timeline")
 
 	return panel
 end
@@ -131,12 +131,10 @@ end
 ---@param cPanel DForm
 ---@return DCheckBoxLabel
 function UI.NonPhysCheckBox(cPanel)
-	local panel = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.nonphys", "ragdollpuppeteer_animatenonphys")
 	---@cast panel DCheckBoxLabel
 
-	panel:SetTooltip(
-		"If checked, move nonphysical bones on sequence or frame change (fingers, toes, hats, weapon bones, etc.)"
-	)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.nonphys")
 
 	return panel
 end
@@ -145,10 +143,10 @@ end
 ---@param cPanel DForm
 ---@return DCheckBoxLabel
 function UI.OffsetRoot(cPanel)
-	local panel = cPanel:CheckBox("Offset Root", "ragdollpuppeteer_offsetroot")
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.offsetroot", "ragdollpuppeteer_offsetroot")
 	---@cast panel DCheckBoxLabel
 
-	panel:SetTooltip("If checked, animate the puppet without moving it to the puppeteer's location")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.offsetroot")
 
 	return panel
 end
@@ -157,12 +155,10 @@ end
 ---@param cPanel DForm
 ---@return DCheckBoxLabel
 function UI.FindFloor(cPanel)
-	local panel = cPanel:CheckBox("Teleport to Floor", "ragdollpuppeteer_updateposition_floors")
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_updateposition_floors")
 	---@cast panel DCheckBoxLabel
 
-	panel:SetTooltip(
-		"If checked, clicking the update button will move the puppeteer onto the ground; otherwise, it will move to the root of the puppet"
-	)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
 
 	return panel
 end
@@ -173,10 +169,10 @@ end
 function UI.SequenceList(cPanel)
 	local animationList = vgui.Create("DListView", cPanel)
 	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Id")
-	animationList:AddColumn("Name")
-	animationList:AddColumn("FPS")
-	animationList:AddColumn("Duration (frames)")
+	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.id")
+	animationList:AddColumn("#ui.ragdollpuppeteer.shared.name")
+	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.fps")
+	animationList:AddColumn("#ui.ragdollpuppeteer.shared.duration")
 	cPanel:AddItem(animationList)
 	return animationList
 end
@@ -187,8 +183,8 @@ end
 function UI.SMHEntityList(cPanel)
 	local animationList = vgui.Create("DListView", cPanel)
 	animationList:SetMultiSelect(false)
-	animationList:AddColumn("Name")
-	animationList:AddColumn("Duration (frames)")
+	animationList:AddColumn("#ui.ragdollpuppeteer.shared.name")
+	animationList:AddColumn("#ui.ragdollpuppeteer.shared.duration")
 	cPanel:AddItem(animationList)
 	return animationList
 end
@@ -232,7 +228,7 @@ function UI.AngleNumSliderTrio(cPanel, names, label)
 	local angleSliders = UI.AngleNumSliders(dForm, names)
 	cPanel:AddItem(dForm)
 	---@diagnostic disable-next-line
-	local resetAngles = dForm:Button("Reset Angles")
+	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
 	function resetAngles:DoClick()
 		for i = 1, 3 do
 			angleSliders[i]:SetValue(0)
@@ -271,7 +267,7 @@ function UI.PoseParameters(cPanel, puppeteer)
 
 	---@type DForm
 	local dForm = vgui.Create("DForm")
-	dForm:SetLabel("Pose Parameters")
+	dForm:SetLabel("#ui.ragdollpuppeteer.label.poseparams")
 	local numParameters = puppeteer:GetNumPoseParameters()
 
 	for i = 1, numParameters do
@@ -279,7 +275,7 @@ function UI.PoseParameters(cPanel, puppeteer)
 	end
 
 	---@diagnostic disable-next-line
-	local resetParams = dForm:Button("Reset parameters")
+	local resetParams = dForm:Button("#ui.ragdollpuppeteer.label.resetparams")
 	function resetParams:DoClick()
 		for i = 1, numParameters do
 			poseParams[i].slider:ResetToDefaultValue()
@@ -448,7 +444,7 @@ end
 ---@return DForm
 function UI.Settings(cPanel)
 	local settings = vgui.Create("DForm", cPanel)
-	settings:SetLabel("Settings")
+	settings:SetLabel("#ui.ragdollpuppeteer.label.settings")
 
 	cPanel:AddItem(settings)
 
@@ -461,14 +457,14 @@ end
 ---@return DForm
 function UI.Lists(cPanel)
 	local lists = vgui.Create("DForm", cPanel)
-	lists:SetLabel("Hide Animation List")
+	lists:SetLabel("#ui.ragdollpuppeteer.label.hidelist")
 	cPanel:AddItem(lists)
 
 	function lists:OnToggle(expanded)
 		if expanded then
-			lists:SetLabel("Hide Animation List")
+			lists:SetLabel("#ui.ragdollpuppeteer.label.hidelist")
 		else
-			lists:SetLabel("Show Animation List")
+			lists:SetLabel("#ui.ragdollpuppeteer.label.showlist")
 		end
 	end
 
@@ -481,7 +477,7 @@ end
 ---@return DForm
 function UI.Timelines(cPanel)
 	local timelines = vgui.Create("DForm", cPanel)
-	timelines:SetLabel("Timelines")
+	timelines:SetLabel("#ui.ragdollpuppeteer.label.timelines")
 	cPanel:AddItem(timelines)
 
 	return timelines
@@ -544,8 +540,8 @@ end
 function UI.BoneTree(cPanel)
 	local boneTreeContainer = vgui.Create("DForm", cPanel)
 	cPanel:AddItem(boneTreeContainer)
-	boneTreeContainer:SetLabel("Filter Bone Tree")
-	boneTreeContainer:Help("Toggle bones for animation by clicking on a node on the tree.")
+	boneTreeContainer:SetLabel("#ui.ragdollpuppeteer.label.bonetree")
+	boneTreeContainer:Help("#ui.ragdollpuppeteer.tooltip.bonetree")
 	boneTreeContainer:Dock(TOP)
 
 	local boneTree = vgui.Create("DTree", boneTreeContainer)
@@ -568,8 +564,12 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
 	local timelines = UI.Timelines(cPanel)
-	local numSlider = UI.FrameSlider(timelines, "Base")
-	local angOffset = UI.AngleNumSliderTrio(cPanel, { "Pitch", "Yaw", "Roll" }, "Angle Offset")
+	local numSlider = UI.FrameSlider(timelines, language.GetPhrase("#ui.ragdollpuppeteer.label.base"))
+	local angOffset = UI.AngleNumSliderTrio(
+		cPanel,
+		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
+		"#ui.ragdollpuppeteer.label.angleoffset"
+	)
 	local poseParams = UI.PoseParameters(cPanel, puppeteer)
 	local settings = UI.Settings(cPanel)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
@@ -762,8 +762,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	local function onAngleTrioValueChange()
-		local option, _ = sourceBox:GetSelected()
-		if option == "Sequence" then
+		local _, option = sourceBox:GetSelected()
+		if option == "sequence" then
 			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
 			local val = numSlider:GetValue()
 			local cycle = val / numframes
@@ -788,14 +788,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param paramName string
 	---@param slider DNumSlider
 	local function onPoseParamChange(newValue, paramName, slider)
-		local option, _ = sourceBox:GetSelected()
+		local _, option = sourceBox:GetSelected()
 
 		animPuppeteer:SetPoseParameter(paramName, newValue)
 		animPuppeteer:InvalidateBoneCache()
 
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-			if option == "Sequence" and not slider:IsEditing() then
+			if option == "sequence" and not slider:IsEditing() then
 				net.Start("onPoseParamChange", true)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
@@ -813,8 +813,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function searchBar:OnEnter(text)
+		local _, option = sourceBox:GetSelected()
 		---@cast text string
-		if sourceBox:GetSelected() == "Sequence" then
+		if option == "sequence" then
 			UI.ClearList(sequenceList)
 			UI.PopulateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
 				---@cast seqInfo SequenceInfo
@@ -870,8 +871,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if math.abs(prevFrame - val) < 1 then
 			return
 		end
-		local option, _ = sourceBox:GetSelected()
-		if option == "Sequence" then
+		local _, option = sourceBox:GetSelected()
+		if option == "sequence" then
 			if not currentSequence.anims then
 				return
 			end
@@ -896,8 +897,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		prevFrame = val
 	end
 
-	function sourceBox:OnSelect(ind, val, data)
-		if val == "Sequence" then
+	function sourceBox:OnSelect(_, _, option)
+		if option == "sequence" then
 			smhList:SizeTo(-1, 0, 0.5)
 			smhBrowser:SizeTo(-1, 0, 0.5)
 			sequenceList:SizeTo(-1, 500, 0.5)
@@ -908,7 +909,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
-	function smhList:OnRowSelected(index, row)
+	function smhList:OnRowSelected(_, row)
 		numSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
 		writeSMHPose("onSequenceChange", 0)
