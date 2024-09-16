@@ -533,8 +533,6 @@ local PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "UnlitGe
 	["$basetexture"] = "color/white",
 	["$model"] = 1,
 	["$translucent"] = 1,
-	["$additive"] = 1,
-	["$ignorez"] = 1,
 	["$decal"] = 1,
 })
 local COLOR_BLUE = Color(0, 0, 64, 100)
