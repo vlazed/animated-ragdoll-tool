@@ -534,6 +534,16 @@ end
 ---@module "ragdollpuppeteer.ui"
 local UI = include("ragdollpuppeteer/ui.lua")
 
+local PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "UnlitGeneric", {
+	["$basetexture"] = "color/white",
+	["$model"] = 1,
+	["$translucent"] = 1,
+	["$additive"] = 1,
+	["$ignorez"] = 1,
+	["$decal"] = 1,
+})
+local COLOR_BLUE = Color(0, 0, 64, 100)
+
 ---@type PanelState
 local panelState = {
 	maxFrames = 0,
@@ -548,8 +558,9 @@ TOOL:BuildConVarList()
 
 ---@param puppeteer Entity
 local function styleClientPuppeteer(puppeteer)
-	puppeteer:SetColor(Color(0, 0, 255, 128))
+	puppeteer:SetColor(COLOR_BLUE)
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
+	puppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
 end
 
 ---Get the pose of every bone of the entity, for nonphysical bone matching
