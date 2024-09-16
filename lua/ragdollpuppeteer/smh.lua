@@ -74,13 +74,10 @@ end
 local function deltaPose(poseData, originPose)
 	local targetPose = poseData[0]
 	local newPose = poseData
-	--PrintTable(targetPose)
 	local wpos, wang = WorldToLocal(targetPose.Pos, targetPose.Ang, originPose.Pos, originPose.Ang)
 	local pos, ang = LocalToWorld(wpos, wang, vector_origin, angle_zero)
-	newPose[0].Pos = pos --targetPose.Pos - originPose.Pos
-	newPose[0].Ang = ang --targetPose.Ang - originPose.Ang
-	--PrintTable(originPose)
-	--print()
+	newPose[0].Pos = pos
+	newPose[0].Ang = ang
 	return newPose
 end
 
@@ -108,9 +105,7 @@ end
 ---@param modifier SMHModifiers
 ---@return SMHFramePose
 function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
-	local originPose = getOriginPose(smhFrames, modifier) --smhFrames[1].EntityData[modifier][0]
-	--PrintTable(originPose)
-	--print()
+	local originPose = getOriginPose(smhFrames, modifier)
 	for _, frameData in ipairs(smhFrames) do
 		-- If no pose data exists, continue to the next frame
 		if not frameData.EntityData[modifier] then
