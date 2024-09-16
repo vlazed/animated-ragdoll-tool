@@ -1,6 +1,3 @@
----@module "ragdollpuppeteer.smhTypes"
-include("ragdollpuppeteer/smhTypes.lua")
-
 local Vendor = {}
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
