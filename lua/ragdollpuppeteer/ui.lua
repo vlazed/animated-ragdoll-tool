@@ -96,6 +96,7 @@ function UI.AnimationSourceBox(cPanel)
 	panel:AddChoice("Sequence")
 	panel:AddChoice("Stop Motion Helper")
 	panel:ChooseOption("Sequence", 1)
+	panel:SetTooltip("Choose between the model's built-in sequences or custom Stop Motion Helper animations")
 
 	return panel
 end
@@ -107,6 +108,8 @@ end
 function UI.UpdatePuppeteerButton(cPanel, puppeteer)
 	local panel = cPanel:Button("Update Puppeteer Position", "ragdollpuppeteer_updateposition", puppeteer)
 	---@cast panel DButton
+
+	panel:SetTooltip("Choose between the puppet model's built-in sequences or custom Stop Motion Helper animations")
 	return panel
 end
 
@@ -118,6 +121,9 @@ function UI.FrameSlider(cPanel, label)
 	label = label or "Frame"
 	local panel = cPanel:NumSlider(label, "ragdollpuppeteer_frame", 0, DEFAULT_MAX_FRAME - 1, 0)
 	---@cast panel DNumSlider
+
+	panel:SetTooltip("Drag on the timeline to set the frame of animation")
+
 	return panel
 end
 
@@ -127,6 +133,11 @@ end
 function UI.NonPhysCheckBox(cPanel)
 	local panel = cPanel:CheckBox("Animate Nonphysical Bones", "ragdollpuppeteer_animatenonphys")
 	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip(
+		"If checked, move nonphysical bones on sequence or frame change (fingers, toes, hats, weapon bones, etc.)"
+	)
+
 	return panel
 end
 
@@ -136,6 +147,9 @@ end
 function UI.OffsetRoot(cPanel)
 	local panel = cPanel:CheckBox("Offset Root", "ragdollpuppeteer_offsetroot")
 	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip("If checked, animate the puppet without moving it to the puppeteer's location")
+
 	return panel
 end
 
@@ -145,6 +159,11 @@ end
 function UI.FindFloor(cPanel)
 	local panel = cPanel:CheckBox("Teleport to Floor", "ragdollpuppeteer_updateposition_floors")
 	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip(
+		"If checked, clicking the update button will move the puppeteer onto the ground; otherwise, it will move to the root of the puppet"
+	)
+
 	return panel
 end
 
@@ -416,7 +435,6 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("queryPhysObjects", function()
 		local newPhysicsObjects = getPhysObjectStructure(panelProps.physicsCount)
 		panelState.physicsObjects = newPhysicsObjects
-		PrintTable(newPhysicsObjects)
 	end)
 
 	-- Initially, we don't have the phys objects, or the phys objects are different from the last entity
