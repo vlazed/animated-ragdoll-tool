@@ -1,3 +1,5 @@
+--- General vendor functions from Ragdoll Mover and Stop Motion Helper
+
 local Vendor = {}
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209

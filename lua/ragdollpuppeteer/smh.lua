@@ -1,3 +1,5 @@
+--- Stop Motion Helper vendor functions to generate SMH pose for puppet
+
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 

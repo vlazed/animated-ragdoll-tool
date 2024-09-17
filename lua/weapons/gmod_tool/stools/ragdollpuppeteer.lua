@@ -25,12 +25,15 @@ local bonesReset = false
 local defaultAngle = angle_zero
 local filteredBones = {}
 
+---@param puppeteer Entity
 local function styleServerPuppeteer(puppeteer)
 	puppeteer:SetColor(Color(255, 255, 255, 0))
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 	puppeteer:AddEffects(EF_NODRAW)
 end
 
+---@param json string
+---@return table
 local function decompressJSONToTable(json)
 	return util.JSONToTable(util.Decompress(json))
 end

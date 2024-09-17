@@ -1,3 +1,5 @@
+--- Used for the developer to help with typing
+
 local types = {}
 
 -- Stop Motion Helper Types
