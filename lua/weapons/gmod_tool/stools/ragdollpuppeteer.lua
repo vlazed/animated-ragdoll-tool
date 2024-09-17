@@ -12,12 +12,15 @@ TOOL.ClientConVar["offsetroot"] = "false"
 
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
+local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 local MAX_PELVIS_LOOKUP = 4
 
-local id = "ragdollpuppeteer_puppet"
-local id2 = "ragdollpuppeteer_puppeteer"
-local id3 = "ragdollpuppeteer_puppetCount"
-local prevServerAnimPuppet = nil
+local ids = {
+	"ragdollpuppeteer_puppet",
+	"ragdollpuppeteer_puppeteer",
+	"ragdollpuppeteer_puppetCount",
+}
+
 local bonesReset = false
 local defaultAngle = angle_zero
 local filteredBones = {}
@@ -44,64 +47,61 @@ local function queryPhysObjects(ragdoll, physicsCount, player)
 	net.Send(player)
 end
 
+local lastPuppet = NULL
+local lastValidPuppet = false
 function TOOL:Think()
-	-- Do not rebuild control panel for the same puppet
-	local currentPuppet = self:GetAnimationPuppet()
-	local physicsCount = self:GetPuppetPhysicsCount()
-
-	if not IsValid(currentPuppet) then
-		return
-	end
-
-	if (IsValid(currentPuppet) and IsValid(prevServerAnimPuppet)) and currentPuppet == prevServerAnimPuppet then
-		return
-	end
-	prevServerAnimPuppet = currentPuppet
-
 	if CLIENT then
-		-- FIXME: Left clicking after right clicking should still rebuild the control panel for the same entity
+		-- Do not rebuild control panel for the same puppet
+		local currentPuppet = self:GetAnimationPuppet()
+		local physicsCount = self:GetPuppetPhysicsCount()
+		if currentPuppet == lastPuppet and IsValid(currentPuppet) == lastValidPuppet then
+			return
+		end
+
+		lastPuppet = currentPuppet
+		lastValidPuppet = IsValid(lastPuppet)
 		self:RebuildControlPanel(currentPuppet, self:GetOwner(), physicsCount)
 	end
 end
 
 ---@return integer
 function TOOL:GetPuppetPhysicsCount()
-	return self:GetWeapon():GetNW2Int(id3, 0)
+	return self:GetWeapon():GetNW2Int(ids[3], 0)
 end
 
 ---@param count integer
 function TOOL:SetPuppetPhysicsCount(count)
-	self:GetWeapon():SetNW2Int(id3, count)
+	self:GetWeapon():SetNW2Int(ids[3], count)
 end
 
 ---@param puppet Entity?
 function TOOL:SetAnimationPuppet(puppet)
 	---@cast puppet Entity
-	self:GetWeapon():SetNWEntity(id, puppet)
+	self:GetWeapon():SetNWEntity(ids[1], puppet)
 end
 
 ---@return Entity
 function TOOL:GetAnimationPuppet()
-	return self:GetWeapon():GetNWEntity(id)
+	return self:GetWeapon():GetNWEntity(ids[1])
 end
 
 ---@param puppeteer Entity?
 function TOOL:SetAnimationPuppeteer(puppeteer)
 	---@cast puppeteer Entity
-	self:GetWeapon():SetNWEntity(id2, puppeteer)
+	self:GetWeapon():SetNWEntity(ids[2], puppeteer)
 end
 
 ---@return Entity
 function TOOL:GetAnimationPuppeteer()
-	return self:GetWeapon():GetNWEntity(id2)
+	return self:GetWeapon():GetNWEntity(ids[2])
 end
 
 function TOOL:Cleanup()
 	if IsValid(self:GetAnimationPuppeteer()) then
 		self:GetAnimationPuppeteer():Remove()
 	end
-	self:SetAnimationPuppet(nil)
-	self:SetAnimationPuppeteer(nil)
+	self:SetAnimationPuppet(NULL)
+	self:SetAnimationPuppeteer(NULL)
 	self:SetStage(0)
 end
 
@@ -231,9 +231,10 @@ end
 ---@param findFloor boolean?
 local function setPositionOf(puppeteer, target, findFloor)
 	if findFloor then
+		local targetPosition = target:GetPos()
 		local tr = util.TraceLine({
-			start = target:GetPos(),
-			endpos = target:GetPos() - Vector(0, 0, 3000),
+			start = targetPosition,
+			endpos = targetPosition + FIND_GROUND_VECTOR,
 			filter = function(e)
 				return e:GetClass() == game.GetWorld()
 			end,
@@ -309,8 +310,7 @@ function TOOL:LeftClick(tr)
 	do
 		local validPuppet = IsValid(ragdollPuppet)
 		local isRagdoll = ragdollPuppet:IsRagdoll()
-		local samePuppet = IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() == prevServerAnimPuppet
-		if not validPuppet or not isRagdoll or samePuppet then
+		if not validPuppet or not isRagdoll then
 			return false
 		end
 	end
@@ -479,7 +479,6 @@ function TOOL:RightClick(tr)
 	-- FIXME: Properly clear any animation entities, clientside and serverside
 	if IsValid(self:GetAnimationPuppet()) then
 		self:Cleanup()
-		prevServerAnimPuppet = nil
 		net.Start("removeClientAnimPuppeteer")
 		net.Send(self:GetOwner())
 		return true
