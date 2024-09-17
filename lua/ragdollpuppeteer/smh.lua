@@ -3,8 +3,8 @@ local Vendor = include("ragdollpuppeteer/vendor.lua")
 
 local SMH = {}
 
--- https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/shared/saves.lua MGR.Load()
 ---Parse the smh text file and return a table of it
+---Source: https://github.com/Winded/StopMotionHelper/blob/9680e756ef01ee994c3bbac0eacffdfd174d34bb/lua/smh/shared/saves.lua#L98
 ---@param filePath string
 ---@param model string
 ---@return SMHFile?
