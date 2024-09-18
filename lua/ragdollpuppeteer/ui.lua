@@ -668,9 +668,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 						-- FIXME: Offset angles rotate root bone inconsistently
 						-- Obtain the offset. Why? We want to preserve pelvis movements from sequence, so it won't look stiff
 						-- local offsetPos, offsetAng = WorldToLocal(pos, ang, originPos, originAng)
-						-- local bMatrix = rag:GetBoneMatrix(b)
+						local bMatrix = rag:GetBoneMatrix(b)
 						-- -- Replace pos, ang with the current position of the puppet's root/pelvis
-						-- pos, ang = bMatrix:GetTranslation(), bMatrix:GetAngles()
+						pos, ang = bMatrix:GetTranslation(), bMatrix:GetAngles()
 						-- Move pelvis with offset
 						-- pos, ang = LocalToWorld(offsetPos, offsetAng, pos, ang)
 						ang = ang + angleOffset
