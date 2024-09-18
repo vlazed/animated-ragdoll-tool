@@ -661,10 +661,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					end
 				end
 
-				if i == 0 then
-					ang = ang + angleOffset
-				end
-
 				-- If we're offsetting from the puppeteer, we're animating limbs with respect to the root/pelvis bone
 				if willOffset then
 					-- Query for the root/pelvis bone
@@ -677,6 +673,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 						-- pos, ang = bMatrix:GetTranslation(), bMatrix:GetAngles()
 						-- Move pelvis with offset
 						-- pos, ang = LocalToWorld(offsetPos, offsetAng, pos, ang)
+						ang = ang + angleOffset
 					else
 						-- We have a parent, so obtain offset and angles with respect to the parent bone's location
 						if newPose[p] then

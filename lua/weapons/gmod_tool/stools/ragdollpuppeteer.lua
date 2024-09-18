@@ -569,19 +569,23 @@ local function getDefaultBonePoseOf(ent)
 	for b = 0, ent:GetBoneCount() - 1 do
 		local parent = ent:GetBoneParent(b)
 		local bMatrix = ent:GetBoneMatrix(b)
-		local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
-		local pos2, ang2 = pos1 * 1, ang1 * 1
-		if parent > -1 then
-			local pMatrix = ent:GetBoneMatrix(parent)
-			pos2, ang2 = WorldToLocal(
-				bMatrix:GetTranslation(),
-				bMatrix:GetAngles(),
-				pMatrix:GetTranslation(),
-				pMatrix:GetAngles()
-			)
-		end
+		if bMatrix then
+			local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
+			local pos2, ang2 = pos1 * 1, ang1 * 1
+			if parent > -1 then
+				local pMatrix = ent:GetBoneMatrix(parent)
+				pos2, ang2 = WorldToLocal(
+					bMatrix:GetTranslation(),
+					bMatrix:GetAngles(),
+					pMatrix:GetTranslation(),
+					pMatrix:GetAngles()
+				)
+			end
 
-		defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+			defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+		else
+			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
+		end
 	end
 	return defaultPose
 end
@@ -657,6 +661,7 @@ local function createClientPuppeteer(model, puppet, ply)
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end
+	puppeteer:SetIK(false)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
@@ -742,7 +747,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 end
 
 net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
-	net.Start("queryDefaultBonePoseOfPuppet")
 	local netModel = net.ReadString()
 	local csModel = ents.CreateClientProp()
 	csModel:SetModel(netModel)
@@ -751,6 +755,12 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:InvalidateBoneCache()
 	local defaultBonePose = getDefaultBonePoseOf(csModel)
 	panelState.defaultBonePose = defaultBonePose
+
+	if #defaultBonePose == 0 then
+		return
+	end
+
+	net.Start("queryDefaultBonePoseOfPuppet")
 
 	for b = 1, csModel:GetBoneCount() do
 		net.WriteTable(defaultBonePose[b], true)
