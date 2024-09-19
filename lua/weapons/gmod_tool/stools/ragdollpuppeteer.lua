@@ -7,6 +7,7 @@ TOOL.Command = nil
 TOOL.ConfigName = ""
 TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
+TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["updateposition_floors"] = 0
 TOOL.ClientConVar["offsetroot"] = 0
 TOOL.ClientConVar["fps"] = 30
@@ -611,13 +612,10 @@ end)
 
 ---@module "ragdollpuppeteer.ui"
 local UI = include("ragdollpuppeteer/client/ui.lua")
+---@module "ragdollpuppeteer.constants"
+local constants = include("ragdollpuppeteer/constants.lua")
 
-local PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "UnlitGeneric", {
-	["$basetexture"] = "color/white",
-	["$model"] = 1,
-	["$translucent"] = 1,
-	["$decal"] = 1,
-})
+local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local COLOR_BLUE = Color(0, 0, 64, 100)
 
 ---@type PanelState

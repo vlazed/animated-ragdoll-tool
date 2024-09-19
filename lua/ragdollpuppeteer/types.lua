@@ -88,6 +88,7 @@ local types = {}
 ---@field findFloor DCheckBoxLabel
 ---@field boneTree DTree
 ---@field offsetRoot DCheckBoxLabel
+---@field showPuppeteer DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity

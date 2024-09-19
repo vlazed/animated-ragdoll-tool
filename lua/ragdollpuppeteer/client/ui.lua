@@ -1,5 +1,10 @@
 ---@module "ragdollpuppeteer.smh"
 local SMH = include("ragdollpuppeteer/smh.lua")
+---@module "ragdollpuppeteer.constants"
+local constants = include("ragdollpuppeteer/constants.lua")
+
+local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
+local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 
 local DEFAULT_MAX_FRAME = 60
 local SEQUENCE_CHANGE_DELAY = 0.2
@@ -98,6 +103,18 @@ function UI.NonPhysCheckBox(cPanel)
 	---@cast panel DCheckBoxLabel
 
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.nonphys")
+
+	return panel
+end
+
+---@package
+---@param cPanel DForm
+---@return DCheckBoxLabel
+function UI.PuppeteerVisible(cPanel)
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.showpuppeteer", "ragdollpuppeteer_showpuppeteer")
+	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
 
 	return panel
 end
@@ -537,10 +554,13 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"#ui.ragdollpuppeteer.label.angleoffset"
 	)
 	local poseParams = UI.PoseParameters(cPanel, puppeteer)
+
 	local settings = UI.Settings(cPanel)
 	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
 	local findFloor = UI.FindFloor(settings)
 	local offsetRoot = UI.OffsetRoot(settings)
+	local showPuppeteer = UI.PuppeteerVisible(settings)
+
 	local updatePuppeteerButton = UI.UpdatePuppeteerButton(settings, puppeteer)
 
 	local boneTree = UI.BoneTree(cPanel)
@@ -568,6 +588,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		findFloor = findFloor,
 		boneTree = boneTree,
 		offsetRoot = offsetRoot,
+		showPuppeteer = showPuppeteer,
 	}
 end
 
@@ -595,6 +616,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local angOffset = panelChildren.angOffset
 	local poseParams = panelChildren.poseParams
 	local boneTree = panelChildren.boneTree
+	local showPuppeteer = panelChildren.showPuppeteer
 
 	local animPuppeteer = panelProps.puppeteer
 	local zeroPuppeteer = panelProps.zeroPuppeteer
@@ -609,6 +631,21 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local filteredBones = {}
 	for b = 1, puppet:GetBoneCount() do
 		filteredBones[b] = false
+	end
+
+	local lastCheck
+	function showPuppeteer:OnChange(checked)
+		-- FIXME: This gets called twice, which makes the statement below necessary; maybe due to the cvar?
+		if lastCheck ~= nil and lastCheck == checked then
+			return
+		end
+
+		if checked then
+			animPuppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
+		else
+			animPuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+		end
+		lastCheck = checked
 	end
 
 	---@param node BoneTreeNode

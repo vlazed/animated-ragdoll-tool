@@ -5,6 +5,7 @@ if SERVER then
 	include("ragdollpuppeteer/server/net.lua")
 	include("ragdollpuppeteer/server/concommands.lua")
 
+	AddCSLuaFile("ragdollpuppeteer/constants.lua")
 	AddCSLuaFile("ragdollpuppeteer/vendor.lua")
 	AddCSLuaFile("ragdollpuppeteer/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
