@@ -18,6 +18,7 @@ local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 local MAX_PELVIS_LOOKUP = 4
+local RAGDOLL_HEIGHT_DIFFERENCE = 100
 
 local ids = {
 	"ragdollpuppeteer_puppet",
@@ -263,6 +264,17 @@ local function setPositionOf(puppeteer, target, findFloor)
 			end,
 		})
 		puppeteer:SetPos(tr.HitPos)
+
+		-- Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
+		-- if the difference between the puppeteer's set position and its lower position from the AABB is significantly
+		-- different
+		local min = puppeteer:WorldSpaceAABB()
+		local zMin = min.z
+		local height = puppeteer:GetPos().z
+		local difference = math.abs(height - zMin)
+		if difference > RAGDOLL_HEIGHT_DIFFERENCE then
+			puppeteer:SetPos(puppeteer:GetPos() + Vector(0, 0, difference))
+		end
 	else
 		-- If the puppeteer has a root bone in the same position as the its puppeteer:GetPos(), then it may have its pelvis
 		-- as a child in the bone tree. We'll use the bone that has a significant difference from puppeteer:GetPos()
