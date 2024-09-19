@@ -109,9 +109,11 @@ function TOOL:Cleanup()
 	self:SetAnimationPuppet(NULL)
 	self:SetAnimationPuppeteer(NULL)
 
-	RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
-	RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
-	RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+	if SERVER then
+		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+	end
 
 	self:SetStage(0)
 end
@@ -775,8 +777,10 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 			animPuppeteer:Remove()
 			zeroPuppeteer:Remove()
 			panelState.previousPuppeteer = nil
-			UI.ClearList(panelChildren.sequenceList)
-			UI.ClearList(panelChildren.smhList)
+			-- if panelChildren.sequenceList and panelChildren.smhList then
+			-- 	UI.ClearList(panelChildren.sequenceList)
+			-- 	UI.ClearList(panelChildren.smhList)
+			-- end
 			panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
 		end
 	end
