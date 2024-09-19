@@ -1,4 +1,6 @@
 if SERVER then
+	resource.AddSingleFile("materials/ragdollpuppeteer/invisible.vtf")
+
 	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_tool.properties")
 	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_ui.properties")
 

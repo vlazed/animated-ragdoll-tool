@@ -7,8 +7,9 @@ constants.PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "Unl
 	["$decal"] = 1,
 })
 constants.INVISIBLE_MATERIAL = CreateMaterial("ragdollpuppeteer_invisible", "UnlitGeneric", {
-	["$basetexture"] = "models/effects/vol_light_001",
+	["$basetexture"] = "ragdollpuppeteer/invisible",
 	["$additive"] = 1,
+	["$translucent"] = 1,
 	["$decal"] = 1,
 })
 
