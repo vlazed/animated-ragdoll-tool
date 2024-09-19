@@ -1,3 +1,25 @@
+local allowPlayback = CreateConVar(
+	"sv_ragdollpuppeteer_allow_playback",
+	"0",
+	FCVAR_ARCHIVE + FCVAR_NOTIFY,
+	"Allow +ragdollpuppeteer_playback to be called by players. (INCURS NET COST TO THE SERVER IF USED BY MULTIPLE PLAYERS!)",
+	0,
+	1
+)
+
+cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, newValue)
+	newValue = tonumber(newValue)
+	-- If we're set to false, we need to stop all playback timers
+	if type(newValue) == "number" and newValue == 0 then
+		---@type Player[]
+		local players = player.GetHumans()
+		for _, player in ipairs(players) do
+			local userId = player:UserID()
+			timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
+		end
+	end
+end)
+
 concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	if
 		not IsValid(ply)
@@ -6,9 +28,10 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	then
 		return
 	end
+	local playbackAllowed = allowPlayback:GetInt()
 
-	if not game.SinglePlayer() then
-		print("+ragdollpuppeteer_playback only works in singleplayer!")
+	if playbackAllowed <= 0 then
+		print("+ragdollpuppeteer_playback is disabled in this server!")
 		return
 	end
 

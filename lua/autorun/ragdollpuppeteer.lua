@@ -1,4 +1,7 @@
 if SERVER then
+	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_tool.properties")
+	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_ui.properties")
+
 	include("ragdollpuppeteer/server/net.lua")
 	include("ragdollpuppeteer/server/concommands.lua")
 
@@ -43,7 +46,4 @@ if SERVER then
 	for _, player in ipairs(players) do
 		addPlayerField(player:UserID())
 	end
-
-	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_tool.properties")
-	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_ui.properties")
 end
