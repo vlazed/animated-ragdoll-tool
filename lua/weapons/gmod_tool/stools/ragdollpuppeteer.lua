@@ -9,6 +9,7 @@ TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["updateposition_floors"] = 0
 TOOL.ClientConVar["offsetroot"] = 0
+TOOL.ClientConVar["fps"] = 30
 
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
@@ -334,7 +335,8 @@ function TOOL:LeftClick(tr)
 
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	if self:GetAnimationPuppet() ~= ragdollPuppet then
+	-- If we're selecting a different character, cleanup the previous selection
+	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
 		self:Cleanup()
 	end
 	self:SetPuppetPhysicsCount(physicsCount)
@@ -530,35 +532,17 @@ if SERVER then
 
 		queryPhysObjects(ragdollPuppet, physicsCount, sender)
 	end)
+
+	net.Receive("onFPSChange", function(_, sender)
+		local userId = sender:UserID()
+		assert(RAGDOLLPUPPETEER_PLAYERS[userId], "Player doesn't exist in hashmap!")
+		local fps = net.ReadFloat()
+		RAGDOLLPUPPETEER_PLAYERS[sender:UserID()].fps = fps
+		timer.Adjust("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps)
+	end)
 end
 
 -- Concommands
-concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
-	if
-		not IsValid(ply)
-		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
-		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet
-	then
-		return
-	end
-
-	local userId = ply:UserID()
-	local fps = RAGDOLLPUPPETEER_PLAYERS[userId].fps
-	timer.Create("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps, -1, function()
-		net.Start("onFrameNext")
-		net.Send(ply)
-	end)
-end)
-
-concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
-	if not IsValid(ply) then
-		return
-	end
-
-	local userId = ply:UserID()
-	timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
-end)
-
 concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
 	if not IsValid(ply) then
 		return
@@ -584,22 +568,25 @@ concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_previousframe", function(ply)
-	net.Start("onFramePrevious")
-	net.Send(ply)
-end)
-
-concommand.Add("ragdollpuppeteer_nextframe", function(ply)
-	net.Start("onFrameNext")
-	net.Send(ply)
-end)
-
 if SERVER then
 	return
 end
 
+cvars.AddChangeCallback("ragdollpuppeteer_fps", function(_, _, newValue)
+	if not newValue then
+		return
+	end
+
+	local newFPS = tonumber(newValue)
+	if type(newFPS) == "number" then
+		net.Start("onFPSChange")
+		net.WriteFloat(newFPS)
+		net.SendToServer()
+	end
+end)
+
 ---@module "ragdollpuppeteer.ui"
-local UI = include("ragdollpuppeteer/ui.lua")
+local UI = include("ragdollpuppeteer/client/ui.lua")
 
 local PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "UnlitGeneric", {
 	["$basetexture"] = "color/white",
