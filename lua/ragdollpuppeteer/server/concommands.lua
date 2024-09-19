@@ -7,6 +7,11 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 		return
 	end
 
+	if not game.SinglePlayer() then
+		print("+ragdollpuppeteer_playback only works in singleplayer!")
+		return
+	end
+
 	local userId = ply:UserID()
 	local fps = RAGDOLLPUPPETEER_PLAYERS[userId].fps
 	timer.Create("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps, -1, function()
@@ -17,6 +22,9 @@ end)
 
 concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
 	if not IsValid(ply) then
+		return
+	end
+	if not game.SinglePlayer() then
 		return
 	end
 
