@@ -319,7 +319,7 @@ function TOOL:LeftClick(tr)
 	end
 
 	if CLIENT then
-		return false
+		return true
 	end
 
 	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
@@ -502,6 +502,10 @@ function TOOL:RightClick(tr)
 	-- FIXME: Properly clear any animation entities, clientside and serverside
 	if IsValid(self:GetAnimationPuppet()) then
 		self:Cleanup()
+		if CLIENT then
+			return true
+		end
+
 		net.Start("removeClientAnimPuppeteer")
 		net.Send(self:GetOwner())
 		return true
