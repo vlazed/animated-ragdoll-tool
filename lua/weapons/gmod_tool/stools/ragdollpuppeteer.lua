@@ -11,6 +11,8 @@ TOOL.ClientConVar["updateposition_floors"] = 0
 TOOL.ClientConVar["offsetroot"] = 0
 TOOL.ClientConVar["fps"] = 30
 
+local mode = TOOL:GetMode()
+
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
@@ -22,6 +24,7 @@ local ids = {
 	"ragdollpuppeteer_puppetCount",
 }
 
+-- TODO: Move these to the RAGDOLLPUPPETEER_PLAYERS table when possible
 local bonesReset = false
 local defaultAngle = angle_zero
 local filteredBones = {}
@@ -100,20 +103,26 @@ function TOOL:GetAnimationPuppeteer()
 	return self:GetWeapon():GetNWEntity(ids[2])
 end
 
-function TOOL:Cleanup()
-	local ply = self:GetOwner()
-	local userId = ply:UserID()
+function TOOL:Cleanup(userId)
+	if SERVER then
+		if IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
+			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
+		end
+
+		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+	end
+
+	if not IsValid(self) then
+		return
+	end
+
 	if IsValid(self:GetAnimationPuppeteer()) then
 		self:GetAnimationPuppeteer():Remove()
 	end
 	self:SetAnimationPuppet(NULL)
 	self:SetAnimationPuppeteer(NULL)
-
-	if SERVER then
-		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
-	end
 
 	self:SetStage(0)
 end
@@ -318,6 +327,7 @@ end
 function TOOL:LeftClick(tr)
 	---@type Player
 	local ply = self:GetOwner()
+	local userId = ply:UserID()
 
 	local ragdollPuppet = tr.Entity
 	do
@@ -339,7 +349,7 @@ function TOOL:LeftClick(tr)
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
 	-- If we're selecting a different character, cleanup the previous selection
 	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
-		self:Cleanup()
+		self:Cleanup(userId)
 	end
 	self:SetPuppetPhysicsCount(physicsCount)
 	self:SetAnimationPuppet(ragdollPuppet)
@@ -366,7 +376,7 @@ function TOOL:LeftClick(tr)
 
 	-- End of lifecycle events
 	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
-		self:Cleanup()
+		self:Cleanup(userId)
 	end)
 	-- Set stages for showing control panel for selected puppet
 	self:SetStage(1)
@@ -378,8 +388,10 @@ end
 ---@return boolean?
 function TOOL:RightClick(tr)
 	-- FIXME: Properly clear any animation entities, clientside and serverside
+	local ply = self:GetOwner()
+	local userId = ply:UserID()
 	if IsValid(self:GetAnimationPuppet()) then
-		self:Cleanup()
+		self:Cleanup(userId)
 		if CLIENT then
 			return true
 		end
@@ -454,6 +466,16 @@ end
 
 -- Network hooks from client
 if SERVER then
+	hook.Add("PlayerSpawn", "ragdollpuppeteer_spawnCleanup", function(player)
+		---@cast player Player
+
+		local tool = player:GetTool(mode)
+		local userId = player:UserID()
+		if tool then
+			tool:Cleanup(userId)
+		end
+	end)
+
 	net.Receive("onFrameChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
@@ -773,15 +795,20 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	end)
 
 	local function removePuppeteer()
-		if IsValid(animPuppeteer) then
+		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
 			animPuppeteer:Remove()
 			zeroPuppeteer:Remove()
-			panelState.previousPuppeteer = nil
-			-- if panelChildren.sequenceList and panelChildren.smhList then
-			-- 	UI.ClearList(panelChildren.sequenceList)
-			-- 	UI.ClearList(panelChildren.smhList)
-			-- end
-			panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
+			panelState.previousPuppeteer = NULL
+
+			if IsValid(panelChildren.sequenceList) then
+				UI.ClearList(panelChildren.sequenceList)
+			end
+			if IsValid(panelChildren.smhList) then
+				UI.ClearList(panelChildren.smhList)
+			end
+			if IsValid(panelChildren.puppetLabel) then
+				panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
+			end
 		end
 	end
 
