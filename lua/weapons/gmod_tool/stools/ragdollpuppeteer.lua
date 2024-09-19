@@ -453,6 +453,8 @@ if SERVER then
 	net.Receive("onFrameChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local ragdollPuppet = playerData.puppet
+		local animPuppeteer = playerData.puppeteer
 
 		local isSequence = net.ReadBool()
 		if isSequence then
@@ -461,13 +463,14 @@ if SERVER then
 			playerData.cycle = cycle
 			setPuppeteerPose(cycle, animatingNonPhys, playerData)
 		else
-			readSMHPose()
+			readSMHPose(ragdollPuppet, animPuppeteer)
 		end
 	end)
 
 	net.Receive("onSequenceChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local ragdollPuppet = playerData.puppet
 		local animPuppeteer = playerData.puppeteer
 
 		if not IsValid(animPuppeteer) then
@@ -480,7 +483,7 @@ if SERVER then
 			playerData.currentIndex = seqIndex
 			setPuppeteerPose(0, animatingNonPhys, playerData)
 		else
-			readSMHPose()
+			readSMHPose(ragdollPuppet, animPuppeteer)
 		end
 
 		net.Start("onSequenceChange")
