@@ -104,6 +104,15 @@ local types = {}
 
 -- Miscellaneous Types
 
+---@class RagdollPuppeteerPlayerField
+---@field player Player
+---@field puppet Entity
+---@field puppeteer Entity
+---@field physicsCount integer
+---@field currentIndex integer
+---@field cycle number
+---@field fps integer
+
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
 ---@class PhysicsObject

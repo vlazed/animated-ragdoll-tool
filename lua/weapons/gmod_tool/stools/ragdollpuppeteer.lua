@@ -9,6 +9,7 @@ TOOL.ClientConVar["frame"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["updateposition_floors"] = 0
 TOOL.ClientConVar["offsetroot"] = 0
+TOOL.ClientConVar["fps"] = 30
 
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
@@ -100,11 +101,20 @@ function TOOL:GetAnimationPuppeteer()
 end
 
 function TOOL:Cleanup()
+	local ply = self:GetOwner()
+	local userId = ply:UserID()
 	if IsValid(self:GetAnimationPuppeteer()) then
 		self:GetAnimationPuppeteer():Remove()
 	end
 	self:SetAnimationPuppet(NULL)
 	self:SetAnimationPuppeteer(NULL)
+
+	if SERVER then
+		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+	end
+
 	self:SetStage(0)
 end
 
@@ -327,164 +337,32 @@ function TOOL:LeftClick(tr)
 
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	if self:GetAnimationPuppet() ~= ragdollPuppet then
+	-- If we're selecting a different character, cleanup the previous selection
+	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
 		self:Cleanup()
 	end
 	self:SetPuppetPhysicsCount(physicsCount)
 	self:SetAnimationPuppet(ragdollPuppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
 
+	if not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] then
+		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] = {
+			currentIndex = 0,
+			cycle = 0,
+			player = ply,
+			puppet = ragdollPuppet,
+			puppeteer = animPuppeteer,
+			fps = 30,
+			physicsCount = physicsCount,
+		}
+	else
+		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet = ragdollPuppet
+		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppeteer = animPuppeteer
+		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].physicsCount = physicsCount
+		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].player = ply
+	end
+
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
-
-	local currentIndex = 0
-
-	---Decode the SMH pose from the client
-	---@return SMHFramePose
-	local function decodePose()
-		local pose = {}
-		local poseSize = net.ReadUInt(16)
-		for i = 0, poseSize do
-			pose[i] = {
-				Pos = 0,
-				Ang = 0,
-				Scale = 0,
-				LocalPos = 0,
-				LocalAng = 0,
-			}
-
-			pose[i].Pos = net.ReadVector()
-			pose[i].Ang = net.ReadAngle()
-			pose[i].Scale = net.ReadVector()
-			pose[i].LocalPos = net.ReadVector()
-			pose[i].LocalAng = net.ReadAngle()
-		end
-		return pose
-	end
-
-	---Helper for setting poses for SMH animations
-	local function readSMHPose()
-		-- Assumes that we are in the networking scope
-		local targetPose = decodePose()
-		local angOffsetLength = net.ReadUInt(16)
-		local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
-		local animatingNonPhys = net.ReadBool()
-		setPhysicalBonePoseOf(ragdollPuppet, targetPose, animPuppeteer, angOffset)
-		if animatingNonPhys then
-			local tPNPLength = net.ReadUInt(16)
-			local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-			setNonPhysicalBonePoseOf(ragdollPuppet, targetPoseNonPhys)
-		elseif not bonesReset then
-			resetAllNonphysicalBonesOf(ragdollPuppet)
-		end
-	end
-
-	---Helper for setting poses for sequences
-	---@param cycle number
-	---@param animatingNonPhys boolean
-	local function setPuppeteerPose(cycle, animatingNonPhys)
-		-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
-		animPuppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
-		animPuppeteer:ResetSequence(currentIndex)
-		animPuppeteer:SetCycle(cycle)
-		animPuppeteer:SetPlaybackRate(0)
-		matchPhysicalBonePoseOf(ragdollPuppet, animPuppeteer)
-		if animatingNonPhys then
-			queryNonPhysBonePoseOfPuppet(ply, cycle)
-		elseif not bonesReset then
-			resetAllNonphysicalBonesOf(ragdollPuppet)
-		end
-	end
-
-	-- Network hooks from client
-	net.Receive("onFrameChange", function(_, sender)
-		if sender ~= ply then
-			return
-		end
-
-		local isSequence = net.ReadBool()
-		if isSequence then
-			local cycle = net.ReadFloat()
-			local animatingNonPhys = net.ReadBool()
-			setPuppeteerPose(cycle, animatingNonPhys)
-		else
-			readSMHPose()
-		end
-	end)
-
-	net.Receive("onSequenceChange", function(_, sender)
-		if sender ~= ply then
-			return
-		end
-
-		if not IsValid(animPuppeteer) then
-			return
-		end
-		local isSequence = net.ReadBool()
-		if isSequence then
-			local seqIndex = net.ReadInt(14)
-			local animatingNonPhys = net.ReadBool()
-			currentIndex = seqIndex
-			setPuppeteerPose(0, animatingNonPhys)
-		else
-			readSMHPose()
-		end
-	end)
-
-	net.Receive("onSequenceChange", function(_, sender)
-		if sender ~= ply then
-			return
-		end
-
-		if not IsValid(animPuppeteer) then
-			return
-		end
-		local isSequence = net.ReadBool()
-		if isSequence then
-			local seqIndex = net.ReadInt(14)
-			local animatingNonPhys = net.ReadBool()
-			currentIndex = seqIndex
-			setPuppeteerPose(0, animatingNonPhys)
-		else
-			readSMHPose()
-		end
-
-		net.Start("onSequenceChange")
-		net.Send(ply)
-	end)
-
-	net.Receive("onPoseParamChange", function(_, sender)
-		if sender ~= ply then
-			return
-		end
-
-		local animatingNonPhys = net.ReadBool()
-		local paramValue = net.ReadFloat()
-		local paramName = net.ReadString()
-		animPuppeteer:SetPoseParameter(paramName, paramValue)
-		setPuppeteerPose(currentIndex, animatingNonPhys)
-	end)
-
-	net.Receive("onBoneFilterChange", function()
-		filteredBones = net.ReadTable(true)
-	end)
-
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, sender)
-		if sender ~= ply then
-			return
-		end
-
-		local newPose = {}
-		for b = 1, animPuppeteer:GetBoneCount() do
-			newPose[b - 1] = {}
-			newPose[b - 1].Pos = net.ReadVector()
-			newPose[b - 1].Ang = net.ReadAngle()
-		end
-		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
-	end)
-
-	net.Receive("queryPhysObjects", function()
-		queryPhysObjects(ragdollPuppet, physicsCount, ply)
-	end)
 
 	-- End of lifecycle events
 	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
@@ -505,11 +383,165 @@ function TOOL:RightClick(tr)
 		if CLIENT then
 			return true
 		end
-
 		net.Start("removeClientAnimPuppeteer")
 		net.Send(self:GetOwner())
 		return true
 	end
+end
+
+---Decode the SMH pose from the client
+---@return SMHFramePose
+local function decodePose()
+	local pose = {}
+	local poseSize = net.ReadUInt(16)
+	for i = 0, poseSize do
+		pose[i] = {
+			Pos = 0,
+			Ang = 0,
+			Scale = 0,
+			LocalPos = 0,
+			LocalAng = 0,
+		}
+
+		pose[i].Pos = net.ReadVector()
+		pose[i].Ang = net.ReadAngle()
+		pose[i].Scale = net.ReadVector()
+		pose[i].LocalPos = net.ReadVector()
+		pose[i].LocalAng = net.ReadAngle()
+	end
+	return pose
+end
+
+---Helper for setting poses for SMH animations
+local function readSMHPose(puppet, puppeteer)
+	-- Assumes that we are in the networking scope
+	local targetPose = decodePose()
+	local angOffsetLength = net.ReadUInt(16)
+	local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
+	local animatingNonPhys = net.ReadBool()
+	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, angOffset)
+	if animatingNonPhys then
+		local tPNPLength = net.ReadUInt(16)
+		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
+		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys)
+	elseif not bonesReset then
+		resetAllNonphysicalBonesOf(puppet)
+	end
+end
+
+---Helper for setting poses for sequences
+---@param cycle number
+---@param animatingNonPhys boolean
+---@param playerData RagdollPuppeteerPlayerField
+local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
+	local player = playerData.player
+	local puppet = playerData.puppet
+	local puppeteer = playerData.puppeteer
+	local currentIndex = playerData.currentIndex
+
+	-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
+	puppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
+	puppeteer:ResetSequence(currentIndex)
+	puppeteer:SetCycle(cycle)
+	puppeteer:SetPlaybackRate(0)
+	matchPhysicalBonePoseOf(puppet, puppeteer)
+	if animatingNonPhys then
+		queryNonPhysBonePoseOfPuppet(player, cycle)
+	elseif not bonesReset then
+		resetAllNonphysicalBonesOf(puppet)
+	end
+end
+
+-- Network hooks from client
+if SERVER then
+	net.Receive("onFrameChange", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local ragdollPuppet = playerData.puppet
+		local animPuppeteer = playerData.puppeteer
+
+		local isSequence = net.ReadBool()
+		if isSequence then
+			local cycle = net.ReadFloat()
+			local animatingNonPhys = net.ReadBool()
+			playerData.cycle = cycle
+			setPuppeteerPose(cycle, animatingNonPhys, playerData)
+		else
+			readSMHPose(ragdollPuppet, animPuppeteer)
+		end
+	end)
+
+	net.Receive("onSequenceChange", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local ragdollPuppet = playerData.puppet
+		local animPuppeteer = playerData.puppeteer
+
+		if not IsValid(animPuppeteer) then
+			return
+		end
+		local isSequence = net.ReadBool()
+		if isSequence then
+			local seqIndex = net.ReadInt(14)
+			local animatingNonPhys = net.ReadBool()
+			playerData.currentIndex = seqIndex
+			setPuppeteerPose(0, animatingNonPhys, playerData)
+		else
+			readSMHPose(ragdollPuppet, animPuppeteer)
+		end
+
+		net.Start("onSequenceChange")
+		net.Send(sender)
+	end)
+
+	net.Receive("onPoseParamChange", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local animPuppeteer = playerData.puppeteer
+		local cycle = playerData.cycle
+
+		local animatingNonPhys = net.ReadBool()
+		local paramValue = net.ReadFloat()
+		local paramName = net.ReadString()
+		animPuppeteer:SetPoseParameter(paramName, paramValue)
+		setPuppeteerPose(cycle, animatingNonPhys, playerData)
+	end)
+
+	net.Receive("onBoneFilterChange", function()
+		filteredBones = net.ReadTable(true)
+	end)
+
+	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local animPuppeteer = playerData.puppeteer
+		local ragdollPuppet = playerData.puppet
+
+		local newPose = {}
+		for b = 1, animPuppeteer:GetBoneCount() do
+			newPose[b - 1] = {}
+			newPose[b - 1].Pos = net.ReadVector()
+			newPose[b - 1].Ang = net.ReadAngle()
+		end
+		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
+	end)
+
+	net.Receive("queryPhysObjects", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local ragdollPuppet = playerData.puppet
+		local physicsCount = playerData.physicsCount
+
+		queryPhysObjects(ragdollPuppet, physicsCount, sender)
+	end)
+
+	net.Receive("onFPSChange", function(_, sender)
+		local userId = sender:UserID()
+		assert(RAGDOLLPUPPETEER_PLAYERS[userId], "Player doesn't exist in hashmap!")
+		local fps = net.ReadFloat()
+		RAGDOLLPUPPETEER_PLAYERS[sender:UserID()].fps = fps
+		timer.Adjust("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps)
+	end)
 end
 
 -- Concommands
@@ -538,22 +570,25 @@ concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_previousframe", function(ply)
-	net.Start("onFramePrevious")
-	net.Send(ply)
-end)
-
-concommand.Add("ragdollpuppeteer_nextframe", function(ply)
-	net.Start("onFrameNext")
-	net.Send(ply)
-end)
-
 if SERVER then
 	return
 end
 
+cvars.AddChangeCallback("ragdollpuppeteer_fps", function(_, _, newValue)
+	if not newValue then
+		return
+	end
+
+	local newFPS = tonumber(newValue)
+	if type(newFPS) == "number" then
+		net.Start("onFPSChange")
+		net.WriteFloat(newFPS)
+		net.SendToServer()
+	end
+end)
+
 ---@module "ragdollpuppeteer.ui"
-local UI = include("ragdollpuppeteer/ui.lua")
+local UI = include("ragdollpuppeteer/client/ui.lua")
 
 local PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "UnlitGeneric", {
 	["$basetexture"] = "color/white",
@@ -742,8 +777,10 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 			animPuppeteer:Remove()
 			zeroPuppeteer:Remove()
 			panelState.previousPuppeteer = nil
-			UI.ClearList(panelChildren.sequenceList)
-			UI.ClearList(panelChildren.smhList)
+			-- if panelChildren.sequenceList and panelChildren.smhList then
+			-- 	UI.ClearList(panelChildren.sequenceList)
+			-- 	UI.ClearList(panelChildren.smhList)
+			-- end
 			panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
 		end
 	end
