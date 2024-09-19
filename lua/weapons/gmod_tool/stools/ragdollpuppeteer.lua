@@ -396,7 +396,11 @@ function TOOL:LeftClick(tr)
 	end
 
 	-- Network hooks from client
-	net.Receive("onFrameChange", function()
+	net.Receive("onFrameChange", function(_, sender)
+		if sender ~= ply then
+			return
+		end
+
 		local isSequence = net.ReadBool()
 		if isSequence then
 			local cycle = net.ReadFloat()
@@ -407,7 +411,11 @@ function TOOL:LeftClick(tr)
 		end
 	end)
 
-	net.Receive("onSequenceChange", function()
+	net.Receive("onSequenceChange", function(_, sender)
+		if sender ~= ply then
+			return
+		end
+
 		if not IsValid(animPuppeteer) then
 			return
 		end
@@ -422,7 +430,11 @@ function TOOL:LeftClick(tr)
 		end
 	end)
 
-	net.Receive("onSequenceChange", function()
+	net.Receive("onSequenceChange", function(_, sender)
+		if sender ~= ply then
+			return
+		end
+
 		if not IsValid(animPuppeteer) then
 			return
 		end
@@ -440,7 +452,11 @@ function TOOL:LeftClick(tr)
 		net.Send(ply)
 	end)
 
-	net.Receive("onPoseParamChange", function()
+	net.Receive("onPoseParamChange", function(_, sender)
+		if sender ~= ply then
+			return
+		end
+
 		local animatingNonPhys = net.ReadBool()
 		local paramValue = net.ReadFloat()
 		local paramName = net.ReadString()
@@ -452,7 +468,11 @@ function TOOL:LeftClick(tr)
 		filteredBones = net.ReadTable(true)
 	end)
 
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_)
+	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, sender)
+		if sender ~= ply then
+			return
+		end
+
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do
 			newPose[b - 1] = {}
