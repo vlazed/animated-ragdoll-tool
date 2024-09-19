@@ -817,6 +817,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			numSlider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
 
+			local fps = row:GetValue(3)
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
@@ -875,6 +876,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(_, row)
 		numSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
+		local fps = row:GetValue(1)
 		writeSMHPose("onSequenceChange", 0)
 	end
 
