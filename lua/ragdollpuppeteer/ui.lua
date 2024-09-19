@@ -110,6 +110,9 @@ function UI.OffsetRoot(cPanel)
 	---@cast panel DCheckBoxLabel
 
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.offsetroot")
+	if not game.SinglePlayer() then
+		panel:SetEnabled(false)
+	end
 
 	return panel
 end
