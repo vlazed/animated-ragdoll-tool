@@ -38,10 +38,7 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	local userId = ply:UserID()
 	local fps = RAGDOLLPUPPETEER_PLAYERS[userId].fps
 	timer.Create("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps, -1, function()
-		if
-			not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()])
-			or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet)
-		then
+		if not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet) then
 			timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
 		end
 		net.Start("onFrameNext")
