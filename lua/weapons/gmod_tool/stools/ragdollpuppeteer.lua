@@ -116,7 +116,7 @@ function TOOL:Cleanup(userId)
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
 	end
 
-	if not IsValid(self) then
+	if not IsValid(self:GetWeapon()) then
 		return
 	end
 
@@ -404,6 +404,7 @@ function TOOL:RightClick(tr)
 	local ply = self:GetOwner()
 	local userId = ply:UserID()
 	if IsValid(self:GetAnimationPuppet()) then
+		print("cleanup rightclick")
 		self:Cleanup(userId)
 		if CLIENT then
 			return true

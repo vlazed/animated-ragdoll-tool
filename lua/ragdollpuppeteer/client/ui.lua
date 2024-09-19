@@ -406,9 +406,15 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
+		if not IsValid(numSlider) then
+			return
+		end
 		numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
 	end)
 	net.Receive("onFrameNext", function()
+		if not IsValid(numSlider) then
+			return
+		end
 		numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
 	end)
 	net.Receive("queryPhysObjects", function()
