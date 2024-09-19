@@ -6,9 +6,9 @@ TOOL.Name = "#tool.ragdollpuppeteer.name"
 TOOL.Command = nil
 TOOL.ConfigName = ""
 TOOL.ClientConVar["frame"] = 0
-TOOL.ClientConVar["animatenonphys"] = "false"
-TOOL.ClientConVar["updateposition_floors"] = "false"
-TOOL.ClientConVar["offsetroot"] = "false"
+TOOL.ClientConVar["animatenonphys"] = 0
+TOOL.ClientConVar["updateposition_floors"] = 0
+TOOL.ClientConVar["offsetroot"] = 0
 
 local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
