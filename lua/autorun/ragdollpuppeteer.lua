@@ -40,7 +40,7 @@ if SERVER then
 		local userId = data.userid
 		timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
 		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
-		print(userId, "disconnected!")
+		-- print(userId, "disconnected!")
 	end)
 
 	---@type Player[]
