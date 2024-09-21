@@ -5,7 +5,8 @@ TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
 TOOL.Command = nil
 TOOL.ConfigName = ""
-TOOL.ClientConVar["frame"] = 0
+TOOL.ClientConVar["baseframe"] = 0
+TOOL.ClientConVar["gestureframe"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["updateposition_floors"] = 0
@@ -325,7 +326,7 @@ end
 ---@param ply Player
 ---@return Entity
 local function createServerPuppeteer(puppet, puppetModel, ply)
-	local puppeteer = ents.Create("ragdollpuppeteer_puppeteer")
+	local puppeteer = ents.Create("prop_dynamic")
 	print(puppeteer)
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply, true)
@@ -650,67 +651,6 @@ local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
 end
 
----Get the pose of every bone of the entity, for nonphysical bone matching
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
----@param ent Entity
----@return DefaultBonePose
-local function getDefaultBonePoseOf(ent)
-	local defaultPose = {}
-	local entPos = ent:GetPos()
-	local entAngles = ent:GetAngles()
-	for b = 0, ent:GetBoneCount() - 1 do
-		local parent = ent:GetBoneParent(b)
-		local bMatrix = ent:GetBoneMatrix(b)
-		if bMatrix then
-			local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
-			local pos2, ang2 = pos1 * 1, ang1 * 1
-			if parent > -1 then
-				local pMatrix = ent:GetBoneMatrix(parent)
-				pos2, ang2 = WorldToLocal(
-					bMatrix:GetTranslation(),
-					bMatrix:GetAngles(),
-					pMatrix:GetTranslation(),
-					pMatrix:GetAngles()
-				)
-			end
-
-			defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
-		else
-			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
-		end
-	end
-	return defaultPose
-end
-
----Calculate the bone offsets with respect to the parent
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
----@param puppeteer Entity
----@param child integer
----@return Vector
----@return Angle
-local function getBoneOffsetsOf(puppeteer, child)
-	local defaultBonePose = panelState.defaultBonePose
-	local parent = puppeteer:GetBoneParent(child)
-	---@type VMatrix
-	local cMatrix = puppeteer:GetBoneMatrix(child)
-	---@type VMatrix
-	local pMatrix = puppeteer:GetBoneMatrix(parent)
-
-	local fPos, fAng =
-		WorldToLocal(cMatrix:GetTranslation(), cMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
-	local dPos = fPos - defaultBonePose[child + 1][3]
-
-	local m = Matrix()
-	m:Translate(defaultBonePose[parent + 1][1])
-	m:Rotate(defaultBonePose[parent + 1][2])
-	m:Rotate(fAng)
-
-	local _, dAng =
-		WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultBonePose[child + 1][2])
-
-	return dPos, dAng
-end
-
 ---@alias BoneOffset table<Vector, Angle>
 ---@alias BoneOffsetArray BoneOffset[]
 
@@ -724,7 +664,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 		-- Reset bone position and angles
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
-			local dPos, dAng = getBoneOffsetsOf(puppeteer, b)
+			local dPos, dAng = Vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
 		else
@@ -749,7 +689,7 @@ end
 ---@param ply Player
 ---@return Entity
 local function createClientPuppeteer(model, puppet, ply)
-	local puppeteer = ents.CreateClientside("ragdollpuppeteer_puppeteer")
+	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end
@@ -775,6 +715,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	local model = puppet:GetModel()
 
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
+	local animGesturer = createClientPuppeteer(model, puppet, ply)
 
 	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
 	local zeroPuppeteer = createClientPuppeteer(model, puppet, ply)
@@ -783,6 +724,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
+		gesturer = animGesturer,
 		zeroPuppeteer = zeroPuppeteer,
 		puppet = puppet,
 		physicsCount = physicsCount,
@@ -791,7 +733,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	-- UI Elements
 	local panelChildren = UI.ConstructPanel(cPanel, panelProps)
 
-	UI.Layout(panelChildren.sequenceList, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
+	UI.Layout(panelChildren.sequenceSheet, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
 
 	-- UI Hooks
 	UI.HookPanel(panelChildren, panelProps, panelState)
@@ -801,11 +743,13 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
 		setPlacementOf(zeroPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
+		setPlacementOf(animGesturer, puppet, ply, panelChildren.findFloor:GetChecked())
 	end)
 
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
 			animPuppeteer:Remove()
+			animGesturer:Remove()
 			zeroPuppeteer:Remove()
 			panelState.previousPuppeteer = NULL
 
@@ -826,11 +770,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		local newPose = matchNonPhysicalBonePoseOf(animPuppeteer)
+		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer)
+		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
-			net.WriteVector(newPose[b][1])
-			net.WriteAngle(newPose[b][2])
+			net.WriteVector(newBasePose[b][1] + newGesturePose[b][1])
+			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])
 		end
 		net.SendToServer()
 	end)
@@ -850,7 +795,7 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:DrawModel()
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
-	local defaultBonePose = getDefaultBonePoseOf(csModel)
+	local defaultBonePose = Vendor.getDefaultBonePoseOf(csModel)
 	panelState.defaultBonePose = defaultBonePose
 
 	if #defaultBonePose == 0 then

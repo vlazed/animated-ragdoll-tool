@@ -23,11 +23,71 @@ function Vendor.GetPhysBoneParent(entity, physBone)
 	return -1
 end
 
+---Calculate the bone offsets with respect to the parent
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
+---@param puppeteer Entity
+---@param child integer
+---@return Vector
+---@return Angle
+function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
+	local parent = puppeteer:GetBoneParent(child)
+	---@type VMatrix
+	local cMatrix = puppeteer:GetBoneMatrix(child)
+	---@type VMatrix
+	local pMatrix = puppeteer:GetBoneMatrix(parent)
+
+	local fPos, fAng =
+		WorldToLocal(cMatrix:GetTranslation(), cMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
+	local dPos = fPos - defaultBonePose[child + 1][3]
+
+	local m = Matrix()
+	m:Translate(defaultBonePose[parent + 1][1])
+	m:Rotate(defaultBonePose[parent + 1][2])
+	m:Rotate(fAng)
+
+	local _, dAng =
+		WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultBonePose[child + 1][2])
+
+	return dPos, dAng
+end
+
 ---@param ent Entity
 ---@param bone integer
 ---@return integer
 function Vendor.PhysBoneToBone(ent, bone)
 	return ent:TranslatePhysBoneToBone(bone)
+end
+
+---Get the pose of every bone of the entity, for nonphysical bone matching
+---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@param ent Entity
+---@return DefaultBonePose
+function Vendor.getDefaultBonePoseOf(ent)
+	local defaultPose = {}
+	local entPos = ent:GetPos()
+	local entAngles = ent:GetAngles()
+	for b = 0, ent:GetBoneCount() - 1 do
+		local parent = ent:GetBoneParent(b)
+		local bMatrix = ent:GetBoneMatrix(b)
+		if bMatrix then
+			local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
+			local pos2, ang2 = pos1 * 1, ang1 * 1
+			if parent > -1 then
+				local pMatrix = ent:GetBoneMatrix(parent)
+				pos2, ang2 = WorldToLocal(
+					bMatrix:GetTranslation(),
+					bMatrix:GetAngles(),
+					pMatrix:GetTranslation(),
+					pMatrix:GetAngles()
+				)
+			end
+
+			defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+		else
+			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
+		end
+	end
+	return defaultPose
 end
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L201

@@ -74,13 +74,19 @@ local types = {}
 ---@field slider DNumSlider
 ---@field name string
 
+---@class FrameSlider: DNumSlider
+---@field prevFrame number
+
 ---@class PanelChildren
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
 ---@field smhList DListView
 ---@field sequenceList DListView
+---@field sequenceList2 DListView
+---@field sequenceSheet DPropertySheet
 ---@field nonPhysCheckBox DCheckBoxLabel
----@field numSlider DNumSlider
+---@field baseSlider FrameSlider
+---@field gestureSlider FrameSlider
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
 ---@field angOffset DNumSlider[]
@@ -94,6 +100,7 @@ local types = {}
 ---@field puppet Entity
 ---@field physicsCount integer
 ---@field puppeteer Entity
+---@field gesturer Entity
 ---@field zeroPuppeteer Entity
 ---@field model string
 

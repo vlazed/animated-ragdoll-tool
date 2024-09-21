@@ -2,6 +2,8 @@
 local SMH = include("ragdollpuppeteer/smh.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
+---@module "ragdollpuppeteer.vendor"
+local Vendor = include("ragdollpuppeteer/vendor.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -12,6 +14,10 @@ local SEQUENCE_CHANGE_DELAY = 0.2
 local UI = {}
 
 local currentSequence = {
+	label = "",
+}
+
+local currentGesture = {
 	label = "",
 }
 
@@ -84,12 +90,13 @@ end
 ---@package
 ---@param cPanel DForm
 ---@param label string
----@return DNumSlider
-function UI.FrameSlider(cPanel, label)
+---@return FrameSlider
+function UI.FrameSlider(cPanel, cvar, label)
 	label = label or "Frame"
-	local panel = cPanel:NumSlider(label, "ragdollpuppeteer_frame", 0, DEFAULT_MAX_FRAME - 1, 0)
-	---@cast panel DNumSlider
+	local panel = cPanel:NumSlider(label, cvar, 0, DEFAULT_MAX_FRAME - 1, 0)
+	---@cast panel FrameSlider
 
+	panel.prevFrame = 0
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.timeline")
 
 	return panel
@@ -146,17 +153,24 @@ function UI.FindFloor(cPanel)
 	return panel
 end
 
+function UI.SequenceSheet(cPanel)
+	local sequenceSheet = vgui.Create("DPropertySheet", cPanel)
+
+	cPanel:AddItem(sequenceSheet)
+	return sequenceSheet
+end
+
 ---@package
----@param cPanel DForm
+---@param sheet DPropertySheet
 ---@return DListView
-function UI.SequenceList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
+function UI.SequenceList(sheet, label)
+	local animationList = vgui.Create("DListView", sheet)
 	animationList:SetMultiSelect(false)
 	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.id")
 	animationList:AddColumn("#ui.ragdollpuppeteer.shared.name")
 	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.fps")
 	animationList:AddColumn("#ui.ragdollpuppeteer.shared.duration")
-	cPanel:AddItem(animationList)
+	sheet:AddSheet(label, animationList)
 	return animationList
 end
 
@@ -380,42 +394,49 @@ function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	end
 end
 
----@param sequenceList DListView
+---@param sequenceSheet DPropertySheet
 ---@param smhList DListView
 ---@param smhBrowser DFileBrowser
 ---@param puppeteer Entity
-function UI.Layout(sequenceList, smhList, smhBrowser, puppeteer)
-	sequenceList:Dock(TOP)
+function UI.Layout(sequenceSheet, smhList, smhBrowser, puppeteer)
+	sequenceSheet:Dock(TOP)
 	smhList:Dock(TOP)
 	smhBrowser:Dock(TOP)
 
-	UI.PopulateSequenceList(sequenceList, puppeteer, function(_)
-		return true
-	end)
+	local sequenceSheetItems = sequenceSheet:GetItems()
+	for i = 1, #sequenceSheetItems do
+		local list = sequenceSheetItems[i]["Panel"]
+		UI.PopulateSequenceList(list, puppeteer, function(_)
+			return true
+		end)
+	end
 
 	smhList:SizeTo(-1, 0, 0.5)
 	smhBrowser:SizeTo(-1, 0, 0.5)
-	sequenceList:SizeTo(-1, 500, 0.5)
+	sequenceSheet:SizeTo(-1, 500, 0.5)
 end
 
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
 function UI.NetHookPanel(panelChildren, panelProps, panelState)
-	local numSlider = panelChildren.numSlider
+	local baseSlider = panelChildren.baseSlider
+	local gestureSlider = panelChildren.gestureSlider
 
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
-		if not IsValid(numSlider) then
+		if not IsValid(baseSlider) then
 			return
 		end
-		numSlider:SetValue((numSlider:GetValue() - 1) % numSlider:GetMax())
+		baseSlider:SetValue((baseSlider:GetValue() - 1) % baseSlider:GetMax())
+		gestureSlider:SetValue((gestureSlider:GetValue() - 1) % gestureSlider:GetMax())
 	end)
 	net.Receive("onFrameNext", function()
-		if not IsValid(numSlider) then
+		if not IsValid(baseSlider) then
 			return
 		end
-		numSlider:SetValue((numSlider:GetValue() + 1) % numSlider:GetMax())
+		baseSlider:SetValue((baseSlider:GetValue() + 1) % baseSlider:GetMax())
+		gestureSlider:SetValue((gestureSlider:GetValue() + 1) % gestureSlider:GetMax())
 	end)
 	net.Receive("queryPhysObjects", function()
 		local newPhysicsObjects = getPhysObjectStructure(panelProps.physicsCount)
@@ -553,7 +574,13 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local puppetLabel = UI.PuppetLabel(cPanel, model)
 	local timelines = UI.Timelines(cPanel)
-	local numSlider = UI.FrameSlider(timelines, language.GetPhrase("#ui.ragdollpuppeteer.label.base"))
+	local baseSlider =
+		UI.FrameSlider(timelines, "ragdollpuppeteer_baseframe", language.GetPhrase("#ui.ragdollpuppeteer.label.base"))
+	local gestureSlider = UI.FrameSlider(
+		timelines,
+		"ragdollpuppeteer_gestureframe",
+		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture")
+	)
 	local angOffset = UI.AngleNumSliderTrio(
 		cPanel,
 		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
@@ -575,19 +602,24 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local sourceBox = UI.AnimationSourceBox(lists)
 	local searchBar = UI.SearchBar(lists)
-	local sequenceList = UI.SequenceList(lists)
+	local sequenceSheet = UI.SequenceSheet(lists)
+	local sequenceList = UI.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
+	local sequenceList2 = UI.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
 	local smhBrowser = UI.SMHFileBrowser(lists)
 	local smhList = UI.SMHEntityList(lists)
 
 	return {
 		puppetLabel = puppetLabel,
-		numSlider = numSlider,
+		baseSlider = baseSlider,
+		gestureSlider = gestureSlider,
 		angOffset = angOffset,
 		nonPhysCheckBox = nonPhysCheckbox,
 		updatePuppeteerButton = updatePuppeteerButton,
 		sourceBox = sourceBox,
 		searchBar = searchBar,
 		sequenceList = sequenceList,
+		sequenceList2 = sequenceList2,
+		sequenceSheet = sequenceSheet,
 		smhBrowser = smhBrowser,
 		smhList = smhList,
 		poseParams = poseParams,
@@ -610,12 +642,13 @@ end
 ---@param panelProps PanelProps
 ---@param panelState PanelState
 function UI.HookPanel(panelChildren, panelProps, panelState)
-	local prevFrame = 0
-
 	local smhList = panelChildren.smhList
 	local sequenceList = panelChildren.sequenceList
+	local sequenceList2 = panelChildren.sequenceList2
+	local sequenceSheet = panelChildren.sequenceSheet
 	local smhBrowser = panelChildren.smhBrowser
-	local numSlider = panelChildren.numSlider
+	local baseSlider = panelChildren.baseSlider
+	local gestureSlider = panelChildren.gestureSlider
 	local sourceBox = panelChildren.sourceBox
 	local nonPhysCheckbox = panelChildren.nonPhysCheckBox
 	local searchBar = panelChildren.searchBar
@@ -625,6 +658,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local showPuppeteer = panelChildren.showPuppeteer
 
 	local animPuppeteer = panelProps.puppeteer
+	local animGesturer = panelProps.gesturer
 	local zeroPuppeteer = panelProps.zeroPuppeteer
 	local puppet = panelProps.puppet
 	local model = panelProps.model
@@ -682,7 +716,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param physicsObjects PhysicsObject[]
 	---@param originEnt Entity
 	local function writeSequencePose(ent, rag, physicsCount, physicsObjects, originEnt)
-		-- TODO: Use nonphysical bones move physical bones implementation
 		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
 
 		-- Origin position and angles in world coordinates
@@ -693,12 +726,20 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
 
 		local newPose = {}
+		local defaultBonePose = panelState.defaultBonePose
 
 		if game.SinglePlayer() then
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
 				local p = physicsObjects[i].parent
+				if ent:GetBoneParent(b) > -1 then
+					local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
+					ent:ManipulateBonePosition(b, gPos)
+					ent:ManipulateBoneAngles(b, gAng)
+				end
+
 				local pos, ang = ent:GetBonePosition(b)
+
 				if pos == ent:GetPos() then
 					local matrix = ent:GetBoneMatrix(b)
 					if matrix then
@@ -771,7 +812,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
 			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
-			local val = numSlider:GetValue()
+			local val = baseSlider:GetValue()
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
 
@@ -782,7 +823,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
 			net.SendToServer()
 		else
-			writeSMHPose("onFrameChange", numSlider:GetValue())
+			writeSMHPose("onFrameChange", baseSlider:GetValue())
 		end
 	end
 
@@ -822,8 +863,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local _, option = sourceBox:GetSelected()
 		---@cast text string
 		if option == "sequence" then
-			UI.ClearList(sequenceList)
-			UI.PopulateSequenceList(sequenceList, animPuppeteer, function(seqInfo)
+			---@diagnostic disable-next-line
+			local activeList = sequenceSheet:GetActiveTab():GetPanel()
+			---@cast activeList DListView
+			UI.ClearList(activeList)
+			UI.PopulateSequenceList(activeList, animPuppeteer, function(seqInfo)
 				---@cast seqInfo SequenceInfo
 
 				if text:len() > 0 then
@@ -849,47 +893,61 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
-	function sequenceList:OnRowSelected(index, row)
+	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet)
 		local currentIndex = row:GetValue(1)
-		local seqInfo = animPuppeteer:GetSequenceInfo(currentIndex)
-		if currentSequence.label ~= seqInfo.label then
-			currentSequence = seqInfo
-			setSequenceOf(animPuppeteer, currentIndex)
-			setSequenceOf(zeroPuppeteer, currentIndex)
+		local seqInfo = puppeteer:GetSequenceInfo(currentIndex)
+		if mutatedSequence.label ~= seqInfo.label then
+			mutatedSequence = seqInfo
+			setSequenceOf(puppeteer, currentIndex)
+			if sendNet then
+				setSequenceOf(zeroPuppeteer, currentIndex)
+			end
 
-			numSlider:SetMax(row:GetValue(4) - 1)
+			slider:SetMax(row:GetValue(4) - 1)
 			panelState.maxFrames = row:GetValue(4) - 1
+		end
 
-			local fps = row:GetValue(3)
+		if sendNet then
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+				writeSequencePose(puppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
 				net.SendToServer()
 			end)
 		end
+
+		return mutatedSequence
+	end
+
+	function sequenceList:OnRowSelected(_, row)
+		currentSequence = rowSelected(row, baseSlider, animPuppeteer, currentSequence, true)
+	end
+
+	function sequenceList2:OnRowSelected(_, row)
+		currentGesture = rowSelected(row, gestureSlider, animGesturer, currentGesture, false)
 	end
 
 	-- TODO: Set a limit to how many times a new frame can be sent to the server to prevent spamming
-	function numSlider:OnValueChanged(val)
+	local function sliderValueChanged(slider, val, sequence, puppeteer, netSend)
+		local prevFrame = slider.prevFrame
 		-- Only send when we go frame by frame
 		if math.abs(prevFrame - val) < 1 then
 			return
 		end
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
-			if not currentSequence.anims then
+			if not sequence.anims then
 				return
 			end
-			if not IsValid(animPuppeteer) then
+			if not IsValid(puppeteer) then
 				return
 			end
-			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
-			numSlider:SetValue(math.Clamp(val, 0, numframes))
+			local numframes = findLongestAnimationIn(sequence, puppeteer).numframes - 1
+			slider:SetValue(math.Clamp(val, 0, numframes))
 			local cycle = val / numframes
-			animPuppeteer:SetCycle(cycle)
+			puppeteer:SetCycle(cycle)
 
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
@@ -901,25 +959,34 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			writeSMHPose("onFrameChange", val)
 		end
 
-		prevFrame = val
+		slider.prevFrame = val
+	end
+
+	function baseSlider:OnValueChanged(val)
+		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer, true)
+	end
+
+	function gestureSlider:OnValueChanged(val)
+		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer, false)
 	end
 
 	function sourceBox:OnSelect(_, _, option)
 		if option == "sequence" then
+			gestureSlider:SetEnabled(true)
 			smhList:SizeTo(-1, 0, 0.5)
 			smhBrowser:SizeTo(-1, 0, 0.5)
-			sequenceList:SizeTo(-1, 500, 0.5)
+			sequenceSheet:SizeTo(-1, 500, 0.5)
 		else
-			sequenceList:SizeTo(-1, 0, 0.5)
+			gestureSlider:SetEnabled(false)
+			sequenceSheet:SizeTo(-1, 0, 0.5)
 			smhList:SizeTo(-1, 250, 0.5)
 			smhBrowser:SizeTo(-1, 250, 0.5)
 		end
 	end
 
 	function smhList:OnRowSelected(_, row)
-		numSlider:SetMax(row:GetValue(2))
+		baseSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
-		local fps = row:GetValue(1)
 		writeSMHPose("onSequenceChange", 0)
 	end
 
