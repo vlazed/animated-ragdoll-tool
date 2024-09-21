@@ -696,7 +696,6 @@ local function createClientPuppeteer(model, puppet, ply)
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end
-	puppeteer:SetIK(false)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
@@ -718,18 +717,22 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	local model = puppet:GetModel()
 
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
+	animPuppeteer:SetIK(false)
 	local animGesturer = createClientPuppeteer(model, puppet, ply)
 
 	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
-	local zeroPuppeteer = createClientPuppeteer(model, puppet, ply)
-	zeroPuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+	local basePuppeteer = createClientPuppeteer(model, puppet, ply)
+	local baseGesturer = createClientPuppeteer(model, puppet, ply)
+	basePuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+	baseGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
 	animGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
 
 	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
 		gesturer = animGesturer,
-		zeroPuppeteer = zeroPuppeteer,
+		basePuppeteer = basePuppeteer,
+		baseGesturer = baseGesturer,
 		puppet = puppet,
 		physicsCount = physicsCount,
 	}
@@ -746,15 +749,17 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 
 	net.Receive("updateClientPosition", function()
 		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
-		setPlacementOf(zeroPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
+		setPlacementOf(basePuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
+		setPlacementOf(baseGesturer, puppet, ply, panelChildren.findFloor:GetChecked())
 		setPlacementOf(animGesturer, puppet, ply, panelChildren.findFloor:GetChecked())
 	end)
 
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
 			animPuppeteer:Remove()
+			basePuppeteer:Remove()
 			animGesturer:Remove()
-			zeroPuppeteer:Remove()
+			baseGesturer:Remove()
 			panelState.previousPuppeteer = NULL
 
 			if IsValid(panelChildren.sequenceList) then

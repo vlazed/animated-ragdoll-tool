@@ -100,8 +100,9 @@ local types = {}
 ---@field puppet Entity
 ---@field physicsCount integer
 ---@field puppeteer Entity
+---@field basePuppeteer Entity
 ---@field gesturer Entity
----@field zeroPuppeteer Entity
+---@field baseGesturer Entity
 ---@field model string
 
 ---@class PanelState

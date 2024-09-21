@@ -661,7 +661,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
-	local zeroPuppeteer = panelProps.zeroPuppeteer
+	local basePuppeteer = panelProps.basePuppeteer
+	local baseGesturer = panelProps.baseGesturer
 	local puppet = panelProps.puppet
 	local model = panelProps.model
 	local physicsCount = panelProps.physicsCount
@@ -716,8 +717,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param rag Entity
 	---@param physicsCount integer
 	---@param physicsObjects PhysicsObject[]
-	---@param originEnt Entity
-	local function writeSequencePose(ent, rag, physicsCount, physicsObjects, originEnt)
+	local function writeSequencePose(ent, rag, physicsCount, physicsObjects)
 		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
 
 		local angleTrio = getAngleTrio(angOffset)
@@ -727,34 +727,37 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			local newPose = {}
 
 			-- Origin position and angles in world coordinates
-			local originBone = rag:TranslatePhysBoneToBone(0)
-			local originPos, originAng = originEnt:GetBonePosition(originBone)
 			local defaultBonePose = panelState.defaultBonePose
 
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
 				local p = physicsObjects[i].parent
 
-				if ent:GetBoneParent(b) > -1 then
-					local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-					local oPos, oAng = Vendor.getBoneOffsetsOf(originEnt, b, defaultBonePose)
+				if currentGesture.anims then
+					local gesturePos, gestureAng
+					if ent:GetBoneParent(b) > -1 then
+						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
+						local oPos, oAng = Vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
-					local oQuat = Quaternion()
-					local gQuat = Quaternion()
-					oQuat:SetAngle(oAng)
-					gQuat:SetAngle(gAng)
-					local dQuat = gQuat * oQuat:Invert()
+						local oQuat = Quaternion()
+						local gQuat = Quaternion()
+						oQuat:SetAngle(oAng)
+						gQuat:SetAngle(gAng)
+						local dQuat = gQuat * oQuat:Invert()
 
-					local dPos = gPos - oPos
+						local dPos = gPos - oPos
+						gesturePos, gestureAng = dPos, dQuat:Angle()
+					else
+						local gPos, gAng = animGesturer:GetBonePosition(b)
+						local oPos, oAng = baseGesturer:GetBonePosition(b)
+						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
+						local dPos = gPos - oPos
 
-					ent:ManipulateBonePosition(b, dPos)
-					ent:ManipulateBoneAngles(b, dQuat:Angle())
-				else
-					-- local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-					-- local oPos, oAng = Vendor.getBoneOffsetsOf(originEnt, b, defaultBonePose)
+						gesturePos, gestureAng = dPos, dAng
+					end
 
-					-- ent:ManipulateBonePosition(b, dPos)
-					-- ent:ManipulateBoneAngles(b, dQuat:Angle())
+					ent:ManipulateBonePosition(b, gesturePos)
+					ent:ManipulateBoneAngles(b, gestureAng)
 				end
 
 				local pos, ang = ent:GetBonePosition(b)
@@ -839,7 +842,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
 			net.SendToServer()
 		else
 			writeSMHPose("onFrameChange", baseSlider:GetValue())
@@ -866,7 +869,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
-				writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+				writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
 				net.SendToServer()
 			end
 		end)
@@ -918,8 +921,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if mutatedSequence.label ~= seqInfo.label then
 			mutatedSequence = seqInfo
 			setSequenceOf(puppeteer, currentIndex)
+			setSequenceOf(basePuppeteer, currentIndex)
 			if isGesture then
-				setSequenceOf(zeroPuppeteer, currentIndex)
+				setSequenceOf(baseGesturer, currentIndex)
 			end
 
 			slider:SetMax(row:GetValue(4) - 1)
@@ -934,7 +938,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(puppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+				writeSequencePose(puppeteer, puppet, physicsCount, panelState.physicsObjects)
 				net.SendToServer()
 			end)
 		end
@@ -979,7 +983,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
+			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
 			net.SendToServer()
 			sendingFrame = false
 		else
