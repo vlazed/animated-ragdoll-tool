@@ -107,7 +107,7 @@ end
 
 function TOOL:Cleanup(userId)
 	if SERVER then
-		if IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
+		if RAGDOLLPUPPETEER_PLAYERS[userId] and IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
 		end
 
@@ -325,7 +325,8 @@ end
 ---@param ply Player
 ---@return Entity
 local function createServerPuppeteer(puppet, puppetModel, ply)
-	local puppeteer = ents.Create("prop_dynamic")
+	local puppeteer = ents.Create("ragdollpuppeteer_puppeteer")
+	print(puppeteer)
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
@@ -736,7 +737,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 	return newPose
 end
 
----@param puppeteer CSEnt
+---@param puppeteer Entity
 local function disablePuppeteerJiggle(puppeteer)
 	for b = 0, puppeteer:GetBoneCount() - 1 do
 		puppeteer:ManipulateBoneJiggle(b, 0)
@@ -746,9 +747,9 @@ end
 ---@param model string
 ---@param puppet Entity
 ---@param ply Player
----@return CSEnt
+---@return Entity
 local function createClientPuppeteer(model, puppet, ply)
-	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+	local puppeteer = ents.CreateClientside("ragdollpuppeteer_puppeteer")
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end
@@ -773,11 +774,9 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 
 	local model = puppet:GetModel()
 
-	---@type CSEnt
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
 
 	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
-	---@type CSEnt
 	local zeroPuppeteer = createClientPuppeteer(model, puppet, ply)
 	zeroPuppeteer:SetColor(Color(0, 0, 0, 0))
 
