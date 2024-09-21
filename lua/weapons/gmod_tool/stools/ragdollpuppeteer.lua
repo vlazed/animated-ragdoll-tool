@@ -486,6 +486,8 @@ if SERVER then
 
 		local tool = player:GetTool(mode)
 		local userId = player:UserID()
+		timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
+
 		if tool then
 			tool:Cleanup(userId)
 		end

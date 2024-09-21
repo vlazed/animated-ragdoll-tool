@@ -749,6 +749,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 					ent:ManipulateBonePosition(b, dPos)
 					ent:ManipulateBoneAngles(b, dQuat:Angle())
+				else
+					-- local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
+					-- local oPos, oAng = Vendor.getBoneOffsetsOf(originEnt, b, defaultBonePose)
+
+					-- ent:ManipulateBonePosition(b, dPos)
+					-- ent:ManipulateBoneAngles(b, dQuat:Angle())
 				end
 
 				local pos, ang = ent:GetBonePosition(b)
@@ -944,8 +950,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		currentGesture = rowSelected(row, gestureSlider, animGesturer, currentGesture, false, true)
 	end
 
-	-- TODO: Set a limit to how many times a new frame can be sent to the server to prevent spamming
-	local function sliderValueChanged(slider, val, sequence, puppeteer, netSend)
+	local sendingFrame = false
+	local function sliderValueChanged(slider, val, sequence, puppeteer)
 		local prevFrame = slider.prevFrame
 		-- Only send when we go frame by frame
 		if math.abs(prevFrame - val) < 1 then
@@ -964,12 +970,18 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			local cycle = val / numframes
 			puppeteer:SetCycle(cycle)
 
+			if sendingFrame then
+				return
+			end
+
+			sendingFrame = true
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects, zeroPuppeteer)
 			net.SendToServer()
+			sendingFrame = false
 		else
 			writeSMHPose("onFrameChange", val)
 		end
@@ -978,11 +990,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function baseSlider:OnValueChanged(val)
-		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer, true)
+		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer)
 	end
 
 	function gestureSlider:OnValueChanged(val)
-		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer, false)
+		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer)
 	end
 
 	function sourceBox:OnSelect(_, _, option)
