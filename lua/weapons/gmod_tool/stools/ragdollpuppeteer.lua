@@ -630,6 +630,7 @@ local UI = include("ragdollpuppeteer/client/ui.lua")
 local constants = include("ragdollpuppeteer/constants.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
+local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 local COLOR_BLUE = Color(0, 0, 64, 100)
 
 ---@type PanelState
@@ -719,7 +720,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 
 	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
 	local zeroPuppeteer = createClientPuppeteer(model, puppet, ply)
-	zeroPuppeteer:SetColor(Color(0, 0, 0, 0))
+	zeroPuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+	animGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
 
 	local panelProps = {
 		model = model,
@@ -827,7 +829,7 @@ local lastWidth
 function TOOL:DrawToolScreen(width, height)
 	local y = height * BAR_Y_POS
 	local ySize = height * BAR_HEIGHT
-	local frame = GetConVar("ragdollpuppeteer_frame"):GetFloat()
+	local frame = GetConVar("ragdollpuppeteer_baseframe"):GetFloat()
 	local maxAnimFrames = panelState.maxFrames
 
 	draw.SimpleText(

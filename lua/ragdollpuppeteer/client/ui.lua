@@ -4,6 +4,8 @@ local SMH = include("ragdollpuppeteer/smh.lua")
 local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
+---@module "ragdollpuppeteer.lib.quaternion"
+include("ragdollpuppeteer/lib/quaternion.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -718,24 +720,35 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function writeSequencePose(ent, rag, physicsCount, physicsObjects, originEnt)
 		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
 
-		-- Origin position and angles in world coordinates
-		local originBone = rag:TranslatePhysBoneToBone(0)
-		local originPos, originAng = originEnt:GetBonePosition(originBone)
-
 		local angleTrio = getAngleTrio(angOffset)
 		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
 
-		local newPose = {}
-		local defaultBonePose = panelState.defaultBonePose
-
 		if game.SinglePlayer() then
+			local newPose = {}
+
+			-- Origin position and angles in world coordinates
+			local originBone = rag:TranslatePhysBoneToBone(0)
+			local originPos, originAng = originEnt:GetBonePosition(originBone)
+			local defaultBonePose = panelState.defaultBonePose
+
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
 				local p = physicsObjects[i].parent
+
 				if ent:GetBoneParent(b) > -1 then
 					local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-					ent:ManipulateBonePosition(b, gPos)
-					ent:ManipulateBoneAngles(b, gAng)
+					local oPos, oAng = Vendor.getBoneOffsetsOf(originEnt, b, defaultBonePose)
+
+					local oQuat = Quaternion()
+					local gQuat = Quaternion()
+					oQuat:SetAngle(oAng)
+					gQuat:SetAngle(gAng)
+					local dQuat = gQuat * oQuat:Invert()
+
+					local dPos = gPos - oPos
+
+					ent:ManipulateBonePosition(b, dPos)
+					ent:ManipulateBoneAngles(b, dQuat:Angle())
 				end
 
 				local pos, ang = ent:GetBonePosition(b)
@@ -893,18 +906,20 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
-	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet)
+	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet, isGesture)
 		local currentIndex = row:GetValue(1)
 		local seqInfo = puppeteer:GetSequenceInfo(currentIndex)
 		if mutatedSequence.label ~= seqInfo.label then
 			mutatedSequence = seqInfo
 			setSequenceOf(puppeteer, currentIndex)
-			if sendNet then
+			if isGesture then
 				setSequenceOf(zeroPuppeteer, currentIndex)
 			end
 
 			slider:SetMax(row:GetValue(4) - 1)
-			panelState.maxFrames = row:GetValue(4) - 1
+			if sendNet then
+				panelState.maxFrames = row:GetValue(4) - 1
+			end
 		end
 
 		if sendNet then
@@ -922,11 +937,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function sequenceList:OnRowSelected(_, row)
-		currentSequence = rowSelected(row, baseSlider, animPuppeteer, currentSequence, true)
+		currentSequence = rowSelected(row, baseSlider, animPuppeteer, currentSequence, true, false)
 	end
 
 	function sequenceList2:OnRowSelected(_, row)
-		currentGesture = rowSelected(row, gestureSlider, animGesturer, currentGesture, false)
+		currentGesture = rowSelected(row, gestureSlider, animGesturer, currentGesture, false, true)
 	end
 
 	-- TODO: Set a limit to how many times a new frame can be sent to the server to prevent spamming
