@@ -443,6 +443,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 						local oPos, oAng = baseGesturer:GetBonePosition(b)
 						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
 						local dPos = gPos - oPos
+						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, ent:GetAngles())
 
 						gesturePos, gestureAng = dPos, dAng
 					end
