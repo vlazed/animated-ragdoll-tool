@@ -720,7 +720,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	animPuppeteer:SetIK(false)
 	local animGesturer = createClientPuppeteer(model, puppet, ply)
 
-	-- Used for sequences, this puppeteer is always set to the first frame of the sequence, so we can easily extract the root position and angle.
+	-- Used for sequences, these puppeteers area always set to the first frame of the sequence, so we can easily extract the delta position and angle.
 	local basePuppeteer = createClientPuppeteer(model, puppet, ply)
 	local baseGesturer = createClientPuppeteer(model, puppet, ply)
 	basePuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())

@@ -2,6 +2,8 @@
 local SMH = include("ragdollpuppeteer/smh.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
+---@module "ragdollpuppeteer.client.components"
+local components = include("components.lua")
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
 ---@module "ragdollpuppeteer.lib.quaternion"
@@ -10,7 +12,7 @@ include("ragdollpuppeteer/lib/quaternion.lua")
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 
-local DEFAULT_MAX_FRAME = 60
+local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
 local SEQUENCE_CHANGE_DELAY = 0.2
 
 local UI = {}
@@ -37,255 +39,6 @@ local function getPhysObjectStructure(physicsCount)
 		physicsObjects[i] = { parent = parent, name = name }
 	end
 	return physicsObjects
-end
-
----@package
----@param cPanel DForm
----@param model string
----@return DLabel
-function UI.PuppetLabel(cPanel, model)
-	local panel = cPanel:Help(language.GetPhrase("ui.ragdollpuppeteer.label.current") .. " " .. model)
-	---@cast panel DLabel
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DTextEntry
-function UI.SearchBar(cPanel)
-	---@diagnostic disable-next-line
-	local panel = cPanel:TextEntry("#ui.ragdollpuppeteer.label.search")
-	---@cast panel DTextEntry
-	panel:SetPlaceholderText("#ui.ragdollpuppeteer.tooltip.search")
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DComboBox
-function UI.AnimationSourceBox(cPanel)
-	---@diagnostic disable-next-line
-	local panel = cPanel:ComboBox("#ui.ragdollpuppeteer.label.source")
-	---@cast panel DComboBox
-
-	panel:AddChoice("#ui.ragdollpuppeteer.label.sequence", "sequence")
-	panel:AddChoice("#ui.ragdollpuppeteer.label.smh", "smh")
-	panel:ChooseOption("#ui.ragdollpuppeteer.label.sequence", 1)
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.source")
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@param puppeteer Entity
----@return DButton
-function UI.UpdatePuppeteerButton(cPanel, puppeteer)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.updatepos", "ragdollpuppeteer_updateposition", puppeteer)
-	---@cast panel DButton
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.updatepos")
-	return panel
-end
-
----@package
----@param cPanel DForm
----@param label string
----@return FrameSlider
-function UI.FrameSlider(cPanel, cvar, label)
-	label = label or "Frame"
-	local panel = cPanel:NumSlider(label, cvar, 0, DEFAULT_MAX_FRAME - 1, 0)
-	---@cast panel FrameSlider
-
-	panel.prevFrame = 0
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.timeline")
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DCheckBoxLabel
-function UI.NonPhysCheckBox(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.nonphys", "ragdollpuppeteer_animatenonphys")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.nonphys")
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DCheckBoxLabel
-function UI.PuppeteerVisible(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.showpuppeteer", "ragdollpuppeteer_showpuppeteer")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DCheckBoxLabel
-function UI.OffsetRoot(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.offsetroot", "ragdollpuppeteer_offsetroot")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.offsetroot")
-	if not game.SinglePlayer() then
-		panel:SetEnabled(false)
-	end
-
-	return panel
-end
-
----@package
----@param cPanel DForm
----@return DCheckBoxLabel
-function UI.FindFloor(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_updateposition_floors")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
-
-	return panel
-end
-
-function UI.SequenceSheet(cPanel)
-	local sequenceSheet = vgui.Create("DPropertySheet", cPanel)
-
-	cPanel:AddItem(sequenceSheet)
-	return sequenceSheet
-end
-
----@package
----@param sheet DPropertySheet
----@return DListView
-function UI.SequenceList(sheet, label)
-	local animationList = vgui.Create("DListView", sheet)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.id")
-	animationList:AddColumn("#ui.ragdollpuppeteer.shared.name")
-	animationList:AddColumn("#ui.ragdollpuppeteer.sequences.fps")
-	animationList:AddColumn("#ui.ragdollpuppeteer.shared.duration")
-	sheet:AddSheet(label, animationList)
-	return animationList
-end
-
----@package
----@param cPanel DForm
----@return DListView
-function UI.SMHEntityList(cPanel)
-	local animationList = vgui.Create("DListView", cPanel)
-	animationList:SetMultiSelect(false)
-	animationList:AddColumn("#ui.ragdollpuppeteer.shared.name")
-	animationList:AddColumn("#ui.ragdollpuppeteer.shared.duration")
-	cPanel:AddItem(animationList)
-	return animationList
-end
-
----@package
----@param cPanel DForm
----@return DFileBrowser
-function UI.SMHFileBrowser(cPanel)
-	local fileBrowser = vgui.Create("DFileBrowser", cPanel)
-	fileBrowser:SetPath("DATA")
-	fileBrowser:SetBaseFolder("smh")
-	fileBrowser:SetCurrentFolder("smh")
-	cPanel:AddItem(fileBrowser)
-	return fileBrowser
-end
-
----@package
----@param dForm DForm
----@param names string[]
----@return DNumSlider[]
-function UI.AngleNumSliders(dForm, names)
-	local sliders = {}
-	for i = 1, 3 do
-		local slider = dForm:NumSlider(names[i], "", -180, 180)
-		---@cast slider DNumSlider
-		slider:Dock(TOP)
-		slider:SetValue(0)
-		sliders[i] = slider
-	end
-	return sliders
-end
-
----@package
----@param cPanel DForm
----@param names string[]
----@param label string
----@return DNumSlider[]
-function UI.AngleNumSliderTrio(cPanel, names, label)
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel(label)
-	local angleSliders = UI.AngleNumSliders(dForm, names)
-	cPanel:AddItem(dForm)
-	---@diagnostic disable-next-line
-	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
-	function resetAngles:DoClick()
-		for i = 1, 3 do
-			angleSliders[i]:SetValue(0)
-		end
-	end
-
-	dForm:DoExpansion(false)
-
-	return angleSliders
-end
-
----@param index integer
----@param entity Entity
----@param dForm DForm
----@return PoseParameterSlider
-local function poseParameterSlider(index, entity, dForm)
-	local poseParameterName = entity:GetPoseParameterName(index - 1)
-	local min, max = entity:GetPoseParameterRange(index - 1)
-
-	local paramSlider = dForm:NumSlider(poseParameterName, "", min, max)
-	---@cast paramSlider DNumSlider
-	paramSlider:Dock(TOP)
-	paramSlider:SetDefaultValue(0)
-	paramSlider:SetValue(0)
-
-	return { slider = paramSlider, name = poseParameterName }
-end
-
----@package
----@param cPanel DForm
----@param puppeteer Entity
----@return PoseParameterSlider[]
-function UI.PoseParameters(cPanel, puppeteer)
-	---@type PoseParameterSlider[]
-	local poseParams = {}
-
-	---@type DForm
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel("#ui.ragdollpuppeteer.label.poseparams")
-	local numParameters = puppeteer:GetNumPoseParameters()
-
-	for i = 1, numParameters do
-		poseParams[i] = poseParameterSlider(i, puppeteer, dForm)
-	end
-
-	---@diagnostic disable-next-line
-	local resetParams = dForm:Button("#ui.ragdollpuppeteer.label.resetparams")
-	function resetParams:DoClick()
-		for i = 1, numParameters do
-			poseParams[i].slider:ResetToDefaultValue()
-		end
-		puppeteer:ClearPoseParameters()
-	end
-
-	cPanel:AddItem(dForm)
-	dForm:DoExpansion(false)
-
-	return poseParams
 end
 
 ---@param trio DNumSlider[]
@@ -450,51 +203,6 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.SendToServer()
 end
 
----@package
----Container for ConVar settings
----@param cPanel DForm
----@return DForm
-function UI.Settings(cPanel)
-	local settings = vgui.Create("DForm", cPanel)
-	settings:SetLabel("#ui.ragdollpuppeteer.label.settings")
-
-	cPanel:AddItem(settings)
-
-	return settings
-end
-
----@package
----Container for lists
----@param cPanel DForm
----@return DForm
-function UI.Lists(cPanel)
-	local lists = vgui.Create("DForm", cPanel)
-	lists:SetLabel("#ui.ragdollpuppeteer.label.hidelist")
-	cPanel:AddItem(lists)
-
-	function lists:OnToggle(expanded)
-		if expanded then
-			lists:SetLabel("#ui.ragdollpuppeteer.label.hidelist")
-		else
-			lists:SetLabel("#ui.ragdollpuppeteer.label.showlist")
-		end
-	end
-
-	return lists
-end
-
----@package
----Container for timelines
----@param cPanel DForm
----@return DForm
-function UI.Timelines(cPanel)
-	local timelines = vgui.Create("DForm", cPanel)
-	timelines:SetLabel("#ui.ragdollpuppeteer.label.timelines")
-	cPanel:AddItem(timelines)
-
-	return timelines
-end
-
 local boneIcons = {
 	"icon16/brick.png",
 	"icon16/connect.png",
@@ -546,27 +254,6 @@ local function setupBoneNodesOf(puppet, boneTree)
 	end
 end
 
----@package
----@param cPanel DForm
----@return DTree
-function UI.BoneTree(cPanel)
-	local boneTreeContainer = vgui.Create("DForm", cPanel)
-	cPanel:AddItem(boneTreeContainer)
-	boneTreeContainer:SetLabel("#ui.ragdollpuppeteer.label.bonetree")
-	boneTreeContainer:Help("#ui.ragdollpuppeteer.tooltip.bonetree")
-	boneTreeContainer:Dock(TOP)
-
-	local boneTree = vgui.Create("DTree", boneTreeContainer)
-	boneTreeContainer:AddItem(boneTree)
-	boneTree:Dock(TOP)
-
-	boneTree:SizeTo(-1, 250, 0)
-
-	boneTreeContainer:SetExpanded(false)
-
-	return boneTree
-end
-
 ---Construct the ragdoll puppeteer control panel and return its components
 ---@param panelProps PanelProps
 ---@return PanelChildren
@@ -574,41 +261,44 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local model = panelProps.model
 	local puppeteer = panelProps.puppeteer
 
-	local puppetLabel = UI.PuppetLabel(cPanel, model)
-	local timelines = UI.Timelines(cPanel)
-	local baseSlider =
-		UI.FrameSlider(timelines, "ragdollpuppeteer_baseframe", language.GetPhrase("#ui.ragdollpuppeteer.label.base"))
-	local gestureSlider = UI.FrameSlider(
+	local puppetLabel = components.PuppetLabel(cPanel, model)
+	local timelines = components.Timelines(cPanel)
+	local baseSlider = components.FrameSlider(
+		timelines,
+		"ragdollpuppeteer_baseframe",
+		language.GetPhrase("#ui.ragdollpuppeteer.label.base")
+	)
+	local gestureSlider = components.FrameSlider(
 		timelines,
 		"ragdollpuppeteer_gestureframe",
 		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture")
 	)
-	local angOffset = UI.AngleNumSliderTrio(
+	local angOffset = components.AngleNumSliderTrio(
 		cPanel,
 		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
 		"#ui.ragdollpuppeteer.label.angleoffset"
 	)
-	local poseParams = UI.PoseParameters(cPanel, puppeteer)
+	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
-	local settings = UI.Settings(cPanel)
-	local nonPhysCheckbox = UI.NonPhysCheckBox(settings)
-	local findFloor = UI.FindFloor(settings)
-	local offsetRoot = UI.OffsetRoot(settings)
-	local showPuppeteer = UI.PuppeteerVisible(settings)
+	local settings = components.Settings(cPanel)
+	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
+	local findFloor = components.FindFloor(settings)
+	local offsetRoot = components.OffsetRoot(settings)
+	local showPuppeteer = components.PuppeteerVisible(settings)
 
-	local updatePuppeteerButton = UI.UpdatePuppeteerButton(settings, puppeteer)
+	local updatePuppeteerButton = components.UpdatePuppeteerButton(settings, puppeteer)
 
-	local boneTree = UI.BoneTree(cPanel)
+	local boneTree = components.BoneTree(cPanel)
 
-	local lists = UI.Lists(cPanel)
+	local lists = components.Lists(cPanel)
 
-	local sourceBox = UI.AnimationSourceBox(lists)
-	local searchBar = UI.SearchBar(lists)
-	local sequenceSheet = UI.SequenceSheet(lists)
-	local sequenceList = UI.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
-	local sequenceList2 = UI.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
-	local smhBrowser = UI.SMHFileBrowser(lists)
-	local smhList = UI.SMHEntityList(lists)
+	local sourceBox = components.AnimationSourceBox(lists)
+	local searchBar = components.SearchBar(lists)
+	local sequenceSheet = components.SequenceSheet(lists)
+	local sequenceList = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
+	local sequenceList2 = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
+	local smhBrowser = components.SMHFileBrowser(lists)
+	local smhList = components.SMHEntityList(lists)
 
 	return {
 		puppetLabel = puppetLabel,
@@ -712,6 +402,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
+	---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 	---@param ent Entity
 	---@param rag Entity
@@ -969,8 +660,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			if not IsValid(puppeteer) then
 				return
 			end
-			local numframes = findLongestAnimationIn(sequence, puppeteer).numframes - 1
-			slider:SetValue(math.Clamp(val, 0, numframes))
+			local numframes = slider:GetMax()
+			slider:SetValue(math.Clamp(val, slider:GetMin(), numframes))
 			local cycle = val / numframes
 			puppeteer:SetCycle(cycle)
 
