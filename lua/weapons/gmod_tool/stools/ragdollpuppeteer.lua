@@ -327,7 +327,6 @@ end
 ---@return Entity
 local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
-	print(puppeteer)
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply, true)
 	puppeteer:Spawn()
