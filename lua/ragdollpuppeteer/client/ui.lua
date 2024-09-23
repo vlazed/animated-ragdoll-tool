@@ -422,18 +422,31 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
 
 		if game.SinglePlayer() then
-			local newPose = {}
+			if not physicsObjects or #physicsObjects == 0 then
+				return
+			end
 
+			local newPose = {}
+			local defaultBonePose = panelState.defaultBonePose
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
 				local p = physicsObjects[i].parent
 
-				if baseGesturePose then
+				if defaultBonePose and currentGesture.anims then
 					local gesturePos, gestureAng
 					if ent:GetBoneParent(b) > -1 then
-						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, baseGesturePose)
+						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
+						local oPos, oAng = Vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
-						gesturePos, gestureAng = gPos, gAng
+						local oQuat = Quaternion()
+						local gQuat = Quaternion()
+						oQuat:SetAngle(oAng)
+						gQuat:SetAngle(gAng)
+						local dQuat = gQuat * oQuat:Invert()
+
+						local dPos = gPos - oPos
+						local dAng = dQuat:Angle()
+						gesturePos, gestureAng = dPos, dAng
 					else
 						local gPos, gAng = animGesturer:GetBonePosition(b)
 						local oPos, oAng = baseGesturer:GetBonePosition(b)
