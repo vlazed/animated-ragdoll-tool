@@ -271,7 +271,8 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local gestureSlider = components.FrameSlider(
 		timelines,
 		"ragdollpuppeteer_gestureframe",
-		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture")
+		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture"),
+		language.GetPhrase("#ui.ragdollpuppeteer.tooltip.gesture")
 	)
 	local angOffset = components.AngleNumSliderTrio(
 		cPanel,
@@ -411,6 +412,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param physicsCount integer
 	---@param physicsObjects PhysicsObject[]
 	local function writeSequencePose(ent, rag, physicsCount, physicsObjects)
+		if not IsValid(ent) or not IsValid(rag) then
+			return
+		end
+
 		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
 
 		local angleTrio = getAngleTrio(angOffset)
