@@ -466,6 +466,10 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	local puppeteer = playerData.puppeteer
 	local currentIndex = playerData.currentIndex
 
+	if not IsValid(puppet) or not IsValid(puppeteer) then
+		return
+	end
+
 	-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
 	puppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
 	puppeteer:ResetSequence(currentIndex)
@@ -555,6 +559,10 @@ if SERVER then
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local animPuppeteer = playerData.puppeteer
 		local ragdollPuppet = playerData.puppet
+
+		if not IsValid(animPuppeteer) or not IsValid(ragdollPuppet) then
+			return
+		end
 
 		local newPose = {}
 		for b = 1, animPuppeteer:GetBoneCount() do

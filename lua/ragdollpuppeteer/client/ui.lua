@@ -359,6 +359,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	local smhData
 
+	local baseGesturePose
+
 	setupBoneNodesOf(puppet, boneTree)
 
 	local filteredBones = {}
@@ -417,27 +419,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if game.SinglePlayer() then
 			local newPose = {}
 
-			-- Origin position and angles in world coordinates
-			local defaultBonePose = panelState.defaultBonePose
-
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
 				local p = physicsObjects[i].parent
 
-				if currentGesture.anims then
+				if baseGesturePose then
 					local gesturePos, gestureAng
 					if ent:GetBoneParent(b) > -1 then
-						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-						local oPos, oAng = Vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
+						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, baseGesturePose)
 
-						local oQuat = Quaternion()
-						local gQuat = Quaternion()
-						oQuat:SetAngle(oAng)
-						gQuat:SetAngle(gAng)
-						local dQuat = gQuat * oQuat:Invert()
-
-						local dPos = gPos - oPos
-						gesturePos, gestureAng = dPos, dQuat:Angle()
+						gesturePos, gestureAng = gPos, gAng
 					else
 						local gPos, gAng = animGesturer:GetBonePosition(b)
 						local oPos, oAng = baseGesturer:GetBonePosition(b)
@@ -626,6 +617,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		if sendNet then
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
+				baseGesturePose = Vendor.getDefaultBonePoseOf(baseGesturer)
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
