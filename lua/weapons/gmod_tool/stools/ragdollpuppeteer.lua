@@ -587,7 +587,9 @@ if SERVER then
 		assert(RAGDOLLPUPPETEER_PLAYERS[userId], "Player doesn't exist in hashmap!")
 		local fps = net.ReadFloat()
 		RAGDOLLPUPPETEER_PLAYERS[sender:UserID()].fps = fps
-		timer.Adjust("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps)
+		net.Start("enablePuppeteerPlayback")
+		net.WriteFloat(fps)
+		net.Send(sender)
 	end)
 end
 

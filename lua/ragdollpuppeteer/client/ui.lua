@@ -178,24 +178,34 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	local baseSlider = panelChildren.baseSlider
 	local gestureSlider = panelChildren.gestureSlider
 
+	local function moveSliderBy(val)
+		if not IsValid(baseSlider) then
+			return
+		end
+		baseSlider:SetValue((baseSlider:GetValue() + val) % baseSlider:GetMax())
+		gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+	end
+
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
-		if not IsValid(baseSlider) then
-			return
-		end
-		baseSlider:SetValue((baseSlider:GetValue() - 1) % baseSlider:GetMax())
-		gestureSlider:SetValue((gestureSlider:GetValue() - 1) % gestureSlider:GetMax())
+		moveSliderBy(-1)
 	end)
 	net.Receive("onFrameNext", function()
-		if not IsValid(baseSlider) then
-			return
-		end
-		baseSlider:SetValue((baseSlider:GetValue() + 1) % baseSlider:GetMax())
-		gestureSlider:SetValue((gestureSlider:GetValue() + 1) % gestureSlider:GetMax())
+		moveSliderBy(1)
 	end)
 	net.Receive("queryPhysObjects", function()
 		local newPhysicsObjects = getPhysObjectStructure(panelProps.physicsCount)
 		panelState.physicsObjects = newPhysicsObjects
+	end)
+	net.Receive("enablePuppeteerPlayback", function(len, ply)
+		local fps = net.ReadFloat()
+		timer.Remove("ragdollpuppeteer_playback")
+		timer.Create("ragdollpuppeteer_playback", 1 / fps, -1, function()
+			moveSliderBy(1)
+		end)
+	end)
+	net.Receive("disablePuppeteerPlayback", function(len, ply)
+		timer.Remove("ragdollpuppeteer_playback")
 	end)
 
 	-- Initially, we don't have the phys objects, or the phys objects are different from the last entity
