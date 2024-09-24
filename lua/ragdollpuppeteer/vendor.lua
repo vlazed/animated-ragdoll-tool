@@ -36,7 +36,7 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
 	---@type VMatrix
 	local pMatrix = puppeteer:GetBoneMatrix(parent)
 
-	if not cMatrix or not pMatrix then
+	if not cMatrix or not pMatrix or not defaultBonePose or #defaultBonePose == 0 then
 		return vector_origin, angle_zero
 	end
 
