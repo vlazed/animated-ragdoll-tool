@@ -171,6 +171,8 @@ function UI.Layout(sequenceSheet, smhList, smhBrowser, puppeteer)
 	sequenceSheet:SizeTo(-1, 500, 0.5)
 end
 
+local baseFPS = 30
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
@@ -200,8 +202,9 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
 		local fps = net.ReadFloat()
 		timer.Remove("ragdollpuppeteer_playback")
-		timer.Create("ragdollpuppeteer_playback", 1 / fps, -1, function()
-			moveSliderBy(1)
+		timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
+			local increment = fps / baseFPS
+			moveSliderBy(increment)
 		end)
 	end)
 	net.Receive("disablePuppeteerPlayback", function(len, ply)
@@ -369,8 +372,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local physicsCount = panelProps.physicsCount
 
 	local smhData
-
-	local baseGesturePose
 
 	setupBoneNodesOf(puppet, boneTree)
 
@@ -635,6 +636,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			setSequenceOf(basePuppeteer, currentIndex)
 			if isGesture then
 				setSequenceOf(baseGesturer, currentIndex)
+			else
+				baseFPS = row:GetValue(3)
 			end
 
 			slider:SetMax(row:GetValue(4) - 1)
@@ -645,7 +648,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		if sendNet then
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-				baseGesturePose = Vendor.getDefaultBonePoseOf(baseGesturer)
 				net.Start("onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
