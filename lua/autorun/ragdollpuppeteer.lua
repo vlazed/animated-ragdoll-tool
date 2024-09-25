@@ -26,6 +26,8 @@ if SERVER then
 			currentIndex = 0,
 			cycle = 0,
 			fps = 30,
+			filteredBones = {},
+			bonesReset = false,
 		}
 	end
 
