@@ -21,16 +21,13 @@ local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 local MAX_PELVIS_LOOKUP = 4
 local RAGDOLL_HEIGHT_DIFFERENCE = 100
 
+local defaultAngle = angle_zero
+
 local ids = {
 	"ragdollpuppeteer_puppet",
 	"ragdollpuppeteer_puppeteer",
 	"ragdollpuppeteer_puppetCount",
 }
-
--- TODO: Move these to the RAGDOLLPUPPETEER_PLAYERS table when possible
-local bonesReset = false
-local defaultAngle = angle_zero
-local filteredBones = {}
 
 ---@param puppeteer Entity
 local function styleServerPuppeteer(puppeteer)
@@ -136,7 +133,8 @@ end
 ---@param targetPose SMHFramePose
 ---@param puppeteer Entity
 ---@param offset Angle
-local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset)
+---@param filteredBones integer[]
+local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset, filteredBones)
 	offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
@@ -171,7 +169,8 @@ end
 ---Directly influence the ragdoll nonphysical bones from SMH data
 ---@param puppet Entity
 ---@param targetPose SMHFramePose
-local function setNonPhysicalBonePoseOf(puppet, targetPose)
+---@param filteredBones integer[]
+local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 	for b = 0, puppet:GetBoneCount() - 1 do
 		if filteredBones[b + 1] then
 			continue
@@ -188,7 +187,8 @@ end
 ---Move and orient each physical bone of the puppet using the poses sent to us from the client
 ---Source: https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua
 ---@param puppet Entity
-local function matchPhysicalBonePoseOf(puppet, puppeteer)
+---@param filteredBones integer[]
+local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones)
 	if game.SinglePlayer() then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local phys = puppet:GetPhysicsObjectNum(i)
@@ -317,8 +317,6 @@ local function resetAllNonphysicalBonesOf(ent)
 		ent:ManipulateBonePosition(i, vector_origin)
 		ent:ManipulateBoneAngles(i, angle_zero)
 	end
-
-	bonesReset = true
 end
 
 ---@param puppet Entity
@@ -369,8 +367,9 @@ function TOOL:LeftClick(tr)
 	self:SetAnimationPuppet(ragdollPuppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
 
-	if not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] then
-		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] = {
+	local userId = ply:UserID()
+	if not RAGDOLLPUPPETEER_PLAYERS[userId] then
+		RAGDOLLPUPPETEER_PLAYERS[userId] = {
 			currentIndex = 0,
 			cycle = 0,
 			player = ply,
@@ -378,12 +377,16 @@ function TOOL:LeftClick(tr)
 			puppeteer = animPuppeteer,
 			fps = 30,
 			physicsCount = physicsCount,
+			filteredBones = {},
+			bonesReset = false,
 		}
 	else
-		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet = ragdollPuppet
-		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppeteer = animPuppeteer
-		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].physicsCount = physicsCount
-		RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].player = ply
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = animPuppeteer
+		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = physicsCount
+		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
+		RAGDOLLPUPPETEER_PLAYERS[userId].bonesReset = false
+		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
 	end
 
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
@@ -439,19 +442,21 @@ local function decodePose()
 end
 
 ---Helper for setting poses for SMH animations
-local function readSMHPose(puppet, puppeteer)
+local function readSMHPose(puppet, puppeteer, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
 	local angOffsetLength = net.ReadUInt(16)
 	local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
 	local animatingNonPhys = net.ReadBool()
-	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, angOffset)
+	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, angOffset, playerData.filteredBones)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys)
-	elseif not bonesReset then
+		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys, playerData.filteredBones)
+		playerData.bonesReset = false
+	elseif not playerData.bonesReset then
 		resetAllNonphysicalBonesOf(puppet)
+		playerData.bonesReset = true
 	end
 end
 
@@ -474,11 +479,13 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	puppeteer:ResetSequence(currentIndex)
 	puppeteer:SetCycle(cycle)
 	puppeteer:SetPlaybackRate(0)
-	matchPhysicalBonePoseOf(puppet, puppeteer)
+	matchPhysicalBonePoseOf(puppet, puppeteer, playerData.filteredBones)
 	if animatingNonPhys then
 		queryNonPhysBonePoseOfPuppet(player, cycle)
-	elseif not bonesReset then
+		playerData.bonesReset = false
+	elseif not playerData.bonesReset then
 		resetAllNonphysicalBonesOf(puppet)
+		playerData.bonesReset = true
 	end
 end
 
@@ -548,8 +555,11 @@ if SERVER then
 		setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	end)
 
-	net.Receive("onBoneFilterChange", function()
-		filteredBones = net.ReadTable(true)
+	net.Receive("onBoneFilterChange", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+
+		playerData.filteredBones = net.ReadTable(true)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, sender)
@@ -568,7 +578,7 @@ if SERVER then
 			newPose[b - 1].Pos = net.ReadVector()
 			newPose[b - 1].Ang = net.ReadAngle()
 		end
-		setNonPhysicalBonePoseOf(ragdollPuppet, newPose)
+		setNonPhysicalBonePoseOf(ragdollPuppet, newPose, playerData.filteredBones)
 	end)
 
 	net.Receive("queryPhysObjects", function(_, sender)

@@ -121,6 +121,8 @@ local types = {}
 ---@field currentIndex integer
 ---@field cycle number
 ---@field fps integer
+---@field bonesReset boolean
+---@field filteredBones integer[]
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 
