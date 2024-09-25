@@ -416,6 +416,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
+	local lastPose = {}
+
 	---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 	---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 	---@param ent Entity
@@ -474,6 +476,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 				local pos, ang = ent:GetBonePosition(b)
 
+				if not pos and lastPose[i] then
+					pos = lastPose[i][1]
+				end
+
+				if not ang and lastPose[i] then
+					ang = lastPose[i][2]
+				end
+
 				if pos == ent:GetPos() then
 					local matrix = ent:GetBoneMatrix(b)
 					if matrix then
@@ -517,6 +527,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteVector(pos)
 				net.WriteAngle(ang)
 			end
+
+			lastPose = newPose
 		end
 	end
 
