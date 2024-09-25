@@ -10,8 +10,8 @@ if SERVER then
 	AddCSLuaFile("ragdollpuppeteer/constants.lua")
 	AddCSLuaFile("ragdollpuppeteer/vendor.lua")
 	AddCSLuaFile("ragdollpuppeteer/smh.lua")
-	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 
 	---@type RagdollPuppeteerPlayerField[]
 	RAGDOLLPUPPETEER_PLAYERS = {}
