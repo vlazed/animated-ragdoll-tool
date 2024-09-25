@@ -442,6 +442,9 @@ local function decodePose()
 end
 
 ---Helper for setting poses for SMH animations
+---@param puppet Entity
+---@param puppeteer Entity
+---@param playerData RagdollPuppeteerPlayerField
 local function readSMHPose(puppet, puppeteer, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
@@ -515,7 +518,7 @@ if SERVER then
 			playerData.cycle = cycle
 			setPuppeteerPose(cycle, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, animPuppeteer)
+			readSMHPose(ragdollPuppet, animPuppeteer, playerData)
 		end
 	end)
 
@@ -535,7 +538,7 @@ if SERVER then
 			playerData.currentIndex = seqIndex
 			setPuppeteerPose(0, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, animPuppeteer)
+			readSMHPose(ragdollPuppet, animPuppeteer, playerData)
 		end
 
 		net.Start("onSequenceChange")
