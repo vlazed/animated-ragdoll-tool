@@ -108,8 +108,6 @@ end
 
 function TOOL:Cleanup(userId)
 	if SERVER then
-		timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
-
 		if RAGDOLLPUPPETEER_PLAYERS[userId] and IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
 		end

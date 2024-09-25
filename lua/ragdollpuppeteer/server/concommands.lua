@@ -14,8 +14,8 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 		---@type Player[]
 		local players = player.GetHumans()
 		for _, player in ipairs(players) do
-			local userId = player:UserID()
-			timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
+			net.Start("disablePuppeteerPlayback")
+			net.Send(player)
 		end
 	end
 end)
