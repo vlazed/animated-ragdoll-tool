@@ -650,12 +650,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				setSequenceOf(baseGesturer, currentIndex)
 			else
 				baseFPS = row:GetValue(3)
+				panelState.maxFrames = row:GetValue(4) - 1
 			end
 
 			slider:SetMax(row:GetValue(4) - 1)
-			if sendNet then
-				panelState.maxFrames = row:GetValue(4) - 1
-			end
 		end
 
 		if sendNet then
@@ -681,7 +679,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	local sendingFrame = false
-	local function sliderValueChanged(slider, val, sequence, puppeteer)
+	local function sliderValueChanged(slider, val, sequence, puppeteer, smh)
 		local prevFrame = slider.prevFrame
 		-- Only send when we go frame by frame
 		if math.abs(prevFrame - val) < 1 then
@@ -713,18 +711,20 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.SendToServer()
 			sendingFrame = false
 		else
-			writeSMHPose("onFrameChange", val)
+			if smh then
+				writeSMHPose("onFrameChange", val)
+			end
 		end
 
 		slider.prevFrame = val
 	end
 
 	function baseSlider:OnValueChanged(val)
-		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer)
+		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer, true)
 	end
 
 	function gestureSlider:OnValueChanged(val)
-		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer)
+		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer, false)
 	end
 
 	function sourceBox:OnSelect(_, _, option)
