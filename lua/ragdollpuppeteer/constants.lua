@@ -12,5 +12,6 @@ constants.INVISIBLE_MATERIAL = CreateMaterial("ragdollpuppeteer_invisible", "Unl
 	["$translucent"] = 1,
 	["$decal"] = 1,
 })
+constants.DEFAULT_MAX_FRAME = 60
 
 return constants

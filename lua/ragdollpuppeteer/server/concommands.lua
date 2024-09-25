@@ -14,8 +14,8 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 		---@type Player[]
 		local players = player.GetHumans()
 		for _, player in ipairs(players) do
-			local userId = player:UserID()
-			timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
+			net.Start("disablePuppeteerPlayback")
+			net.Send(player)
 		end
 	end
 end)
@@ -37,13 +37,9 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 
 	local userId = ply:UserID()
 	local fps = RAGDOLLPUPPETEER_PLAYERS[userId].fps
-	timer.Create("ragdollpuppeteer_playback_" .. tostring(userId), 1 / fps, -1, function()
-		if not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()] or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet) then
-			timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
-		end
-		net.Start("onFrameNext")
-		net.Send(ply)
-	end)
+	net.Start("enablePuppeteerPlayback")
+	net.WriteFloat(fps)
+	net.Send(ply)
 end)
 
 concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
@@ -51,8 +47,8 @@ concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
 		return
 	end
 
-	local userId = ply:UserID()
-	timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
+	net.Start("disablePuppeteerPlayback")
+	net.Send(ply)
 end)
 
 concommand.Add("ragdollpuppeteer_previousframe", function(ply)

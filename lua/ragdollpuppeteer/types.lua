@@ -74,13 +74,19 @@ local types = {}
 ---@field slider DNumSlider
 ---@field name string
 
+---@class FrameSlider: DNumSlider
+---@field prevFrame number
+
 ---@class PanelChildren
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
 ---@field smhList DListView
 ---@field sequenceList DListView
+---@field sequenceList2 DListView
+---@field sequenceSheet DPropertySheet
 ---@field nonPhysCheckBox DCheckBoxLabel
----@field numSlider DNumSlider
+---@field baseSlider FrameSlider
+---@field gestureSlider FrameSlider
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
 ---@field angOffset DNumSlider[]
@@ -94,7 +100,9 @@ local types = {}
 ---@field puppet Entity
 ---@field physicsCount integer
 ---@field puppeteer Entity
----@field zeroPuppeteer Entity
+---@field basePuppeteer Entity
+---@field gesturer Entity
+---@field baseGesturer Entity
 ---@field model string
 
 ---@class PanelState
@@ -113,6 +121,8 @@ local types = {}
 ---@field currentIndex integer
 ---@field cycle number
 ---@field fps integer
+---@field bonesReset boolean
+---@field filteredBones integer[]
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 

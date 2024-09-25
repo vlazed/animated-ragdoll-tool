@@ -38,9 +38,7 @@ if SERVER then
 	gameevent.Listen("player_disconnect")
 	hook.Add("player_disconnect", "ragdollpuppeteer_PlayerDisconnect", function(data)
 		local userId = data.userid
-		timer.Remove("ragdollpuppeteer_playback_" .. tostring(userId))
 		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
-		-- print(userId, "disconnected!")
 	end)
 
 	---@type Player[]
