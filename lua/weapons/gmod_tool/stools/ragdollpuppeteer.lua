@@ -27,6 +27,7 @@ local ids = {
 	"ragdollpuppeteer_puppet",
 	"ragdollpuppeteer_puppeteer",
 	"ragdollpuppeteer_puppetCount",
+	"ragdollpuppeteer_floor",
 }
 
 ---@param puppeteer Entity
@@ -67,7 +68,7 @@ function TOOL:Think()
 
 		lastPuppet = currentPuppet
 		lastValidPuppet = IsValid(lastPuppet)
-		self:RebuildControlPanel(currentPuppet, self:GetOwner(), physicsCount)
+		self:RebuildControlPanel(currentPuppet, self:GetOwner(), physicsCount, self:GetAnimationFloor())
 	end
 end
 
@@ -90,6 +91,16 @@ end
 ---@return Entity
 function TOOL:GetAnimationPuppet()
 	return self:GetWeapon():GetNWEntity(ids[1])
+end
+
+---@return Entity
+function TOOL:GetAnimationFloor()
+	return self:GetWeapon():GetNWEntity(ids[4])
+end
+
+---@param puppeteerFloor PuppeteerFloor
+function TOOL:SetAnimationFloor(puppeteerFloor)
+	self:GetWeapon():SetNWEntity(ids[4], puppeteerFloor)
 end
 
 ---@param puppeteer Entity?
@@ -123,6 +134,9 @@ function TOOL:Cleanup(userId)
 	end
 	self:SetAnimationPuppet(NULL)
 	self:SetAnimationPuppeteer(NULL)
+	if IsValid(self:GetAnimationFloor()) then
+		self:GetAnimationFloor():Remove()
+	end
 
 	self:SetStage(0)
 end
@@ -292,13 +306,12 @@ local function setPositionOf(puppeteer, target, findFloor)
 	end
 end
 
----Make the puppeteer face the target
----@param puppeteer Entity
+---Make some entity face the target
+---@param entity Entity
 ---@param target Entity
-local function setAngleOf(puppeteer, target)
-	local angle = (target:GetPos() - puppeteer:GetPos()):Angle()
-	defaultAngle = angle
-	puppeteer:SetAngles(Angle(0, angle.y, 0))
+local function setAngleOf(entity, target)
+	local angle = (target:GetPos() - entity:GetPos()):Angle()
+	entity:SetAngles(Angle(0, angle.y, 0))
 end
 
 ---Set the puppeteer's position and angles
@@ -333,6 +346,21 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	return puppeteer
 end
 
+---@param puppeteer Entity
+---@param ply Player
+---@return PuppeteerFloor
+local function createPuppeteerFloor(puppeteer, ply)
+	local puppeteerFloor = ents.Create("prop_puppeteerfloor")
+	---@cast puppeteerFloor PuppeteerFloor
+	puppeteerFloor:Spawn()
+	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
+	setAngleOf(puppeteerFloor, ply)
+	puppeteerFloor:AddPuppeteers({ puppeteer })
+	puppeteerFloor:SetPhysicsSize(puppeteer)
+
+	return puppeteerFloor
+end
+
 ---Select a ragdoll as a puppet to puppeteer
 ---@param tr TraceResult
 ---@return boolean
@@ -359,13 +387,17 @@ function TOOL:LeftClick(tr)
 
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
+	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ply)
+
 	-- If we're selecting a different character, cleanup the previous selection
 	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
 		self:Cleanup(userId)
 	end
+
 	self:SetPuppetPhysicsCount(physicsCount)
 	self:SetAnimationPuppet(ragdollPuppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
+	self:SetAnimationFloor(puppeteerFloor)
 
 	local userId = ply:UserID()
 	if not RAGDOLLPUPPETEER_PLAYERS[userId] then
@@ -673,6 +705,7 @@ local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(COLOR_BLUE)
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 	puppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
+	puppeteer.ragdollpuppeteer_currentMaterial = PUPPETEER_MATERIAL
 end
 
 ---@alias BoneOffset table<Vector, Angle>
@@ -729,9 +762,15 @@ end
 ---@param puppet Entity
 ---@param ply Player
 ---@param physicsCount integer
-function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
+---@param floor PuppeteerFloor
+function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	if not puppet or not IsValid(puppet) then
 		cPanel:Help("#ui.ragdollpuppeteer.label.none")
+		return
+	end
+
+	if not IsValid(floor) then
+		chat.AddText("Puppeteer floor did not pass here")
 		return
 	end
 
@@ -747,6 +786,15 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount)
 	basePuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
 	baseGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
 	animGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+
+	floor:AddPuppeteers({
+		animPuppeteer,
+		animGesturer,
+		basePuppeteer,
+		baseGesturer,
+	})
+
+	floor:SetPhysicsSize(animPuppeteer)
 
 	local panelProps = {
 		model = model,

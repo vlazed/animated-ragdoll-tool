@@ -392,8 +392,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		if checked then
 			animPuppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
+			animPuppeteer.ragdollpuppeteer_currentMaterial = PUPPETEER_MATERIAL
 		else
 			animPuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+			animPuppeteer.ragdollpuppeteer_currentMaterial = INVISIBLE_MATERIAL
 		end
 		lastCheck = checked
 	end
