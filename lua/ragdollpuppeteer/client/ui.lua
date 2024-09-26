@@ -1,11 +1,11 @@
----@module "ragdollpuppeteer.smh"
-local SMH = include("ragdollpuppeteer/smh.lua")
+---@module "ragdollpuppeteer.lib.smh"
+local smh = include("ragdollpuppeteer/lib/smh.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.client.components"
 local components = include("components.lua")
----@module "ragdollpuppeteer.vendor"
-local Vendor = include("ragdollpuppeteer/vendor.lua")
+---@module "ragdollpuppeteer.lib.vendor"
+local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.lib.quaternion"
 include("ragdollpuppeteer/lib/quaternion.lua")
 
@@ -433,8 +433,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				if defaultBonePose and currentGesture.anims then
 					local gesturePos, gestureAng
 					if ent:GetBoneParent(b) > -1 then
-						local gPos, gAng = Vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-						local oPos, oAng = Vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
+						local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
+						local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
 						local oQuat = Quaternion()
 						local gQuat = Quaternion()
@@ -492,13 +492,13 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if not smhList:GetSelected()[1] then
 			return
 		end
-		local physBonePose = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+		local physBonePose = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
 		net.Start(netString, true)
 		net.WriteBool(false)
 		encodePose(physBonePose)
 		net.WriteBool(nonPhysCheckbox:GetChecked())
 		if nonPhysCheckbox:GetChecked() then
-			local nonPhysBoneData = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
+			local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
 			local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
 			net.WriteUInt(#compressedNonPhysPose, 16)
 			net.WriteData(compressedNonPhysPose)
@@ -690,7 +690,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	function smhBrowser:OnSelect(filePath)
 		UI.ClearList(smhList)
-		smhData = SMH.parseSMHFile(filePath, model)
+		smhData = smh.parseSMHFile(filePath, model)
 		populateSMHEntitiesList(smhList, model, smhData, function(_)
 			return true
 		end)

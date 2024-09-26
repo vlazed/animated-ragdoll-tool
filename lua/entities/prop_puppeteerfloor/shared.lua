@@ -1,3 +1,8 @@
+---@module "ragdollpuppeteer.constants"
+local constants = include("ragdollpuppeteer/constants.lua")
+---@module "ragdollpuppeteer.util"
+local util = include("ragdollpuppeteer/lib/helpers.lua")
+
 ENT.Type = "anim"
 ENT.Base = "base_gmodentity"
 
@@ -12,7 +17,7 @@ ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local LOCAL_INFRONT = Vector(100, 0, 10)
-local RAGDOLL_HEIGHT_DIFFERENCE = 100
+local floorCorrect = util.floorCorrect
 
 ---@param puppeteerTable Entity[]
 function ENT:AddPuppeteers(puppeteerTable)
@@ -72,17 +77,7 @@ function ENT:Think()
 		if IsValid(puppeteer) then
 			puppeteer:SetPos(self:GetPos())
 			puppeteer:SetAngles(self:GetAngles())
-
-			-- Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
-			-- if the difference between the puppeteer's set position and its lower position from the AABB is significantly
-			-- different
-			local min = puppeteer:WorldSpaceAABB()
-			local zMin = min.z
-			local height = puppeteer:GetPos().z
-			local difference = math.abs(height - zMin)
-			if difference > RAGDOLL_HEIGHT_DIFFERENCE then
-				puppeteer:SetPos(puppeteer:GetPos() + Vector(0, 0, difference))
-			end
+			floorCorrect(puppeteer)
 		end
 	end
 

@@ -8,8 +8,8 @@ if SERVER then
 	include("ragdollpuppeteer/server/concommands.lua")
 
 	AddCSLuaFile("ragdollpuppeteer/constants.lua")
-	AddCSLuaFile("ragdollpuppeteer/vendor.lua")
-	AddCSLuaFile("ragdollpuppeteer/smh.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/vendor.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 

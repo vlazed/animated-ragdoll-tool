@@ -1,7 +1,7 @@
 --- Stop Motion Helper vendor functions to generate SMH pose for puppet
 
----@module "ragdollpuppeteer.vendor"
-local Vendor = include("ragdollpuppeteer/vendor.lua")
+---@module "ragdollpuppeteer.lib.vendor"
+local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 
 local SMH = {}
 
@@ -48,18 +48,18 @@ local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
 	local count = #prevFrame
 	for i = 0, count do
 		lerpPose[i] = {}
-		lerpPose[i].Pos = Vendor.LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
-		lerpPose[i].Ang = Vendor.LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
+		lerpPose[i].Pos = vendor.LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
+		lerpPose[i].Ang = vendor.LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
 		if i > 0 then
 			if prevFrame[i].LocalPos then
 				lerpPose[i].LocalPos =
-					Vendor.LerpLinearVector(prevFrame[i].LocalPos, nextFrame[i].LocalPos, lerpMultiplier)
+					vendor.LerpLinearVector(prevFrame[i].LocalPos, nextFrame[i].LocalPos, lerpMultiplier)
 				lerpPose[i].LocalAng =
-					Vendor.LerpLinearAngle(prevFrame[i].LocalAng, nextFrame[i].LocalAng, lerpMultiplier)
+					vendor.LerpLinearAngle(prevFrame[i].LocalAng, nextFrame[i].LocalAng, lerpMultiplier)
 			end
 
 			if prevFrame[i].Scale then
-				lerpPose[i].Scale = Vendor.LerpLinear(prevFrame[i].Scale, nextFrame[i].Scale, lerpMultiplier)
+				lerpPose[i].Scale = vendor.LerpLinear(prevFrame[i].Scale, nextFrame[i].Scale, lerpMultiplier)
 			end
 		end
 	end
@@ -110,7 +110,7 @@ function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 		if not frameData.EntityData[modifier] then
 			continue
 		end
-		local prevFrame, nextFrame, lerpMultiplier = Vendor.getClosestKeyframes(smhFrames, poseFrame, false, modifier)
+		local prevFrame, nextFrame, lerpMultiplier = vendor.getClosestKeyframes(smhFrames, poseFrame, false, modifier)
 		---@cast prevFrame SMHFrameData
 		---@cast nextFrame SMHFrameData
 

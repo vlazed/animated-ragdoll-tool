@@ -1,7 +1,9 @@
 ---@module "ragdollpuppeteer.vendor"
-local Vendor = include("ragdollpuppeteer/vendor.lua")
+local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
+---@module "ragdollpuppeteer.util"
+local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
@@ -20,9 +22,6 @@ local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 local MAX_PELVIS_LOOKUP = 4
-local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
-
-local defaultAngle = angle_zero
 
 local ids = {
 	"ragdollpuppeteer_puppet",
@@ -33,8 +32,6 @@ local ids = {
 
 ---@param puppeteer Entity
 local function styleServerPuppeteer(puppeteer)
-	puppeteer:SetColor(Color(255, 255, 255, 0))
-	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
 	puppeteer:AddEffects(EF_NODRAW)
 end
 
@@ -50,7 +47,7 @@ end
 local function queryPhysObjects(ragdoll, physicsCount, player)
 	net.Start("queryPhysObjects", false)
 	for i = 0, physicsCount do
-		net.WriteInt(Vendor.GetPhysBoneParent(ragdoll, i), 10)
+		net.WriteInt(vendor.GetPhysBoneParent(ragdoll, i), 10)
 		net.WriteString(ragdoll:GetBoneName(ragdoll:TranslatePhysBoneToBone(i)))
 	end
 	net.Send(player)
@@ -152,7 +149,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBone
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
-		local parent = puppet:GetPhysicsObjectNum(Vendor.GetPhysBoneParent(puppet, i))
+		local parent = puppet:GetPhysicsObjectNum(vendor.GetPhysBoneParent(puppet, i))
 		if not targetPose[i] or filteredBones[b + 1] then
 			continue
 		end
@@ -166,8 +163,6 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBone
 		else
 			local matrix = puppeteer:GetBoneMatrix(b)
 			local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
-			-- First, set offset angle of puppeteer
-			puppeteer:SetAngles(defaultAngle)
 			-- Then, set target position of puppet with offset
 			local fPos, fAng = LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, bPos, bAng)
 			phys:EnableMotion(false)
@@ -263,6 +258,8 @@ local function queryNonPhysBonePoseOfPuppet(ply, cycle)
 	net.Send(ply)
 end
 
+local floorCorrect = helpers.floorCorrect
+
 ---Move the puppeteer to the target entity's position, with the option to move to the ground
 ---@param puppeteer Entity
 ---@param target Entity
@@ -278,17 +275,7 @@ local function setPositionOf(puppeteer, target, findFloor)
 			end,
 		})
 		puppeteer:SetPos(tr.HitPos)
-
-		-- Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
-		-- if the difference between the puppeteer's set position and its lower position from the AABB is significantly
-		-- different
-		local min = puppeteer:WorldSpaceAABB()
-		local zMin = min.z
-		local height = puppeteer:GetPos().z
-		local difference = math.abs(height - zMin)
-		if difference > RAGDOLL_HEIGHT_DIFFERENCE then
-			puppeteer:SetPos(puppeteer:GetPos() + Vector(0, 0, difference))
-		end
+		floorCorrect(puppeteer)
 	else
 		-- If the puppeteer has a root bone in the same position as the its puppeteer:GetPos(), then it may have its pelvis
 		-- as a child in the bone tree. We'll use the bone that has a significant difference from puppeteer:GetPos()
@@ -346,28 +333,22 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 end
 
 ---@param puppeteer Entity
+---@param puppet Entity
 ---@param ply Player
 ---@return PuppeteerFloor
-local function createPuppeteerFloor(puppeteer, ply)
+local function createPuppeteerFloor(puppeteer, puppet, ply)
 	local puppeteerFloor = ents.Create("prop_puppeteerfloor")
 	---@cast puppeteerFloor PuppeteerFloor
 	puppeteerFloor:Spawn()
 	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
-	-- Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
-	-- if the difference between the puppeteer's set position and its lower position from the AABB is significantly
-	-- different
-	local min = puppeteer:WorldSpaceAABB()
-	local zMin = min.z
-	local height = puppeteer:GetPos().z
-	local difference = math.abs(height - zMin)
-	if difference > RAGDOLL_HEIGHT_DIFFERENCE then
-		puppeteerFloor:SetPos(puppeteer:GetPos() - Vector(0, 0, difference))
-	end
+	floorCorrect(puppeteerFloor, puppeteer, -1)
 
-	setAngleOf(puppeteerFloor, ply)
 	puppeteerFloor:AddPuppeteers({ puppeteer })
 	puppeteerFloor:SetPhysicsSize(puppeteer)
 	puppeteerFloor:SetPlayerOwner(ply)
+	puppeteerFloor:SetPuppet(puppet)
+
+	setAngleOf(puppeteerFloor, ply)
 
 	return puppeteerFloor
 end
@@ -398,8 +379,7 @@ function TOOL:LeftClick(tr)
 
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ply)
-	puppeteerFloor:SetPuppet(ragdollPuppet)
+	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ragdollPuppet, ply)
 
 	-- If we're selecting a different character, cleanup the previous selection
 	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
@@ -666,7 +646,7 @@ cvars.AddChangeCallback("ragdollpuppeteer_fps", function(_, _, newValue)
 end)
 
 ---@module "ragdollpuppeteer.ui"
-local UI = include("ragdollpuppeteer/client/ui.lua")
+local ui = include("ragdollpuppeteer/client/ui.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -705,7 +685,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 		-- Reset bone position and angles
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
-			local dPos, dAng = Vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
+			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
 		else
@@ -764,7 +744,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	animPuppeteer:SetIK(false)
 	local animGesturer = createClientPuppeteer(model, puppet, ply)
 
-	-- Used for sequences, these puppeteers area always set to the first frame of the sequence, so we can easily extract the delta position and angle.
+	-- Used for sequences, these puppeteers are always set to the first frame of the sequence, so we can easily extract the delta position and angle.
 	local basePuppeteer = createClientPuppeteer(model, puppet, ply)
 	local baseGesturer = createClientPuppeteer(model, puppet, ply)
 	basePuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
@@ -791,14 +771,14 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	}
 
 	-- UI Elements
-	local panelChildren = UI.ConstructPanel(cPanel, panelProps)
+	local panelChildren = ui.ConstructPanel(cPanel, panelProps)
 
-	UI.Layout(panelChildren.sequenceSheet, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
+	ui.Layout(panelChildren.sequenceSheet, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
 
 	-- UI Hooks
-	UI.HookPanel(panelChildren, panelProps, panelState)
+	ui.HookPanel(panelChildren, panelProps, panelState)
 
-	UI.NetHookPanel(panelChildren, panelProps, panelState)
+	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
@@ -809,10 +789,10 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 			panelState.previousPuppeteer = NULL
 
 			if IsValid(panelChildren.sequenceList) then
-				UI.ClearList(panelChildren.sequenceList)
+				ui.ClearList(panelChildren.sequenceList)
 			end
 			if IsValid(panelChildren.smhList) then
-				UI.ClearList(panelChildren.smhList)
+				ui.ClearList(panelChildren.smhList)
 			end
 			if IsValid(panelChildren.puppetLabel) then
 				panelChildren.puppetLabel:SetText("#ui.ragdollpuppeteer.label.none")
@@ -850,12 +830,13 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:DrawModel()
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
-	local defaultBonePose = Vendor.getDefaultBonePoseOf(csModel)
+	local defaultBonePose = vendor.getDefaultBonePoseOf(csModel)
 	panelState.defaultBonePose = defaultBonePose
 
 	if #defaultBonePose == 0 then
 		return
 	end
+	csModel:Remove()
 
 	net.Start("queryDefaultBonePoseOfPuppet")
 
@@ -863,7 +844,6 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 		net.WriteTable(defaultBonePose[b], true)
 	end
 
-	csModel:Remove()
 	net.SendToServer()
 end)
 
