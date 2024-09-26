@@ -10,7 +10,6 @@ TOOL.ClientConVar["gestureframe"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["floor_worldcollisions"] = 1
-TOOL.ClientConVar["offsetroot"] = 0
 TOOL.ClientConVar["fps"] = 30
 
 local mode = TOOL:GetMode()
@@ -146,10 +145,8 @@ end
 ---@param puppet Entity
 ---@param targetPose SMHFramePose
 ---@param puppeteer Entity
----@param offset Angle
 ---@param filteredBones integer[]
-local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset, filteredBones)
-	offset = offset and Angle(offset[1], offset[2], offset[3]) or Angle(0, 0, 0)
+local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBones)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
@@ -168,7 +165,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, offset, filt
 			local matrix = puppeteer:GetBoneMatrix(b)
 			local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
 			-- First, set offset angle of puppeteer
-			puppeteer:SetAngles(defaultAngle + offset)
+			puppeteer:SetAngles(defaultAngle)
 			-- Then, set target position of puppet with offset
 			local fPos, fAng = LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, bPos, bAng)
 			phys:EnableMotion(false)
@@ -482,10 +479,8 @@ end
 local function readSMHPose(puppet, puppeteer, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
-	local angOffsetLength = net.ReadUInt(16)
-	local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
 	local animatingNonPhys = net.ReadBool()
-	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, angOffset, playerData.filteredBones)
+	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, playerData.filteredBones)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
@@ -639,30 +634,6 @@ if SERVER then
 end
 
 -- Concommands
-concommand.Add("ragdollpuppeteer_updateposition", function(ply, _, _)
-	if not IsValid(ply) then
-		return
-	end
-
-	local findFloor = GetConVar("ragdollpuppeteer_updateposition_floors"):GetInt()
-	local findFloorBool = false
-	if findFloor <= 0 then
-		findFloorBool = false
-	else
-		findFloorBool = true
-	end
-
-	local tool = ply:GetTool("ragdollpuppeteer")
-	local puppeteer = tool:GetAnimationPuppeteer()
-	local puppet = tool:GetAnimationPuppet()
-	if not IsValid(puppet) or not IsValid(puppeteer) then
-		return
-	end
-	setPlacementOf(puppeteer, puppet, ply, findFloorBool)
-	-- Update client puppeteer position, which calls the above function for the client puppeteer
-	net.Start("updateClientPosition")
-	net.Send(ply)
-end)
 
 if SERVER then
 	return
@@ -817,13 +788,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	UI.HookPanel(panelChildren, panelProps, panelState)
 
 	UI.NetHookPanel(panelChildren, panelProps, panelState)
-
-	net.Receive("updateClientPosition", function()
-		setPlacementOf(animPuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
-		setPlacementOf(basePuppeteer, puppet, ply, panelChildren.findFloor:GetChecked())
-		setPlacementOf(baseGesturer, puppet, ply, panelChildren.findFloor:GetChecked())
-		setPlacementOf(animGesturer, puppet, ply, panelChildren.findFloor:GetChecked())
-	end)
 
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then

@@ -58,17 +58,6 @@ function components.AnimationSourceBox(cPanel)
 end
 
 ---@param cPanel DForm
----@param puppeteer Entity
----@return DButton
-function components.UpdatePuppeteerButton(cPanel, puppeteer)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.updatepos", "ragdollpuppeteer_updateposition", puppeteer)
-	---@cast panel DButton
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.updatepos")
-	return panel
-end
-
----@param cPanel DForm
 ---@return DButton
 function components.RemoveGesture(cPanel)
 	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.removegesture", "")
@@ -111,20 +100,6 @@ function components.PuppeteerVisible(cPanel)
 	---@cast panel DCheckBoxLabel
 
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
-
-	return panel
-end
-
----@param cPanel DForm
----@return DCheckBoxLabel
-function components.OffsetRoot(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.offsetroot", "ragdollpuppeteer_offsetroot")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.offsetroot")
-	if not game.SinglePlayer() then
-		panel:SetEnabled(false)
-	end
 
 	return panel
 end
@@ -180,43 +155,6 @@ function components.SMHFileBrowser(cPanel)
 	fileBrowser:SetCurrentFolder("smh")
 	cPanel:AddItem(fileBrowser)
 	return fileBrowser
-end
-
----@param dForm DForm
----@param names string[]
----@return DNumSlider[]
-function components.AngleNumSliders(dForm, names)
-	local sliders = {}
-	for i = 1, 3 do
-		local slider = dForm:NumSlider(names[i], "", -180, 180)
-		---@cast slider DNumSlider
-		slider:Dock(TOP)
-		slider:SetValue(0)
-		sliders[i] = slider
-	end
-	return sliders
-end
-
----@param cPanel DForm
----@param names string[]
----@param label string
----@return DNumSlider[]
-function components.AngleNumSliderTrio(cPanel, names, label)
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel(label)
-	local angleSliders = components.AngleNumSliders(dForm, names)
-	cPanel:AddItem(dForm)
-	---@diagnostic disable-next-line
-	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
-	function resetAngles:DoClick()
-		for i = 1, 3 do
-			angleSliders[i]:SetValue(0)
-		end
-	end
-
-	dForm:DoExpansion(false)
-
-	return angleSliders
 end
 
 ---@param cPanel DForm

@@ -41,12 +41,6 @@ local function getPhysObjectStructure(physicsCount)
 	return physicsObjects
 end
 
----@param trio DNumSlider[]
----@return number[]
-local function getAngleTrio(trio)
-	return { trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue() }
-end
-
 ---@param dList DListView
 function UI.ClearList(dList)
 	for i = 1, #dList:GetLines() do
@@ -287,20 +281,13 @@ function UI.ConstructPanel(cPanel, panelProps)
 		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture"),
 		language.GetPhrase("#ui.ragdollpuppeteer.tooltip.gesture")
 	)
-	local angOffset = components.AngleNumSliderTrio(
-		cPanel,
-		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
-		"#ui.ragdollpuppeteer.label.angleoffset"
-	)
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
 	local settings = components.Settings(cPanel)
 	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
 	local findFloor = components.FindFloor(settings)
-	local offsetRoot = components.OffsetRoot(settings)
 	local showPuppeteer = components.PuppeteerVisible(settings)
 
-	local updatePuppeteerButton = components.UpdatePuppeteerButton(settings, puppeteer)
 	local floorCollisions = components.FloorWorldCollisions(settings)
 
 	local boneTree = components.BoneTree(cPanel)
@@ -320,9 +307,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		puppetLabel = puppetLabel,
 		baseSlider = baseSlider,
 		gestureSlider = gestureSlider,
-		angOffset = angOffset,
 		nonPhysCheckBox = nonPhysCheckbox,
-		updatePuppeteerButton = updatePuppeteerButton,
 		sourceBox = sourceBox,
 		searchBar = searchBar,
 		sequenceList = sequenceList,
@@ -333,7 +318,6 @@ function UI.ConstructPanel(cPanel, panelProps)
 		poseParams = poseParams,
 		findFloor = findFloor,
 		boneTree = boneTree,
-		offsetRoot = offsetRoot,
 		showPuppeteer = showPuppeteer,
 		removeGesture = removeGesture,
 		floorCollisions = floorCollisions,
@@ -362,7 +346,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local sourceBox = panelChildren.sourceBox
 	local nonPhysCheckbox = panelChildren.nonPhysCheckBox
 	local searchBar = panelChildren.searchBar
-	local angOffset = panelChildren.angOffset
 	local poseParams = panelChildren.poseParams
 	local boneTree = panelChildren.boneTree
 	local showPuppeteer = panelChildren.showPuppeteer
@@ -436,11 +419,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			return
 		end
 
-		local willOffset = GetConVar("ragdollpuppeteer_offsetroot"):GetInt() > 0
-
-		local angleTrio = getAngleTrio(angOffset)
-		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
-
 		if game.SinglePlayer() then
 			if not physicsObjects or #physicsObjects == 0 then
 				return
@@ -499,35 +477,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					end
 				end
 
-				-- If we're offsetting from the puppeteer, we're animating limbs with respect to the root/pelvis bone
-				if willOffset then
-					-- Query for the root/pelvis bone
-					if p == -1 or i == 0 then
-						-- Obtain the offset. Why? We want to preserve pelvis movements from sequence, so it won't look stiff
-						-- TODO: Implement above feature
-						local bMatrix = rag:GetBoneMatrix(b)
-						if not bMatrix then
-							continue
-						end
-						-- Replace pos, ang with the current position of the puppet's root/pelvis
-						pos, _ = bMatrix:GetTranslation()
-						ang = ang + angleOffset
-					else
-						-- We have a parent, so obtain offset and angles with respect to the parent bone's location
-						if newPose[p] then
-							-- Get position and angles of the new parent pose, in world coordinates
-							local parentPos, parentAng = newPose[p][1], newPose[p][2]
-							-- Get position and angles of the old parent pose, in world coordinates
-							local parentBone = rag:TranslatePhysBoneToBone(p)
-							local puppeteerParentPos, puppeteerParentAng = ent:GetBonePosition(parentBone)
-							-- Get relative position and angles of child bone with respect to parent pose
-							pos, ang = WorldToLocal(pos, ang, puppeteerParentPos, puppeteerParentAng)
-							-- Get world position and angles of child bone with respect to new parent pose
-							pos, ang = LocalToWorld(pos, ang, parentPos, parentAng)
-						end
-					end
-				end
-
 				-- Save the current bone pose, so later iterations can use it to offset their own bone poses with respect to this one
 				newPose[i] = { pos, ang }
 
@@ -544,12 +493,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			return
 		end
 		local physBonePose = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
-		local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 		net.Start(netString, true)
 		net.WriteBool(false)
 		encodePose(physBonePose)
-		net.WriteUInt(#compressedOffset, 16)
-		net.WriteData(compressedOffset)
 		net.WriteBool(nonPhysCheckbox:GetChecked())
 		if nonPhysCheckbox:GetChecked() then
 			local nonPhysBoneData = SMH.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
@@ -560,29 +506,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		net.SendToServer()
 	end
-
-	local function onAngleTrioValueChange()
-		local _, option = sourceBox:GetSelected()
-		if option == "sequence" then
-			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
-			local val = baseSlider:GetValue()
-			local cycle = val / numframes
-			animPuppeteer:SetCycle(cycle)
-
-			net.Start("onFrameChange", true)
-			net.WriteBool(true)
-			net.WriteFloat(cycle)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
-			net.SendToServer()
-		else
-			writeSMHPose("onFrameChange", baseSlider:GetValue())
-		end
-	end
-
-	angOffset[1].OnValueChanged = onAngleTrioValueChange
-	angOffset[2].OnValueChanged = onAngleTrioValueChange
-	angOffset[3].OnValueChanged = onAngleTrioValueChange
 
 	---@param newValue number
 	---@param paramName string
