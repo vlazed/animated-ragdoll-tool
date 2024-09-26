@@ -60,6 +60,16 @@ function components.UpdatePuppeteerButton(cPanel, puppeteer)
 end
 
 ---@param cPanel DForm
+---@return DButton
+function components.RemoveGesture(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.removegesture", "")
+	---@cast panel DButton
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.removegesture")
+	return panel
+end
+
+---@param cPanel DForm
 ---@param label string
 ---@return FrameSlider
 function components.FrameSlider(cPanel, cvar, label, tooltip)

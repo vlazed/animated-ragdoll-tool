@@ -308,6 +308,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
+	local removeGesture = components.RemoveGesture(lists)
 	local sequenceSheet = components.SequenceSheet(lists)
 	local sequenceList = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
 	local sequenceList2 = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
@@ -333,6 +334,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		boneTree = boneTree,
 		offsetRoot = offsetRoot,
 		showPuppeteer = showPuppeteer,
+		removeGesture = removeGesture,
 	}
 end
 
@@ -362,6 +364,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local poseParams = panelChildren.poseParams
 	local boneTree = panelChildren.boneTree
 	local showPuppeteer = panelChildren.showPuppeteer
+	local removeGesture = panelChildren.removeGesture
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -668,6 +671,17 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 
 		return mutatedSequence
+	end
+
+	function removeGesture:DoClick()
+		local seqInfo = animGesturer:GetSequenceInfo(0)
+		if currentGesture.label ~= seqInfo.label then
+			currentGesture = seqInfo
+			setSequenceOf(animGesturer, 0)
+			setSequenceOf(baseGesturer, 0)
+
+			gestureSlider:SetMax(60)
+		end
 	end
 
 	function sequenceList:OnRowSelected(_, row)
