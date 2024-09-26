@@ -95,6 +95,7 @@ local types = {}
 ---@field boneTree DTree
 ---@field offsetRoot DCheckBoxLabel
 ---@field showPuppeteer DCheckBoxLabel
+---@field removeGesture DButton
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -128,5 +129,13 @@ local types = {}
 
 ---@class PhysicsObject
 ---@field parent integer
+
+---@class PuppeteerFloor: Entity
+---@field puppeteers Entity[]
+---@field floorSize Vector[]
+---@field SetPhysicsSize fun(self: PuppeteerFloor, puppeteer: Entity)
+---@field AddPuppeteers fun(self: PuppeteerFloor, puppeteers: Entity[])
+---@field RemovePuppeteers fun() Remove puppeteers from the world
+---@field ClearPuppeteers fun() Clear the puppeteer table
 
 return types
