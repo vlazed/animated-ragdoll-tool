@@ -9,7 +9,7 @@ TOOL.ClientConVar["baseframe"] = 0
 TOOL.ClientConVar["gestureframe"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["showpuppeteer"] = 1
-TOOL.ClientConVar["updateposition_floors"] = 0
+TOOL.ClientConVar["floor_worldcollisions"] = 1
 TOOL.ClientConVar["offsetroot"] = 0
 TOOL.ClientConVar["fps"] = 30
 
@@ -357,6 +357,7 @@ local function createPuppeteerFloor(puppeteer, ply)
 	setAngleOf(puppeteerFloor, ply)
 	puppeteerFloor:AddPuppeteers({ puppeteer })
 	puppeteerFloor:SetPhysicsSize(puppeteer)
+	puppeteerFloor:SetPlayerOwner(ply)
 
 	return puppeteerFloor
 end
@@ -388,6 +389,7 @@ function TOOL:LeftClick(tr)
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
 	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ply)
+	puppeteerFloor:SetPuppet(ragdollPuppet)
 
 	-- If we're selecting a different character, cleanup the previous selection
 	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then

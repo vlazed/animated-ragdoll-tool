@@ -33,6 +33,15 @@ function components.OverrideBlend(cPanel)
 	return panel
 end
 
+function components.FloorWorldCollisions(cPanel)
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.floorworld", "ragdollpuppeteer_floor_worldcollisions")
+	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.floorworld")
+
+	return panel
+end
+
 ---@param cPanel DForm
 ---@return DComboBox
 function components.AnimationSourceBox(cPanel)

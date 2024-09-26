@@ -9,6 +9,10 @@ ENT.Instructions = "Set the list of puppeteers to move"
 ENT.Spawnable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
+local RECOVER_DELAY = 2
+local RECOVERY_DISTANCE = 500
+local LOCAL_INFRONT = Vector(100, 0, 10)
+
 ---@param puppeteerTable Entity[]
 function ENT:AddPuppeteers(puppeteerTable)
 	if #puppeteerTable == 0 then
@@ -21,6 +25,16 @@ function ENT:AddPuppeteers(puppeteerTable)
 	for _, puppeteer in ipairs(puppeteerTable) do
 		table.insert(self.puppeteers, puppeteer)
 	end
+end
+
+---@param puppet Entity
+function ENT:SetPuppet(puppet)
+	self.puppet = puppet
+end
+
+---@return Entity
+function ENT:GetPuppet()
+	return self.puppet
 end
 
 function ENT:ClearPuppeteers()
@@ -54,8 +68,10 @@ function ENT:Think()
 	---@cast puppeteers Entity[]
 
 	for _, puppeteer in ipairs(puppeteers) do
-		puppeteer:SetPos(self:GetPos())
-		puppeteer:SetAngles(self:GetAngles())
+		if IsValid(puppeteer) then
+			puppeteer:SetPos(self:GetPos())
+			puppeteer:SetAngles(self:GetAngles())
+		end
 	end
 
 	if CLIENT then
@@ -65,14 +81,40 @@ function ENT:Think()
 			physobj:SetPos(self:GetPos())
 			physobj:SetAngles(self:GetAngles())
 		end
+	else
+		local owner = self:GetPlayerOwner()
+		local shouldEnableCollisions = GetConVar("ragdollpuppeteer_floor_worldcollisions")
+			and GetConVar("ragdollpuppeteer_floor_worldcollisions"):GetInt() > 0
+		local physobj = self:GetPhysicsObject()
+
+		if IsValid(physobj) then
+			---@diagnostic disable-next-line
+			physobj:EnableCollisions(shouldEnableCollisions)
+		end
+
+		local now = CurTime()
+		self.shouldRecover = not self:IsInWorld()
+		local distance = self:GetPos():Distance(owner:GetPos())
+		if self.shouldRecover and now - self.lastRecoveryTime > RECOVER_DELAY and distance > RECOVERY_DISTANCE then
+			print("Recovering floor")
+			if IsValid(self.puppet) then
+				self:SetPos(self.puppet:GetPos())
+			elseif IsValid(owner) then
+				self:SetPos(owner:LocalToWorld(LOCAL_INFRONT))
+			else
+				self:SetPos(Vector(0, 0, 0))
+			end
+			if IsValid(physobj) then
+				physobj:Sleep()
+			end
+			self.lastRecoveryTime = now
+		end
 	end
 
 	self:NextThink(CurTime())
 
 	return true
 end
-
--- FIXME: Make custom collisions, SMH and RGM selections work
 
 ---@param puppeteer Entity
 function ENT:SetPhysicsSize(puppeteer)
@@ -111,7 +153,6 @@ function ENT:SetPhysicsSize(puppeteer)
 		if IsValid(phys) then
 			phys:SetContents(CONTENTS_SOLID)
 			phys:SetMass(dist)
-			phys:Wake()
 		end
 	end
 end

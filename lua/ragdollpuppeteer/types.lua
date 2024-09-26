@@ -96,6 +96,7 @@ local types = {}
 ---@field offsetRoot DCheckBoxLabel
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton
+---@field floorCollisions DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -135,7 +136,9 @@ local types = {}
 ---@field floorSize Vector[]
 ---@field SetPhysicsSize fun(self: PuppeteerFloor, puppeteer: Entity)
 ---@field AddPuppeteers fun(self: PuppeteerFloor, puppeteers: Entity[])
----@field RemovePuppeteers fun() Remove puppeteers from the world
----@field ClearPuppeteers fun() Clear the puppeteer table
+---@field SetPuppet fun(self: PuppeteerFloor, puppet: Entity)
+---@field RemovePuppeteers fun(self: PuppeteerFloor) Remove puppeteers from the world
+---@field ClearPuppeteers fun(self: PuppeteerFloor) Clear the puppeteer table
+---@field SetPlayerOwner fun(self: PuppeteerFloor, ply: Player)
 
 return types

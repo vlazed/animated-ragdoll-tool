@@ -301,6 +301,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local showPuppeteer = components.PuppeteerVisible(settings)
 
 	local updatePuppeteerButton = components.UpdatePuppeteerButton(settings, puppeteer)
+	local floorCollisions = components.FloorWorldCollisions(settings)
 
 	local boneTree = components.BoneTree(cPanel)
 
@@ -335,6 +336,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		offsetRoot = offsetRoot,
 		showPuppeteer = showPuppeteer,
 		removeGesture = removeGesture,
+		floorCollisions = floorCollisions,
 	}
 end
 
