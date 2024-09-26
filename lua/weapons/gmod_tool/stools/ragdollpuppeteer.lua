@@ -1,5 +1,7 @@
 ---@module "ragdollpuppeteer.vendor"
 local Vendor = include("ragdollpuppeteer/vendor.lua")
+---@module "ragdollpuppeteer.constants"
+local constants = include("ragdollpuppeteer/constants.lua")
 
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
@@ -18,7 +20,7 @@ local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 local MAX_PELVIS_LOOKUP = 4
-local RAGDOLL_HEIGHT_DIFFERENCE = 100
+local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 
 local defaultAngle = angle_zero
 
@@ -351,6 +353,17 @@ local function createPuppeteerFloor(puppeteer, ply)
 	---@cast puppeteerFloor PuppeteerFloor
 	puppeteerFloor:Spawn()
 	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
+	-- Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
+	-- if the difference between the puppeteer's set position and its lower position from the AABB is significantly
+	-- different
+	local min = puppeteer:WorldSpaceAABB()
+	local zMin = min.z
+	local height = puppeteer:GetPos().z
+	local difference = math.abs(height - zMin)
+	if difference > RAGDOLL_HEIGHT_DIFFERENCE then
+		puppeteerFloor:SetPos(puppeteer:GetPos() - Vector(0, 0, difference))
+	end
+
 	setAngleOf(puppeteerFloor, ply)
 	puppeteerFloor:AddPuppeteers({ puppeteer })
 	puppeteerFloor:SetPhysicsSize(puppeteer)
@@ -654,8 +667,6 @@ end)
 
 ---@module "ragdollpuppeteer.ui"
 local UI = include("ragdollpuppeteer/client/ui.lua")
----@module "ragdollpuppeteer.constants"
-local constants = include("ragdollpuppeteer/constants.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
