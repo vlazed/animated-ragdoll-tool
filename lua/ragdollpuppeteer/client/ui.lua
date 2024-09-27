@@ -284,6 +284,9 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local smhBrowser = components.SMHFileBrowser(lists)
 	local smhList = components.SMHEntityList(lists)
 
+	gestureSlider:SetEnabled(game.SinglePlayer())
+	removeGesture:SetEnabled(game.SinglePlayer())
+
 	return {
 		puppetLabel = puppetLabel,
 		baseSlider = baseSlider,
