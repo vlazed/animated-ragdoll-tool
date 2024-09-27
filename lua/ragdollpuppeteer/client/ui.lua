@@ -318,7 +318,7 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 		local fps = net.ReadFloat()
 		timer.Remove("ragdollpuppeteer_playback")
 		timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
-			if not IsValid(animPuppeteer) then
+			if not IsValid(animPuppeteer) or not IsValid(puppet) then
 				return
 			end
 
