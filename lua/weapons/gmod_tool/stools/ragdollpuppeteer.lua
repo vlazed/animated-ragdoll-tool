@@ -119,9 +119,10 @@ function TOOL:Cleanup(userId)
 	end
 	self:SetAnimationPuppet(NULL)
 	self:SetAnimationPuppeteer(NULL)
-	if IsValid(self:GetAnimationFloor()) then
+	if IsValid(self:GetAnimationFloor()) and SERVER then
 		self:GetAnimationFloor():Remove()
 	end
+	self:SetAnimationFloor(NULL)
 
 	self:SetStage(0)
 end
