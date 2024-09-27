@@ -286,6 +286,9 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	gestureSlider:SetEnabled(game.SinglePlayer())
 	removeGesture:SetEnabled(game.SinglePlayer())
+	if not game.SinglePlayer() then
+		sequenceSheet:CloseTab(sequenceSheet:GetItems()[2].Tab, false)
+	end
 
 	return {
 		puppetLabel = puppetLabel,
