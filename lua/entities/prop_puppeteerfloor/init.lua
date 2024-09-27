@@ -11,15 +11,7 @@ function ENT:Initialize()
 	self.puppeteers = {}
 	self.puppet = NULL
 	self.playerOwner = NULL
-	-- self:PhysicsInitConvex(POINTS)
-	-- self:SetMoveType(MOVETYPE_VPHYSICS)
-	-- self:SetSolid(SOLID_VPHYSICS)
-	-- self:SetCollisionGroup(COLLISION_GROUP_WORLD)
-
-	-- local phys = self:GetPhysicsObject()
-	-- if phys:IsValid() then
-	-- 	phys:Wake()
-	-- end
+	self.angleOffset = angle_zero
 end
 
 ---@param ply any

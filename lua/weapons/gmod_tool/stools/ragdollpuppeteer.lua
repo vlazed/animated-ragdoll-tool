@@ -183,24 +183,30 @@ end
 ---Move and orient each physical bone of the puppet using the poses sent to us from the client
 ---Source: https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua
 ---@param puppet Entity
+---@param puppeteer Entity
 ---@param filteredBones integer[]
-local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones)
+---@param lastPose BonePose
+local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
 	if game.SinglePlayer() then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local phys = puppet:GetPhysicsObjectNum(i)
 			local b = puppet:TranslatePhysBoneToBone(i)
 
 			local pos, ang = net.ReadVector(), net.ReadAngle()
+			pos = pos and pos or lastPose[i][1] or vector_origin
+			ang = ang and ang or lastPose[i][2] or angle_zero
+
 			if filteredBones[b + 1] then
 				continue
 			end
 
 			phys:EnableMotion(true)
 			phys:Wake()
-			phys:SetPos(pos)
-			phys:SetAngles(ang)
+			phys:SetPos(pos and pos or lastPose[i][1])
+			phys:SetAngles(ang and ang or lastPose[i][2])
 			phys:EnableMotion(false)
 			phys:Wake()
+			lastPose[i] = { pos, ang }
 		end
 	else
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
@@ -375,6 +381,7 @@ function TOOL:LeftClick(tr)
 			filteredBones = {},
 			bonesReset = false,
 			floor = puppeteerFloor,
+			lastPose = {},
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
@@ -384,6 +391,7 @@ function TOOL:LeftClick(tr)
 		RAGDOLLPUPPETEER_PLAYERS[userId].bonesReset = false
 		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
 		RAGDOLLPUPPETEER_PLAYERS[userId].floor = puppeteerFloor
+		RAGDOLLPUPPETEER_PLAYERS[userId].lastPose = {}
 	end
 
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
@@ -443,8 +451,12 @@ end
 ---@param puppeteer Entity
 ---@param playerData RagdollPuppeteerPlayerField
 local function readSMHPose(puppet, puppeteer, playerData)
+	local floor = playerData.floor
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
+	local angOffsetLength = net.ReadUInt(16)
+	local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
+	floor:SetAngleOffset(Angle(angOffset[1], angOffset[2], angOffset[3]))
 	local animatingNonPhys = net.ReadBool()
 	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, playerData.filteredBones)
 	if animatingNonPhys then
@@ -477,7 +489,7 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	puppeteer:ResetSequence(currentIndex)
 	puppeteer:SetCycle(cycle)
 	puppeteer:SetPlaybackRate(0)
-	matchPhysicalBonePoseOf(puppet, puppeteer, playerData.filteredBones)
+	matchPhysicalBonePoseOf(puppet, puppeteer, playerData.filteredBones, playerData.lastPose)
 	if animatingNonPhys then
 		queryNonPhysBonePoseOfPuppet(player, cycle)
 		playerData.bonesReset = false

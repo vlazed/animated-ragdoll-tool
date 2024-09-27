@@ -19,14 +19,24 @@ local UI = {}
 
 local currentSequence = {
 	label = "",
+	numframes = 1,
+	anims = {},
 }
 
 local currentGesture = {
 	label = "",
+	numframes = 1,
+	anims = {},
 }
 
 local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
+end
+
+---@param trio DNumSlider[]
+---@return number[]
+local function getAngleTrio(trio)
+	return { trio[1]:GetValue(), trio[2]:GetValue(), trio[3]:GetValue() }
 end
 
 ---@param dList DListView
@@ -263,6 +273,11 @@ function UI.ConstructPanel(cPanel, panelProps)
 		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture"),
 		language.GetPhrase("#ui.ragdollpuppeteer.tooltip.gesture")
 	)
+	local angOffset = components.AngleNumSliderTrio(
+		cPanel,
+		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
+		"#ui.ragdollpuppeteer.label.angleoffset"
+	)
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
 	local settings = components.Settings(cPanel)
@@ -291,6 +306,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	end
 
 	return {
+		angOffset = angOffset,
 		puppetLabel = puppetLabel,
 		baseSlider = baseSlider,
 		gestureSlider = gestureSlider,
@@ -337,6 +353,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local boneTree = panelChildren.boneTree
 	local showPuppeteer = panelChildren.showPuppeteer
 	local removeGesture = panelChildren.removeGesture
+	local angOffset = panelChildren.angOffset
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -478,9 +495,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			return
 		end
 		local physBonePose = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+		local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 		net.Start(netString, true)
 		net.WriteBool(false)
 		encodePose(physBonePose)
+		net.WriteUInt(#compressedOffset, 16)
+		net.WriteData(compressedOffset)
 		net.WriteBool(nonPhysCheckbox:GetChecked())
 		if nonPhysCheckbox:GetChecked() then
 			local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
@@ -491,6 +511,33 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		net.SendToServer()
 	end
+
+	local function onAngleTrioValueChange()
+		local angleTrio = getAngleTrio(angOffset)
+		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
+		animPuppeteer.angleOffset = angleOffset
+
+		local _, option = sourceBox:GetSelected()
+		if option == "sequence" then
+			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
+			local val = baseSlider:GetValue()
+			local cycle = val / numframes
+			animPuppeteer:SetCycle(cycle)
+
+			net.Start("onFrameChange", true)
+			net.WriteBool(true)
+			net.WriteFloat(cycle)
+			net.WriteBool(nonPhysCheckbox:GetChecked())
+			writeSequencePose(animPuppeteer, puppet, physicsCount)
+			net.SendToServer()
+		else
+			writeSMHPose("onFrameChange", baseSlider:GetValue())
+		end
+	end
+
+	angOffset[1].OnValueChanged = onAngleTrioValueChange
+	angOffset[2].OnValueChanged = onAngleTrioValueChange
+	angOffset[3].OnValueChanged = onAngleTrioValueChange
 
 	---@param newValue number
 	---@param paramName string

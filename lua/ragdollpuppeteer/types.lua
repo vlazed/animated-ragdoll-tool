@@ -78,6 +78,7 @@ local types = {}
 ---@field prevFrame number
 
 ---@class PanelChildren
+---@field angOffset DNumSlider[]
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
 ---@field smhList DListView
@@ -123,9 +124,14 @@ local types = {}
 ---@field fps integer
 ---@field bonesReset boolean
 ---@field filteredBones integer[]
----@field floor Entity
+---@field floor PuppeteerFloor
+---@field lastPose BonePose[]
+
+---@class RagdollPuppeteer: Entity
+---@field angleOffset Angle
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
+---@alias BonePose table<Vector, Angle>
 
 ---@class PhysicsObject
 ---@field parent integer
@@ -133,6 +139,8 @@ local types = {}
 ---@class PuppeteerFloor: Entity
 ---@field puppeteers Entity[]
 ---@field floorSize Vector[]
+---@field angleOffset Angle
+---@field SetAngleOffset fun(self: PuppeteerFloor, angle: Angle)
 ---@field SetPhysicsSize fun(self: PuppeteerFloor, puppeteer: Entity)
 ---@field AddPuppeteers fun(self: PuppeteerFloor, puppeteers: Entity[])
 ---@field SetPuppet fun(self: PuppeteerFloor, puppet: Entity)

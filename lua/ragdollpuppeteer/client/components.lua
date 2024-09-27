@@ -121,6 +121,44 @@ function components.SequenceSheet(cPanel)
 	return sequenceSheet
 end
 
+---@param dForm DForm
+---@param names string[]
+---@return DNumSlider[]
+function components.AngleNumSliders(dForm, names)
+	local sliders = {}
+	for i = 1, 3 do
+		local slider = dForm:NumSlider(names[i], "", -180, 180)
+		---@cast slider DNumSlider
+		slider:Dock(TOP)
+		slider:SetValue(0)
+		sliders[i] = slider
+	end
+	return sliders
+end
+
+---Set the angle of the sequence or SMH animation
+---@param cPanel DForm
+---@param names string[]
+---@param label string
+---@return DNumSlider[]
+function components.AngleNumSliderTrio(cPanel, names, label)
+	local dForm = vgui.Create("DForm")
+	dForm:SetLabel(label)
+	local angleSliders = components.AngleNumSliders(dForm, names)
+	cPanel:AddItem(dForm)
+	---@diagnostic disable-next-line
+	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
+	function resetAngles:DoClick()
+		for i = 1, 3 do
+			angleSliders[i]:SetValue(0)
+		end
+	end
+
+	dForm:DoExpansion(false)
+
+	return angleSliders
+end
+
 ---@param sheet DPropertySheet
 ---@return DListView
 function components.SequenceList(sheet, label)

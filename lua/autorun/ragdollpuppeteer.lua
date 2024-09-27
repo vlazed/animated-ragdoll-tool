@@ -18,7 +18,6 @@ if SERVER then
 	---@type RagdollPuppeteerPlayerField[]
 	RAGDOLLPUPPETEER_PLAYERS = {}
 
-	---comment
 	---@param userId integer
 	local function addPlayerField(userId)
 		RAGDOLLPUPPETEER_PLAYERS[userId] = {
@@ -32,6 +31,7 @@ if SERVER then
 			filteredBones = {},
 			bonesReset = false,
 			floor = NULL,
+			lastPose = {},
 		}
 	end
 

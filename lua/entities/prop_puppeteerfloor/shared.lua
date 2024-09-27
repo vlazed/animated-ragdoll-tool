@@ -65,6 +65,10 @@ function ENT:OnRemove()
 	self:RemovePuppeteers()
 end
 
+function ENT:SetAngleOffset(angle)
+	self.angleOffset = angle
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
@@ -72,12 +76,16 @@ function ENT:Think()
 	end
 
 	local puppeteers = self.puppeteers
-	---@cast puppeteers Entity[]
+	---@cast puppeteers RagdollPuppeteer[]
 
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
 			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
-			puppeteer:SetAngles(self:GetAngles())
+			if SERVER then
+				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
+			elseif puppeteer.angleOffset then
+				puppeteer:SetAngles(self:GetAngles() + puppeteer.angleOffset)
+			end
 			floorCorrect(puppeteer)
 		end
 	end
