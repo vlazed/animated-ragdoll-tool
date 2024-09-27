@@ -94,7 +94,7 @@ local types = {}
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton
 ---@field floorCollisions DCheckBoxLabel
----@field recoverFloor DButton
+---@field recoverPuppeteer DButton
 
 ---@class PanelProps
 ---@field puppet Entity

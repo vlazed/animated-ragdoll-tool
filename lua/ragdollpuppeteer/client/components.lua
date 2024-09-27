@@ -69,11 +69,11 @@ end
 
 ---@param cPanel DForm
 ---@return DButton
-function components.RecoverFloor(cPanel)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_floor_teleport")
+function components.RecoverPuppeteer(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.recoverpuppeteer", "ragdollpuppeteer_recoverpuppeteer")
 	---@cast panel DButton
 
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.recoverpuppeteer")
 	return panel
 end
 

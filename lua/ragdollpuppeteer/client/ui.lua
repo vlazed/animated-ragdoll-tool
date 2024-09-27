@@ -287,7 +287,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
 	local showPuppeteer = components.PuppeteerVisible(settings)
 	local floorCollisions = components.FloorWorldCollisions(settings)
-	local recoverFloor = components.RecoverFloor(settings)
+	local recoverPuppeteer = components.RecoverPuppeteer(settings)
 
 	local boneTree = components.BoneTree(cPanel)
 
@@ -319,7 +319,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		showPuppeteer = showPuppeteer,
 		removeGesture = removeGesture,
 		floorCollisions = floorCollisions,
-		recoverFloor = recoverFloor,
+		recoverPuppeteer = recoverPuppeteer,
 	}
 end
 

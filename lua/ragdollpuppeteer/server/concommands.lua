@@ -20,7 +20,7 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 	end
 end)
 
-concommand.Add("ragdollpuppeteer_floor_teleport", function(ply, _, _)
+concommand.Add("ragdollpuppeteer_recoverpuppeteer", function(ply, _, _)
 	if
 		not IsValid(ply)
 		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
