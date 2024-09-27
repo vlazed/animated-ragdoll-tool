@@ -29,18 +29,6 @@ local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
 end
 
----@param physicsCount integer
----@return PhysicsObject[]
-local function getPhysObjectStructure(physicsCount)
-	local physicsObjects = {}
-	for i = 0, physicsCount - 1 do
-		local parent = net.ReadInt(10)
-		local name = net.ReadString()
-		physicsObjects[i] = { parent = parent, name = name }
-	end
-	return physicsObjects
-end
-
 ---@param dList DListView
 function UI.ClearList(dList)
 	for i = 1, #dList:GetLines() do
@@ -189,10 +177,6 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("onFrameNext", function()
 		moveSliderBy(1)
 	end)
-	net.Receive("queryPhysObjects", function()
-		local newPhysicsObjects = getPhysObjectStructure(panelProps.physicsCount)
-		panelState.physicsObjects = newPhysicsObjects
-	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
 		local fps = net.ReadFloat()
 		timer.Remove("ragdollpuppeteer_playback")
@@ -204,10 +188,6 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("disablePuppeteerPlayback", function(len, ply)
 		timer.Remove("ragdollpuppeteer_playback")
 	end)
-
-	-- Initially, we don't have the phys objects, or the phys objects are different from the last entity
-	net.Start("queryPhysObjects")
-	net.SendToServer()
 end
 
 local boneIcons = {
@@ -215,6 +195,8 @@ local boneIcons = {
 	"icon16/connect.png",
 	"icon16/lock.png",
 }
+
+-- FIXME: Obtain the nonphysical bones
 
 ---@param bone integer
 ---@param puppet Entity
@@ -416,22 +398,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param ent Entity
 	---@param rag Entity
 	---@param physicsCount integer
-	---@param physicsObjects PhysicsObject[]
-	local function writeSequencePose(ent, rag, physicsCount, physicsObjects)
+	local function writeSequencePose(ent, rag, physicsCount)
 		if not IsValid(ent) or not IsValid(rag) then
 			return
 		end
 
 		if game.SinglePlayer() then
-			if not physicsObjects or #physicsObjects == 0 then
-				return
-			end
-
 			local newPose = {}
 			local defaultBonePose = panelState.defaultBonePose
 			for i = 0, physicsCount - 1 do
 				local b = rag:TranslatePhysBoneToBone(i)
-				local p = physicsObjects[i].parent
 
 				if defaultBonePose and currentGesture.anims then
 					local gesturePos, gestureAng
@@ -526,7 +502,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
-				writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
+				writeSequencePose(animPuppeteer, puppet, physicsCount)
 				net.SendToServer()
 			end
 		end)
@@ -595,7 +571,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(puppeteer, puppet, physicsCount, panelState.physicsObjects)
+				writeSequencePose(puppeteer, puppet, physicsCount)
 				net.SendToServer()
 			end)
 		end
@@ -651,7 +627,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(animPuppeteer, puppet, physicsCount, panelState.physicsObjects)
+			writeSequencePose(animPuppeteer, puppet, physicsCount)
 			net.SendToServer()
 			sendingFrame = false
 		else

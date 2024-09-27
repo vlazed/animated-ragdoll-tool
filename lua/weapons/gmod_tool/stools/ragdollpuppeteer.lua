@@ -39,18 +39,6 @@ local function decompressJSONToTable(json)
 	return util.JSONToTable(util.Decompress(json))
 end
 
----@param ragdoll Entity
----@param physicsCount integer
----@param player Player
-local function queryPhysObjects(ragdoll, physicsCount, player)
-	net.Start("queryPhysObjects", false)
-	for i = 0, physicsCount do
-		net.WriteInt(vendor.GetPhysBoneParent(ragdoll, i), 10)
-		net.WriteString(ragdoll:GetBoneName(ragdoll:TranslatePhysBoneToBone(i)))
-	end
-	net.Send(player)
-end
-
 local lastPuppet = NULL
 local lastValidPuppet = false
 function TOOL:Think()
@@ -588,15 +576,6 @@ if SERVER then
 			newPose[b - 1].Ang = net.ReadAngle()
 		end
 		setNonPhysicalBonePoseOf(ragdollPuppet, newPose, playerData.filteredBones)
-	end)
-
-	net.Receive("queryPhysObjects", function(_, sender)
-		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
-		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
-		local ragdollPuppet = playerData.puppet
-		local physicsCount = playerData.physicsCount
-
-		queryPhysObjects(ragdollPuppet, physicsCount, sender)
 	end)
 
 	net.Receive("onFPSChange", function(_, sender)
