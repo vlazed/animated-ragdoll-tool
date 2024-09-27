@@ -24,11 +24,12 @@ function components.SearchBar(cPanel)
 	return panel
 end
 
-function components.OverrideBlend(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.overrideblend", "ragdollpuppeteer_overrideblend")
+function components.ShouldIncrement(cPanel)
+	local panel =
+		cPanel:CheckBox("#ui.ragdollpuppeteer.label.shouldincrement", "ragdollpuppeteer_playback_shouldincrement")
 	---@cast panel DCheckBoxLabel
 
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.overrideblend")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.shouldincrement")
 
 	return panel
 end
