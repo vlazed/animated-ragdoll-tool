@@ -1,6 +1,6 @@
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
-local util = {}
+local helpers = {}
 
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 
@@ -9,8 +9,8 @@ local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 ---different
 ---@param targetEntity Entity
 ---@param referenceEntity Entity?
----@param sign integer
-function util.floorCorrect(targetEntity, referenceEntity, sign)
+---@param sign integer?
+function helpers.floorCorrect(targetEntity, referenceEntity, sign)
 	sign = sign or 1
 	referenceEntity = IsValid(referenceEntity) and referenceEntity or targetEntity
 	local min = referenceEntity:WorldSpaceAABB()
@@ -22,4 +22,4 @@ function util.floorCorrect(targetEntity, referenceEntity, sign)
 	end
 end
 
-return util
+return helpers

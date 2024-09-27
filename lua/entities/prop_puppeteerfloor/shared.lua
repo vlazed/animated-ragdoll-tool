@@ -1,7 +1,7 @@
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
----@module "ragdollpuppeteer.util"
-local util = include("ragdollpuppeteer/lib/helpers.lua")
+---@module "ragdollpuppeteer.lib.helpers"
+local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 ENT.Type = "anim"
 ENT.Base = "base_gmodentity"
@@ -18,7 +18,7 @@ local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
-local floorCorrect = util.floorCorrect
+local floorCorrect = helpers.floorCorrect
 
 ---@param puppeteerTable Entity[]
 function ENT:AddPuppeteers(puppeteerTable)
