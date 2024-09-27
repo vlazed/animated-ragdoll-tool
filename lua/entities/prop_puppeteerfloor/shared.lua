@@ -83,8 +83,9 @@ function ENT:Think()
 			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
 			if SERVER then
 				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
-			elseif puppeteer.angleOffset then
-				puppeteer:SetAngles(self:GetAngles() + puppeteer.angleOffset)
+			else
+				local angleOffset = puppeteer.angleOffset or angle_zero
+				puppeteer:SetAngles(self:GetAngles() + angleOffset)
 			end
 			floorCorrect(puppeteer)
 		end
