@@ -20,7 +20,7 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 	end
 end)
 
-concommand.Add("ragdollpuppeteer_floor_recover", function(ply, _, _)
+concommand.Add("ragdollpuppeteer_floor_teleport", function(ply, _, _)
 	if
 		not IsValid(ply)
 		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
@@ -32,7 +32,13 @@ concommand.Add("ragdollpuppeteer_floor_recover", function(ply, _, _)
 	local puppet = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet
 	local floor = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].floor
 
+	local angle = (ply:GetPos() - floor:GetPos()):Angle()
 	floor:SetPos(puppet:GetPos())
+	floor:SetAngles(angle)
+	local physObject = floor:GetPhysicsObject()
+	if IsValid(physObject) then
+		physObject:Sleep()
+	end
 end)
 
 concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)

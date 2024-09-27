@@ -18,10 +18,8 @@ TOOL.ClientConVar["fps"] = 30
 
 local mode = TOOL:GetMode()
 
-local EPSILON = 1e-3
 local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
-local MAX_PELVIS_LOOKUP = 4
 
 local ids = {
 	"ragdollpuppeteer_puppet",
@@ -264,33 +262,17 @@ local floorCorrect = helpers.floorCorrect
 ---Move the puppeteer to the target entity's position, with the option to move to the ground
 ---@param puppeteer Entity
 ---@param target Entity
----@param findFloor boolean?
-local function setPositionOf(puppeteer, target, findFloor)
-	if findFloor then
-		local targetPosition = target:GetPos()
-		local tr = util.TraceLine({
-			start = targetPosition,
-			endpos = targetPosition + FIND_GROUND_VECTOR,
-			filter = function(e)
-				return e:GetClass() == game.GetWorld()
-			end,
-		})
-		puppeteer:SetPos(tr.HitPos)
-		floorCorrect(puppeteer)
-	else
-		-- If the puppeteer has a root bone in the same position as the its puppeteer:GetPos(), then it may have its pelvis
-		-- as a child in the bone tree. We'll use the bone that has a significant difference from puppeteer:GetPos()
-		puppeteer:SetPos(target:GetPos())
-		local oldBonePos = puppeteer:GetBonePosition(0)
-		local puppeteerPos = puppeteer:GetPos()
-		local boneIndex = 1
-		while boneIndex < MAX_PELVIS_LOOKUP and puppeteerPos:DistToSqr(oldBonePos) < EPSILON do
-			oldBonePos = puppeteer:GetBonePosition(boneIndex)
-			boneIndex = boneIndex + 1
-		end
-		local corrector = target:GetPos() - oldBonePos
-		puppeteer:SetPos(puppeteer:GetPos() + corrector)
-	end
+local function setPositionOf(puppeteer, target)
+	local targetPosition = target:GetPos()
+	local tr = util.TraceLine({
+		start = targetPosition,
+		endpos = targetPosition + FIND_GROUND_VECTOR,
+		filter = function(e)
+			return e:GetClass() == game.GetWorld()
+		end,
+	})
+	puppeteer:SetPos(tr.HitPos)
+	floorCorrect(puppeteer)
 end
 
 ---Make some entity face the target
@@ -305,9 +287,8 @@ end
 ---@param puppeteer Entity
 ---@param puppet Entity
 ---@param ply Player | Entity
----@param findFloor boolean?
-local function setPlacementOf(puppeteer, puppet, ply, findFloor)
-	setPositionOf(puppeteer, puppet, findFloor)
+local function setPlacementOf(puppeteer, puppet, ply)
+	setPositionOf(puppeteer, puppet)
 	setAngleOf(puppeteer, ply)
 end
 
@@ -326,7 +307,7 @@ end
 local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
-	setPlacementOf(puppeteer, puppet, ply, true)
+	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
 	styleServerPuppeteer(puppeteer)
 
@@ -716,7 +697,7 @@ local function createClientPuppeteer(model, puppet, ply)
 		panelState.previousPuppeteer:Remove()
 	end
 	puppeteer:SetModel(model)
-	setPlacementOf(puppeteer, puppet, ply, true)
+	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)

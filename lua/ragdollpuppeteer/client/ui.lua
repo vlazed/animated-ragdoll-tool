@@ -285,7 +285,6 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local settings = components.Settings(cPanel)
 	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
-	local findFloor = components.FindFloor(settings)
 	local showPuppeteer = components.PuppeteerVisible(settings)
 	local floorCollisions = components.FloorWorldCollisions(settings)
 	local recoverFloor = components.RecoverFloor(settings)
@@ -316,7 +315,6 @@ function UI.ConstructPanel(cPanel, panelProps)
 		smhBrowser = smhBrowser,
 		smhList = smhList,
 		poseParams = poseParams,
-		findFloor = findFloor,
 		boneTree = boneTree,
 		showPuppeteer = showPuppeteer,
 		removeGesture = removeGesture,
@@ -373,6 +371,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function showPuppeteer:OnChange(checked)
 		-- FIXME: This gets called twice, which makes the statement below necessary; maybe due to the cvar?
 		if lastCheck ~= nil and lastCheck == checked then
+			return
+		end
+
+		if not IsValid(animPuppeteer) then
 			return
 		end
 

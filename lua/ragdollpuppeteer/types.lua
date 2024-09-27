@@ -90,7 +90,6 @@ local types = {}
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
 ---@field poseParams PoseParameterSlider[]
----@field findFloor DCheckBoxLabel
 ---@field boneTree DTree
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton

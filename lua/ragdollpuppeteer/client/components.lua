@@ -70,10 +70,10 @@ end
 ---@param cPanel DForm
 ---@return DButton
 function components.RecoverFloor(cPanel)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.recoverfloor", "ragdollpuppeteer_floor_recover")
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_floor_teleport")
 	---@cast panel DButton
 
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.recoverfloor")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
 	return panel
 end
 
@@ -110,17 +110,6 @@ function components.PuppeteerVisible(cPanel)
 	---@cast panel DCheckBoxLabel
 
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
-
-	return panel
-end
-
----@param cPanel DForm
----@return DCheckBoxLabel
-function components.FindFloor(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_updateposition_floors")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
 
 	return panel
 end
