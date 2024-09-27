@@ -2,14 +2,21 @@
 local constants = include("ragdollpuppeteer/constants.lua")
 include("shared.lua")
 
+local BLANK_COLOR = Color(255, 255, 255, 255)
+local BLANK_MATERIAL = Material("debug/white")
+
 ---@return Color, IMaterial
 function ENT:GetPuppeteerAppearance()
 	---@type Entity
 	local puppeteer = self.puppeteers[1]
 	-- We store this material in ui.lua
-	---@diagnostic disable-next-line
-	local material = puppeteer.ragdollpuppeteer_currentMaterial or constants.PUPPETEER_MATERIAL
-	return puppeteer:GetColor(), material
+	if IsValid(puppeteer) then
+		---@diagnostic disable-next-line
+		local material = puppeteer.ragdollpuppeteer_currentMaterial or constants.PUPPETEER_MATERIAL
+		return puppeteer:GetColor(), material
+	else
+		return BLANK_COLOR, BLANK_MATERIAL
+	end
 end
 
 function ENT:DrawTranslucent()

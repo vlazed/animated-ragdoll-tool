@@ -20,6 +20,21 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 	end
 end)
 
+concommand.Add("ragdollpuppeteer_floor_recover", function(ply, _, _)
+	if
+		not IsValid(ply)
+		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
+		or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet)
+		or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].floor)
+	then
+		return
+	end
+	local puppet = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet
+	local floor = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].floor
+
+	floor:SetPos(puppet:GetPos())
+end)
+
 concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	if
 		not IsValid(ply)

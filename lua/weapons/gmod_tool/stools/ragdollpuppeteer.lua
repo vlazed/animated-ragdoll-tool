@@ -121,6 +121,7 @@ function TOOL:Cleanup(userId)
 		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+		RAGDOLLPUPPETEER_PLAYERS[userId].floor = NULL
 	end
 
 	if not IsValid(self:GetWeapon()) then
@@ -403,6 +404,7 @@ function TOOL:LeftClick(tr)
 			physicsCount = physicsCount,
 			filteredBones = {},
 			bonesReset = false,
+			floor = puppeteerFloor,
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
@@ -411,6 +413,7 @@ function TOOL:LeftClick(tr)
 		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
 		RAGDOLLPUPPETEER_PLAYERS[userId].bonesReset = false
 		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
+		RAGDOLLPUPPETEER_PLAYERS[userId].floor = puppeteerFloor
 	end
 
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
@@ -625,8 +628,6 @@ if SERVER then
 		net.Send(sender)
 	end)
 end
-
--- Concommands
 
 if SERVER then
 	return

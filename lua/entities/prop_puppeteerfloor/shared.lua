@@ -16,6 +16,7 @@ ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
 local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
+local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
 local floorCorrect = util.floorCorrect
 
@@ -75,7 +76,7 @@ function ENT:Think()
 
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
-			puppeteer:SetPos(self:GetPos())
+			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
 			puppeteer:SetAngles(self:GetAngles())
 			floorCorrect(puppeteer)
 		end
@@ -130,7 +131,7 @@ function ENT:SetPhysicsSize(puppeteer)
 	end
 	local corner = puppeteer:OBBMins()
 
-	local thickness = 1
+	local thickness = FLOOR_THICKNESS
 	local length = corner.x
 	local width = corner.y
 	local points = {

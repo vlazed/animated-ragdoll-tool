@@ -95,6 +95,7 @@ local types = {}
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton
 ---@field floorCollisions DCheckBoxLabel
+---@field recoverFloor DButton
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -123,6 +124,7 @@ local types = {}
 ---@field fps integer
 ---@field bonesReset boolean
 ---@field filteredBones integer[]
+---@field floor Entity
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 

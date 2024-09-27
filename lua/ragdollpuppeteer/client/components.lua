@@ -68,6 +68,16 @@ function components.RemoveGesture(cPanel)
 end
 
 ---@param cPanel DForm
+---@return DButton
+function components.RecoverFloor(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.recoverfloor", "ragdollpuppeteer_floor_recover")
+	---@cast panel DButton
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.recoverfloor")
+	return panel
+end
+
+---@param cPanel DForm
 ---@param label string
 ---@return FrameSlider
 function components.FrameSlider(cPanel, cvar, label, tooltip)
