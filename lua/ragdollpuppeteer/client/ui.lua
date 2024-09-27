@@ -318,6 +318,10 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 		local fps = net.ReadFloat()
 		timer.Remove("ragdollpuppeteer_playback")
 		timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
+			if not IsValid(animPuppeteer) then
+				return
+			end
+
 			local shouldIncrement = GetConVar("ragdollpuppeteer_playback_shouldincrement")
 				and GetConVar("ragdollpuppeteer_playback_shouldincrement"):GetInt() > 0
 			if shouldIncrement then
@@ -326,7 +330,7 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			else
 				local _, option = sourceBox:GetSelected()
 				if option == "sequence" then
-					local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
+					local numframes = baseSlider:GetMax()
 					local val = baseSlider:GetValue()
 					local cycle = val / numframes
 					animPuppeteer:SetCycle(cycle)
@@ -566,7 +570,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
-			local numframes = findLongestAnimationIn(currentSequence, animPuppeteer).numframes - 1
+			local numframes = baseSlider:GetMax()
 			local val = baseSlider:GetValue()
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
