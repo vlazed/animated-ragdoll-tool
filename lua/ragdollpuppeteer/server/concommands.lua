@@ -72,12 +72,24 @@ concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_previousframe", function(ply)
+concommand.Add("ragdollpuppeteer_previousframe", function(ply, _, args)
+	local increment = 1
+	local newNumber = tonumber(args[1])
+	if args and type(newNumber) == "number" then
+		increment = newNumber
+	end
 	net.Start("onFramePrevious")
+	net.WriteFloat(increment)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_nextframe", function(ply)
+concommand.Add("ragdollpuppeteer_nextframe", function(ply, _, args)
+	local increment = 1
+	local newNumber = tonumber(args[1])
+	if args and type(newNumber) == "number" then
+		increment = newNumber
+	end
 	net.Start("onFrameNext")
+	net.WriteFloat(increment)
 	net.Send(ply)
 end)
