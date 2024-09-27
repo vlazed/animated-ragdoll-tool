@@ -438,8 +438,8 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
 	local showPuppeteer = components.PuppeteerVisible(settings)
 	local floorCollisions = components.FloorWorldCollisions(settings)
-	local recoverPuppeteer = components.RecoverPuppeteer(settings)
 	local shouldIncrement = components.ShouldIncrement(settings)
+	local recoverPuppeteer = components.RecoverPuppeteer(settings)
 
 	local boneTree = components.BoneTree(cPanel)
 
