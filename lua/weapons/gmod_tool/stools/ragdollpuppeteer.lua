@@ -131,7 +131,7 @@ end
 ---Set the puppet's physical bones to a target pose specified from the puppeteer, while offsetting with an angle
 ---Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 ---@param puppet Entity
----@param targetPose SMHFramePose
+---@param targetPose SMHFramePose[]
 ---@param puppeteer Entity
 ---@param filteredBones integer[]
 local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBones)
@@ -148,24 +148,23 @@ local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBone
 			phys:EnableMotion(false)
 			phys:SetPos(pos)
 			phys:SetAngles(ang)
-			phys:Wake()
 		else
-			local matrix = puppeteer:GetBoneMatrix(b)
-			local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
 			-- Then, set target position of puppet with offset
-			local fPos, fAng = LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, bPos, bAng)
+			local fPos, fAng =
+				LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
+
 			phys:EnableMotion(false)
 			phys:SetPos(fPos)
 			-- Finally, set angle of puppet itself
 			phys:SetAngles(fAng)
-			phys:Wake()
 		end
+		phys:Wake()
 	end
 end
 
 ---Directly influence the ragdoll nonphysical bones from SMH data
 ---@param puppet Entity
----@param targetPose SMHFramePose
+---@param targetPose SMHFramePose[]
 ---@param filteredBones integer[]
 local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 	for b = 0, puppet:GetBoneCount() - 1 do
@@ -425,7 +424,7 @@ function TOOL:RightClick(tr)
 end
 
 ---Decode the SMH pose from the client
----@return SMHFramePose
+---@return SMHFramePose[]
 local function decodePose()
 	local pose = {}
 	local poseSize = net.ReadUInt(16)
@@ -443,6 +442,8 @@ local function decodePose()
 		pose[i].Scale = net.ReadVector()
 		pose[i].LocalPos = net.ReadVector()
 		pose[i].LocalAng = net.ReadAngle()
+		pose[i].RootPos = net.ReadVector()
+		pose[i].RootAng = net.ReadAngle()
 	end
 	return pose
 end

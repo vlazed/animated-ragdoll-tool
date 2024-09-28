@@ -27,6 +27,8 @@ local types = {}
 ---@field Pos Vector
 ---@field LocalAng Angle?
 ---@field LocalPos Vector?
+---@field RootAng Angle?
+---@field RootPos Vector?
 ---@field Moveable boolean?
 ---@field Scale Vector
 

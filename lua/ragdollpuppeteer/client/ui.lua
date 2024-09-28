@@ -163,7 +163,12 @@ function UI.Layout(sequenceSheet, smhList, smhBrowser, puppeteer)
 	sequenceSheet:SizeTo(-1, 500, 0.5)
 end
 
-local function encodePose(pose)
+---@param pose SMHFramePose[]
+local function encodePose(pose, puppeteer)
+	local b = puppeteer:TranslatePhysBoneToBone(0)
+	local matrix = puppeteer:GetBoneMatrix(b)
+	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
+
 	net.WriteUInt(#pose, 16)
 	for i = 0, #pose do
 		net.WriteVector(pose[i].Pos or vector_origin)
@@ -171,6 +176,8 @@ local function encodePose(pose)
 		net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
 		net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
 		net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
+		net.WriteVector(bPos)
+		net.WriteAngle(bAng)
 	end
 end
 
@@ -256,22 +263,20 @@ end
 ---@param netString string
 ---@param frame integer
 ---@param angOffset table<Angle, Angle, Angle>
----@param smhList DListView
----@param nonPhysCheckbox DCheckBoxLabel
-local function writeSMHPose(netString, frame, angOffset, smhList, nonPhysCheckbox)
-	if not smhList:GetSelected()[1] then
-		return
-	end
-	local physBonePose = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(3), "physbones")
+---@param physFrames SMHFrameData[]
+---@param nonPhysFrames SMHFrameData[]
+---@param nonPhys boolean
+local function writeSMHPose(netString, frame, angOffset, physFrames, nonPhysFrames, nonPhys, puppeteer)
+	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
 	local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 	net.Start(netString, true)
 	net.WriteBool(false)
-	encodePose(physBonePose)
+	encodePose(physBonePose, puppeteer)
 	net.WriteUInt(#compressedOffset, 16)
 	net.WriteData(compressedOffset)
-	net.WriteBool(nonPhysCheckbox:GetChecked())
-	if nonPhysCheckbox:GetChecked() then
-		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, smhList:GetSelected()[1]:GetSortValue(4), "bones")
+	net.WriteBool(nonPhys)
+	if nonPhys then
+		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
 		local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
 		net.WriteUInt(#compressedNonPhysPose, 16)
 		net.WriteData(compressedNonPhysPose)
@@ -350,7 +355,17 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 					)
 					net.SendToServer()
 				else
-					writeSMHPose("onFrameChange", baseSlider:GetValue(), angOffset, smhList, nonPhysCheckbox)
+					if smhList:GetSelected()[1] then
+						writeSMHPose(
+							"onFrameChange",
+							baseSlider:GetValue(),
+							angOffset,
+							smhList:GetSelected()[1]:GetSortValue(3),
+							smhList:GetSelected()[1]:GetSortValue(4),
+							nonPhysCheckbox:GetChecked(),
+							animPuppeteer
+						)
+					end
 				end
 			end
 		end)
@@ -590,7 +605,17 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			)
 			net.SendToServer()
 		else
-			writeSMHPose("onFrameChange", baseSlider:GetValue(), angOffset, smhList, nonPhysCheckbox)
+			if smhList:GetSelected()[1] then
+				writeSMHPose(
+					"onFrameChange",
+					baseSlider:GetValue(),
+					angOffset,
+					smhList:GetSelected()[1]:GetSortValue(3),
+					smhList:GetSelected()[1]:GetSortValue(4),
+					nonPhysCheckbox:GetChecked(),
+					animPuppeteer
+				)
+			end
 		end
 	end
 
@@ -761,8 +786,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.SendToServer()
 			sendingFrame = false
 		else
-			if smh then
-				writeSMHPose("onFrameChange", val, angOffset, smhList, nonPhysCheckbox)
+			if smh and smhList:GetSelected()[1] then
+				writeSMHPose(
+					"onFrameChange",
+					val,
+					angOffset,
+					smhList:GetSelected()[1]:GetSortValue(3),
+					smhList:GetSelected()[1]:GetSortValue(4),
+					nonPhysCheckbox:GetChecked(),
+					animPuppeteer
+				)
 			end
 		end
 
@@ -794,7 +827,15 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(_, row)
 		baseSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
-		writeSMHPose("onSequenceChange", 0, angOffset, smhList, nonPhysCheckbox)
+		writeSMHPose(
+			"onSequenceChange",
+			0,
+			angOffset,
+			smhList:GetSelected()[1]:GetSortValue(3),
+			smhList:GetSelected()[1]:GetSortValue(4),
+			nonPhysCheckbox:GetChecked(),
+			animPuppeteer
+		)
 	end
 
 	function smhBrowser:OnSelect(filePath)

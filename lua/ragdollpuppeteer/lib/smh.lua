@@ -102,7 +102,7 @@ end
 ---@param poseFrame integer
 ---@param smhFrames SMHFrameData[]
 ---@param modifier SMHModifiers
----@return SMHFramePose
+---@return SMHFramePose[]
 function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 	local originPose = getOriginPose(smhFrames, modifier)
 	for _, frameData in ipairs(smhFrames) do
