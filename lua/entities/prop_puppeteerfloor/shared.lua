@@ -11,7 +11,7 @@ ENT.Author = "vlazed"
 
 ENT.Purpose = "Control the position and rotation of the puppeteer using the floor"
 ENT.Instructions = "Set the list of puppeteers to move"
-ENT.Spawnable = true
+ENT.Spawnable = false
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
 local RECOVER_DELAY = 2
@@ -21,6 +21,7 @@ local LOCAL_INFRONT = Vector(100, 0, 10)
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 local floorCorrect = helpers.floorCorrect
 
+---Add a table of puppeteers to the floor
 ---@param puppeteerTable Entity[]
 function ENT:AddPuppeteers(puppeteerTable)
 	if #puppeteerTable == 0 then
@@ -35,16 +36,19 @@ function ENT:AddPuppeteers(puppeteerTable)
 	end
 end
 
+---Set the floor's puppet
 ---@param puppet Entity
 function ENT:SetPuppet(puppet)
 	self.puppet = puppet
 end
 
+---Get the floor's puppet
 ---@return Entity
 function ENT:GetPuppet()
 	return self.puppet
 end
 
+---Clear the puppeteers but do not remove the entities.
 function ENT:ClearPuppeteers()
 	if not self.puppeteers then
 		return
@@ -52,6 +56,7 @@ function ENT:ClearPuppeteers()
 	self.puppeteers = {}
 end
 
+---Remove the puppeteers and clear the entry
 function ENT:RemovePuppeteers()
 	if not self.puppeteers then
 		return
@@ -68,6 +73,46 @@ end
 
 function ENT:SetAngleOffset(angle)
 	self.angleOffset = angle
+end
+
+local propertyOrToolFilters = {
+	["remover"] = true, -- Remove Property or Remover Tool
+	["rb655_dissolve"] = true, -- From Extended Properties
+	["creatorspawn"] = true, -- From Entity Group Spawner
+	["egsspawn"] = true, -- From Entity Group Spawner
+	["egs"] = true, -- From Entity Group Spawner
+	["creator"] = true, -- From Entity Group Spawner
+	["collision"] = true, -- We don't want this to interact with anything else
+}
+
+---Prevent the player from using the Remover tool on this entity
+---@param ply Player
+---@param tr table
+---@param mode string
+---@param tool table
+---@param button number
+---@return boolean
+function ENT:CanTool(ply, tr, mode, tool, button)
+	if propertyOrToolFilters[mode] then
+		if CLIENT then
+			notification.AddLegacy("This tool is disabled on the puppeteer!", NOTIFY_ERROR, 3)
+		end
+		return false
+	end
+
+	return true
+end
+
+--- Prevent the player from using the Remover from the context menu
+---@param ply Player
+---@param property string
+---@return boolean
+function ENT:CanProperty(ply, property)
+	if propertyOrToolFilters[property] then
+		return false
+	end
+
+	return true
 end
 
 function ENT:Think()
