@@ -18,6 +18,7 @@ local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
+local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 local floorCorrect = helpers.floorCorrect
 
 ---@param puppeteerTable Entity[]
@@ -78,6 +79,9 @@ function ENT:Think()
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
+	if puppeteers[1] and not self.height then
+		self.height = helpers.getRootHeightDifferenceOf(puppeteers[1])
+	end
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
 			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
@@ -87,7 +91,9 @@ function ENT:Think()
 				local angleOffset = puppeteer.angleOffset or angle_zero
 				puppeteer:SetAngles(self:GetAngles() + angleOffset)
 			end
-			floorCorrect(puppeteer)
+			if self.height > RAGDOLL_HEIGHT_DIFFERENCE then
+				floorCorrect(puppeteer, puppeteer, 1, self.height)
+			end
 		end
 	end
 
