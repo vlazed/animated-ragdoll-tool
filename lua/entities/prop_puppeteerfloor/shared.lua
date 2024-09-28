@@ -78,6 +78,7 @@ end
 local propertyOrToolFilters = {
 	["remover"] = true, -- Remove Property or Remover Tool
 	["rb655_dissolve"] = true, -- From Extended Properties
+	-- FIXME: How come the EGSSpawn or Creator Spawn aren't removed?
 	["creatorspawn"] = true, -- From Entity Group Spawner
 	["egsspawn"] = true, -- From Entity Group Spawner
 	["egs"] = true, -- From Entity Group Spawner
