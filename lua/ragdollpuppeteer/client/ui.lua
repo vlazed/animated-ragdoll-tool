@@ -141,11 +141,13 @@ function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	end
 end
 
----@param sequenceSheet DPropertySheet
----@param smhList DListView
----@param smhBrowser DFileBrowser
----@param puppeteer Entity
-function UI.Layout(sequenceSheet, smhList, smhBrowser, puppeteer)
+---@param panelChildren PanelChildren
+---@param puppeteer RagdollPuppeteer
+function UI.Layout(panelChildren, puppeteer)
+	local sequenceSheet = panelChildren.sequenceSheet
+	local smhList = panelChildren.smhList
+	local smhBrowser = panelChildren.smhBrowser
+
 	sequenceSheet:Dock(TOP)
 	smhList:Dock(TOP)
 	smhBrowser:Dock(TOP)
