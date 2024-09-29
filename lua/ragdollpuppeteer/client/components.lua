@@ -94,6 +94,55 @@ function components.FrameSlider(cPanel, cvar, label, tooltip)
 end
 
 ---@param cPanel DForm
+---@return DNumSlider
+function components.HeightSlider(cPanel)
+	local panel = cPanel:NumSlider("#ui.ragdollpuppeteer.label.height", "", -100, 100)
+	---@cast panel DNumSlider
+
+	panel:SetValue(0)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.height")
+
+	return panel
+end
+
+---@return DNumberWang
+function components.FPSWang()
+	local panel = vgui.Create("DNumberWang")
+	panel:SetConVar("ragdollpuppeteer_fps")
+	panel:SetMin(-math.huge)
+	panel:SetMax(math.huge)
+	panel:SetValue(30)
+	panel:SetDecimals(0)
+
+	function panel:Paint(w, h)
+		derma.SkinHook("Paint", "TextEntry", self, w, h)
+		DisableClipping(true)
+		return false
+	end
+
+	local label = vgui.Create("DLabel", panel)
+	label:SetText("#ui.ragdollpuppeteer.label.fps")
+	label:SetPos(-30, -2)
+	label:SetDark(true)
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.fps")
+
+	return panel
+end
+
+---@return DButton
+function components.PlayButton()
+	---@diagnostic disable-next-line
+	local panel = vgui.Create("DButton")
+	panel:SetText("#ui.ragdollpuppeteer.label.play")
+
+	panel:SetIsToggle(true)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.playback")
+
+	return panel
+end
+
+---@param cPanel DForm
 ---@return DCheckBoxLabel
 function components.NonPhysCheckBox(cPanel)
 	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.nonphys", "ragdollpuppeteer_animatenonphys")
@@ -284,6 +333,18 @@ function components.Settings(cPanel)
 	cPanel:AddItem(settings)
 
 	return settings
+end
+
+---Container for Offset Sliders
+---@param cPanel DForm
+---@return DForm
+function components.Offsets(cPanel)
+	local offsets = vgui.Create("DForm", cPanel)
+	offsets:SetLabel("#ui.ragdollpuppeteer.label.offsets")
+
+	cPanel:AddItem(offsets)
+
+	return offsets
 end
 
 ---Container for lists

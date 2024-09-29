@@ -130,7 +130,9 @@ function ENT:Think()
 	end
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
+			local heightOffset = puppeteer.heightOffset or 0
 			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
+			puppeteer:SetPos(self:LocalToWorld(Vector(0, 0, heightOffset)))
 			if SERVER then
 				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
 			else

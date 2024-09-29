@@ -98,6 +98,9 @@ local types = {}
 ---@field removeGesture DButton
 ---@field floorCollisions DCheckBoxLabel
 ---@field recoverPuppeteer DButton
+---@field playButton DButton
+---@field fpsWang DNumberWang
+---@field heightOffset DNumSlider
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -131,6 +134,7 @@ local types = {}
 
 ---@class RagdollPuppeteer: Entity
 ---@field angleOffset Angle
+---@field heightOffset number
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 ---@alias BonePose table<Vector, Angle>

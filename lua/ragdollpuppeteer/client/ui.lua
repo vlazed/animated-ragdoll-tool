@@ -182,6 +182,7 @@ local function encodePose(pose, puppeteer)
 end
 
 local lastPose = {}
+local lastGesturePose = {}
 
 ---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 ---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
@@ -287,10 +288,21 @@ end
 
 local baseFPS = 30
 
+---@param baseSlider DNumSlider
+---@param gestureSlider DNumSlider
+---@param val number
+local function moveSliderBy(baseSlider, gestureSlider, val)
+	if not IsValid(baseSlider) then
+		return
+	end
+	baseSlider:SetValue((baseSlider:GetValue() + val) % baseSlider:GetMax())
+	gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
-function UI.NetHookPanel(panelChildren, panelProps, panelState)
+local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local baseSlider = panelChildren.baseSlider
 	local gestureSlider = panelChildren.gestureSlider
 	local sourceBox = panelChildren.sourceBox
@@ -304,75 +316,81 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	local puppet = panelProps.puppet
 	local physicsCount = panelProps.physicsCount
 
-	local function moveSliderBy(val)
-		if not IsValid(baseSlider) then
+	timer.Remove("ragdollpuppeteer_playback")
+	timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
+		if not IsValid(animPuppeteer) or not IsValid(puppet) then
 			return
 		end
-		baseSlider:SetValue((baseSlider:GetValue() + val) % baseSlider:GetMax())
-		gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
-	end
+
+		local fps = GetConVar("ragdollpuppeteer_fps") and GetConVar("ragdollpuppeteer_fps"):GetInt() or baseFPS
+
+		local shouldIncrement = GetConVar("ragdollpuppeteer_playback_shouldincrement")
+			and GetConVar("ragdollpuppeteer_playback_shouldincrement"):GetInt() > 0
+		if shouldIncrement then
+			local increment = fps / baseFPS
+			moveSliderBy(baseSlider, gestureSlider, increment)
+		else
+			local _, option = sourceBox:GetSelected()
+			if option == "sequence" then
+				local numframes = baseSlider:GetMax()
+				local val = baseSlider:GetValue()
+				local cycle = val / numframes
+				animPuppeteer:SetCycle(cycle)
+
+				net.Start("onFrameChange", true)
+				net.WriteBool(true)
+				net.WriteFloat(cycle)
+				net.WriteBool(nonPhysCheckbox:GetChecked())
+				writeSequencePose(
+					animPuppeteer,
+					puppet,
+					physicsCount,
+					{ baseGesturer, animGesturer },
+					panelState.defaultBonePose
+				)
+				net.SendToServer()
+			else
+				if smhList:GetSelected()[1] then
+					writeSMHPose(
+						"onFrameChange",
+						baseSlider:GetValue(),
+						angOffset,
+						smhList:GetSelected()[1]:GetSortValue(3),
+						smhList:GetSelected()[1]:GetSortValue(4),
+						nonPhysCheckbox:GetChecked(),
+						animPuppeteer
+					)
+				end
+			end
+		end
+	end)
+end
+
+local function removePlaybackTimer()
+	timer.Remove("ragdollpuppeteer_playback")
+end
+
+---@param panelChildren PanelChildren
+---@param panelProps PanelProps
+---@param panelState PanelState
+function UI.NetHookPanel(panelChildren, panelProps, panelState)
+	local baseSlider = panelChildren.baseSlider
+	local gestureSlider = panelChildren.gestureSlider
 
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(-increment)
+		moveSliderBy(baseSlider, gestureSlider, -increment)
 	end)
 	net.Receive("onFrameNext", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(increment)
+		moveSliderBy(baseSlider, gestureSlider, increment)
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		local fps = net.ReadFloat()
-		timer.Remove("ragdollpuppeteer_playback")
-		timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
-			if not IsValid(animPuppeteer) or not IsValid(puppet) then
-				return
-			end
-
-			local shouldIncrement = GetConVar("ragdollpuppeteer_playback_shouldincrement")
-				and GetConVar("ragdollpuppeteer_playback_shouldincrement"):GetInt() > 0
-			if shouldIncrement then
-				local increment = fps / baseFPS
-				moveSliderBy(increment)
-			else
-				local _, option = sourceBox:GetSelected()
-				if option == "sequence" then
-					local numframes = baseSlider:GetMax()
-					local val = baseSlider:GetValue()
-					local cycle = val / numframes
-					animPuppeteer:SetCycle(cycle)
-
-					net.Start("onFrameChange", true)
-					net.WriteBool(true)
-					net.WriteFloat(cycle)
-					net.WriteBool(nonPhysCheckbox:GetChecked())
-					writeSequencePose(
-						animPuppeteer,
-						puppet,
-						physicsCount,
-						{ baseGesturer, animGesturer },
-						panelState.defaultBonePose
-					)
-					net.SendToServer()
-				else
-					if smhList:GetSelected()[1] then
-						writeSMHPose(
-							"onFrameChange",
-							baseSlider:GetValue(),
-							angOffset,
-							smhList:GetSelected()[1]:GetSortValue(3),
-							smhList:GetSelected()[1]:GetSortValue(4),
-							nonPhysCheckbox:GetChecked(),
-							animPuppeteer
-						)
-					end
-				end
-			end
-		end)
+		-- local fps = net.ReadFloat()
+		createPlaybackTimer(panelChildren, panelProps, panelState)
 	end)
-	net.Receive("disablePuppeteerPlayback", function(len, ply)
-		timer.Remove("ragdollpuppeteer_playback")
-	end)
+	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
 end
 
 local boneIcons = {
@@ -448,11 +466,20 @@ function UI.ConstructPanel(cPanel, panelProps)
 		language.GetPhrase("#ui.ragdollpuppeteer.label.gesture"),
 		language.GetPhrase("#ui.ragdollpuppeteer.tooltip.gesture")
 	)
+	local playButton = components.PlayButton()
+	local fpsWang = components.FPSWang()
+	timelines:AddItem(playButton, fpsWang)
+	playButton:Dock(LEFT)
+	fpsWang:Dock(RIGHT)
+
+	local offsets = components.Offsets(cPanel)
 	local angOffset = components.AngleNumSliderTrio(
-		cPanel,
+		offsets,
 		{ "#ui.ragdollpuppeteer.label.pitch", "#ui.ragdollpuppeteer.label.yaw", "#ui.ragdollpuppeteer.label.roll" },
 		"#ui.ragdollpuppeteer.label.angleoffset"
 	)
+	local heightOffset = components.HeightSlider(offsets)
+
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
 	local settings = components.Settings(cPanel)
@@ -501,6 +528,9 @@ function UI.ConstructPanel(cPanel, panelProps)
 		floorCollisions = floorCollisions,
 		recoverPuppeteer = recoverPuppeteer,
 		shouldIncrement = shouldIncrement,
+		playButton = playButton,
+		fpsWang = fpsWang,
+		heightOffset = heightOffset,
 	}
 end
 
@@ -531,6 +561,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local showPuppeteer = panelChildren.showPuppeteer
 	local removeGesture = panelChildren.removeGesture
 	local angOffset = panelChildren.angOffset
+	local playButton = panelChildren.playButton
+	local heightOffset = panelChildren.heightOffset
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -547,6 +579,23 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local filteredBones = {}
 	for b = 1, puppet:GetBoneCount() do
 		filteredBones[b] = false
+	end
+
+	function heightOffset:OnValueChanged(newValue)
+		animPuppeteer.heightOffset = newValue
+		animGesturer.heightOffset = newValue
+		basePuppeteer.heightOffset = newValue
+		baseGesturer.heightOffset = newValue
+	end
+
+	function playButton:OnToggled(on)
+		if on then
+			createPlaybackTimer(panelChildren, panelProps, panelState)
+			playButton:SetText("#ui.ragdollpuppeteer.label.stop")
+		else
+			removePlaybackTimer()
+			playButton:SetText("#ui.ragdollpuppeteer.label.play")
+		end
 	end
 
 	local lastCheck
