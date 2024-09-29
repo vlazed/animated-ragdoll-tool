@@ -7,7 +7,7 @@ local components = include("components.lua")
 ---@module "ragdollpuppeteer.lib.vendor"
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.lib.quaternion"
-local Quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
+local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -212,8 +212,8 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
 					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
-					local oQuat = Quaternion()
-					local gQuat = Quaternion()
+					local oQuat = quaternion()
+					local gQuat = quaternion()
 					oQuat:SetAngle(oAng)
 					gQuat:SetAngle(gAng)
 					local dQuat = gQuat * oQuat:Invert()
