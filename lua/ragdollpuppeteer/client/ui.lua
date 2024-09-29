@@ -319,6 +319,16 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local puppet = panelProps.puppet
 	local physicsCount = panelProps.physicsCount
 
+	local playbackEnabled = GetConVar("sv_ragdollpuppeteer_allow_playback")
+		and GetConVar("sv_ragdollpuppeteer_allow_playback"):GetBool()
+	if not playbackEnabled then
+		chat.AddText("Ragdoll Puppeteer playback is disabled!")
+		if game.SinglePlayer() then
+			chat.AddText('In the console, run "sv_ragdollpuppeteer_allow_playback 1"')
+		end
+		return
+	end
+
 	timer.Remove("ragdollpuppeteer_playback")
 	timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
 		if not IsValid(animPuppeteer) or not IsValid(puppet) then
