@@ -24,11 +24,21 @@ function components.SearchBar(cPanel)
 	return panel
 end
 
-function components.OverrideBlend(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.overrideblend", "ragdollpuppeteer_overrideblend")
+function components.ShouldIncrement(cPanel)
+	local panel =
+		cPanel:CheckBox("#ui.ragdollpuppeteer.label.shouldincrement", "ragdollpuppeteer_playback_shouldincrement")
 	---@cast panel DCheckBoxLabel
 
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.overrideblend")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.shouldincrement")
+
+	return panel
+end
+
+function components.FloorWorldCollisions(cPanel)
+	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.floorworld", "ragdollpuppeteer_floor_worldcollisions")
+	---@cast panel DCheckBoxLabel
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.floorworld")
 
 	return panel
 end
@@ -49,13 +59,22 @@ function components.AnimationSourceBox(cPanel)
 end
 
 ---@param cPanel DForm
----@param puppeteer Entity
 ---@return DButton
-function components.UpdatePuppeteerButton(cPanel, puppeteer)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.updatepos", "ragdollpuppeteer_updateposition", puppeteer)
+function components.RemoveGesture(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.removegesture", "")
 	---@cast panel DButton
 
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.updatepos")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.removegesture")
+	return panel
+end
+
+---@param cPanel DForm
+---@return DButton
+function components.RecoverPuppeteer(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.recoverpuppeteer", "ragdollpuppeteer_recoverpuppeteer")
+	---@cast panel DButton
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.recoverpuppeteer")
 	return panel
 end
 
@@ -96,36 +115,49 @@ function components.PuppeteerVisible(cPanel)
 	return panel
 end
 
----@param cPanel DForm
----@return DCheckBoxLabel
-function components.OffsetRoot(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.offsetroot", "ragdollpuppeteer_offsetroot")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.offsetroot")
-	if not game.SinglePlayer() then
-		panel:SetEnabled(false)
-	end
-
-	return panel
-end
-
----@param cPanel DForm
----@return DCheckBoxLabel
-function components.FindFloor(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.teleportfloor", "ragdollpuppeteer_updateposition_floors")
-	---@cast panel DCheckBoxLabel
-
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.teleportfloor")
-
-	return panel
-end
-
 function components.SequenceSheet(cPanel)
 	local sequenceSheet = vgui.Create("DPropertySheet", cPanel)
 
 	cPanel:AddItem(sequenceSheet)
 	return sequenceSheet
+end
+
+---@param dForm DForm
+---@param names string[]
+---@return DNumSlider[]
+function components.AngleNumSliders(dForm, names)
+	local sliders = {}
+	for i = 1, 3 do
+		local slider = dForm:NumSlider(names[i], "", -180, 180)
+		---@cast slider DNumSlider
+		slider:Dock(TOP)
+		slider:SetValue(0)
+		sliders[i] = slider
+	end
+	return sliders
+end
+
+---Set the angle of the sequence or SMH animation
+---@param cPanel DForm
+---@param names string[]
+---@param label string
+---@return DNumSlider[]
+function components.AngleNumSliderTrio(cPanel, names, label)
+	local dForm = vgui.Create("DForm")
+	dForm:SetLabel(label)
+	local angleSliders = components.AngleNumSliders(dForm, names)
+	cPanel:AddItem(dForm)
+	---@diagnostic disable-next-line
+	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
+	function resetAngles:DoClick()
+		for i = 1, 3 do
+			angleSliders[i]:SetValue(0)
+		end
+	end
+
+	dForm:DoExpansion(false)
+
+	return angleSliders
 end
 
 ---@param sheet DPropertySheet
@@ -161,43 +193,6 @@ function components.SMHFileBrowser(cPanel)
 	fileBrowser:SetCurrentFolder("smh")
 	cPanel:AddItem(fileBrowser)
 	return fileBrowser
-end
-
----@param dForm DForm
----@param names string[]
----@return DNumSlider[]
-function components.AngleNumSliders(dForm, names)
-	local sliders = {}
-	for i = 1, 3 do
-		local slider = dForm:NumSlider(names[i], "", -180, 180)
-		---@cast slider DNumSlider
-		slider:Dock(TOP)
-		slider:SetValue(0)
-		sliders[i] = slider
-	end
-	return sliders
-end
-
----@param cPanel DForm
----@param names string[]
----@param label string
----@return DNumSlider[]
-function components.AngleNumSliderTrio(cPanel, names, label)
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel(label)
-	local angleSliders = components.AngleNumSliders(dForm, names)
-	cPanel:AddItem(dForm)
-	---@diagnostic disable-next-line
-	local resetAngles = dForm:Button("#ui.ragdollpuppeteer.label.resetangles")
-	function resetAngles:DoClick()
-		for i = 1, 3 do
-			angleSliders[i]:SetValue(0)
-		end
-	end
-
-	dForm:DoExpansion(false)
-
-	return angleSliders
 end
 
 ---@param cPanel DForm

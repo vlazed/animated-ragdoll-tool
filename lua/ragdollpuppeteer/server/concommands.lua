@@ -20,6 +20,27 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 	end
 end)
 
+concommand.Add("ragdollpuppeteer_recoverpuppeteer", function(ply, _, _)
+	if
+		not IsValid(ply)
+		or not RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
+		or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet)
+		or not IsValid(RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].floor)
+	then
+		return
+	end
+	local puppet = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].puppet
+	local floor = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].floor
+
+	local angle = (ply:GetPos() - floor:GetPos()):Angle()
+	floor:SetPos(puppet:GetPos())
+	floor:SetAngles(angle)
+	local physObject = floor:GetPhysicsObject()
+	if IsValid(physObject) then
+		physObject:Sleep()
+	end
+end)
+
 concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	if
 		not IsValid(ply)
@@ -51,12 +72,24 @@ concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_previousframe", function(ply)
+concommand.Add("ragdollpuppeteer_previousframe", function(ply, _, args)
+	local increment = 1
+	local newNumber = tonumber(args[1])
+	if args and type(newNumber) == "number" then
+		increment = newNumber
+	end
 	net.Start("onFramePrevious")
+	net.WriteFloat(increment)
 	net.Send(ply)
 end)
 
-concommand.Add("ragdollpuppeteer_nextframe", function(ply)
+concommand.Add("ragdollpuppeteer_nextframe", function(ply, _, args)
+	local increment = 1
+	local newNumber = tonumber(args[1])
+	if args and type(newNumber) == "number" then
+		increment = newNumber
+	end
 	net.Start("onFrameNext")
+	net.WriteFloat(increment)
 	net.Send(ply)
 end)

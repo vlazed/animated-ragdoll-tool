@@ -27,6 +27,8 @@ local types = {}
 ---@field Pos Vector
 ---@field LocalAng Angle?
 ---@field LocalPos Vector?
+---@field RootAng Angle?
+---@field RootPos Vector?
 ---@field Moveable boolean?
 ---@field Scale Vector
 
@@ -78,6 +80,7 @@ local types = {}
 ---@field prevFrame number
 
 ---@class PanelChildren
+---@field angOffset DNumSlider[]
 ---@field puppetLabel DLabel
 ---@field smhBrowser DFileBrowser
 ---@field smhList DListView
@@ -89,12 +92,12 @@ local types = {}
 ---@field gestureSlider FrameSlider
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
----@field angOffset DNumSlider[]
 ---@field poseParams PoseParameterSlider[]
----@field findFloor DCheckBoxLabel
 ---@field boneTree DTree
----@field offsetRoot DCheckBoxLabel
 ---@field showPuppeteer DCheckBoxLabel
+---@field removeGesture DButton
+---@field floorCollisions DCheckBoxLabel
+---@field recoverPuppeteer DButton
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -123,10 +126,28 @@ local types = {}
 ---@field fps integer
 ---@field bonesReset boolean
 ---@field filteredBones integer[]
+---@field floor PuppeteerFloor
+---@field lastPose BonePose[]
+
+---@class RagdollPuppeteer: Entity
+---@field angleOffset Angle
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
+---@alias BonePose table<Vector, Angle>
 
 ---@class PhysicsObject
 ---@field parent integer
+
+---@class PuppeteerFloor: Entity
+---@field puppeteers Entity[]
+---@field floorSize Vector[]
+---@field angleOffset Angle
+---@field SetAngleOffset fun(self: PuppeteerFloor, angle: Angle)
+---@field SetPhysicsSize fun(self: PuppeteerFloor, puppeteer: Entity)
+---@field AddPuppeteers fun(self: PuppeteerFloor, puppeteers: Entity[])
+---@field SetPuppet fun(self: PuppeteerFloor, puppet: Entity)
+---@field RemovePuppeteers fun(self: PuppeteerFloor) Remove puppeteers from the world
+---@field ClearPuppeteers fun(self: PuppeteerFloor) Clear the puppeteer table
+---@field SetPlayerOwner fun(self: PuppeteerFloor, ply: Player)
 
 return types

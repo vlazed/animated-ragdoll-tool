@@ -8,15 +8,16 @@ if SERVER then
 	include("ragdollpuppeteer/server/concommands.lua")
 
 	AddCSLuaFile("ragdollpuppeteer/constants.lua")
-	AddCSLuaFile("ragdollpuppeteer/vendor.lua")
-	AddCSLuaFile("ragdollpuppeteer/smh.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/vendor.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/helpers.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/components.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 
 	---@type RagdollPuppeteerPlayerField[]
 	RAGDOLLPUPPETEER_PLAYERS = {}
 
-	---comment
 	---@param userId integer
 	local function addPlayerField(userId)
 		RAGDOLLPUPPETEER_PLAYERS[userId] = {
@@ -29,6 +30,8 @@ if SERVER then
 			fps = 30,
 			filteredBones = {},
 			bonesReset = false,
+			floor = NULL,
+			lastPose = {},
 		}
 	end
 
