@@ -7,7 +7,7 @@ local components = include("components.lua")
 ---@module "ragdollpuppeteer.lib.vendor"
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.lib.quaternion"
-include("ragdollpuppeteer/lib/quaternion.lua")
+local Quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL

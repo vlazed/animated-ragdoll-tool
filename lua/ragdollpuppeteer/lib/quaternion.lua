@@ -18,7 +18,7 @@ debug.getregistry().Quaternion = QUATERNION;
 -- @param  obj The object to check.
 -- @return boolean 'true' if the object is a quaternion, 'false' otherwise.
 --
-function IsQuaternion(obj)
+local function IsQuaternion(obj)
 	return getmetatable(obj) == QUATERNION;
 end
 
@@ -32,7 +32,7 @@ end
 -- @param  z (Optional) The 'z' component of the quaternion.
 -- @return quaternion A new quaternion.
 --
-function Quaternion(w --[[ 1.0 ]], x --[[ 0.0 ]], y --[[ 0.0 ]], z --[[ 0.0 ]])
+local function Quaternion(w --[[ 1.0 ]], x --[[ 0.0 ]], y --[[ 0.0 ]], z --[[ 0.0 ]])
 
 	return IsQuaternion(w)
 		&& setmetatable({ w = w.w, x = w.x, y = w.y, z = w.z }, QUATERNION)
@@ -498,3 +498,5 @@ end
 function QUATERNION:__tostring()
 	return string.format("%f %f %f %f", self:Unpack());
 end
+
+return Quaternion
