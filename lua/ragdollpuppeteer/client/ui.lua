@@ -158,6 +158,7 @@ function UI.Layout(sequenceSheet, smhList, smhBrowser, puppeteer)
 		end)
 	end
 
+	-- FIXME: List goes out of the CPanel with many options
 	smhList:SizeTo(-1, 0, 0.5)
 	smhBrowser:SizeTo(-1, 0, 0.5)
 	sequenceSheet:SizeTo(-1, 500, 0.5)
