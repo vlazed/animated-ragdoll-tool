@@ -483,11 +483,15 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
 	local settings = components.Settings(cPanel)
-	local nonPhysCheckbox = components.NonPhysCheckBox(settings)
-	local showPuppeteer = components.PuppeteerVisible(settings)
-	local floorCollisions = components.FloorWorldCollisions(settings)
-	local shouldIncrement = components.ShouldIncrement(settings)
-	local recoverPuppeteer = components.RecoverPuppeteer(settings)
+	local generalContainer = components.Container(settings, "#ui.ragdollpuppeteer.label.general", true)
+	local nonPhysCheckbox = components.NonPhysCheckBox(generalContainer)
+	local showPuppeteer = components.PuppeteerVisible(generalContainer)
+	local floorCollisions = components.FloorWorldCollisions(generalContainer)
+	local shouldIncrement = components.ShouldIncrement(generalContainer)
+	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
+
+	local puppeteerContainer = components.Container(settings, "#ui.ragdollpuppeteer.label.puppeteer", false)
+	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
 
 	local boneTree = components.BoneTree(cPanel)
 

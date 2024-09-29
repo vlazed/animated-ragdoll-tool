@@ -164,11 +164,35 @@ function components.PuppeteerVisible(cPanel)
 	return panel
 end
 
+---@param cPanel DForm
+---@return DPropertySheet
 function components.SequenceSheet(cPanel)
 	local sequenceSheet = vgui.Create("DPropertySheet", cPanel)
 
 	cPanel:AddItem(sequenceSheet)
 	return sequenceSheet
+end
+
+---@param cPanel DForm
+---@param label string
+---@param expanded boolean
+---@return DForm
+function components.Container(cPanel, label, expanded)
+	local container = vgui.Create("DForm", cPanel)
+	container:SetLabel(label)
+	cPanel:AddItem(container)
+
+	container:DoExpansion(expanded)
+
+	return container
+end
+
+---@return DColorCombo
+function components.PuppeteerColors(cPanel)
+	local colorCombo = vgui.Create("DColorCombo", cPanel)
+	cPanel:AddItem(colorCombo)
+
+	return colorCombo
 end
 
 ---@param dForm DForm
@@ -343,6 +367,7 @@ function components.Offsets(cPanel)
 	offsets:SetLabel("#ui.ragdollpuppeteer.label.offsets")
 
 	cPanel:AddItem(offsets)
+	offsets:DoExpansion(false)
 
 	return offsets
 end
