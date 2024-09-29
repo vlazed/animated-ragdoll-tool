@@ -746,7 +746,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	-- UI Elements
 	local panelChildren = ui.ConstructPanel(cPanel, panelProps)
 
-	ui.Layout(panelChildren.sequenceSheet, panelChildren.smhList, panelChildren.smhBrowser, animPuppeteer)
+	ui.Layout(panelChildren, animPuppeteer)
 
 	-- UI Hooks
 	ui.HookPanel(panelChildren, panelProps, panelState)
