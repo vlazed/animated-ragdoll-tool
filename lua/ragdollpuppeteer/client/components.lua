@@ -24,21 +24,34 @@ function components.SearchBar(cPanel)
 	return panel
 end
 
+---@param cPanel DForm | DScrollPanel
+---@return DCheckBoxLabel
 function components.ShouldIncrement(cPanel)
-	local panel =
-		cPanel:CheckBox("#ui.ragdollpuppeteer.label.shouldincrement", "ragdollpuppeteer_playback_shouldincrement")
-	---@cast panel DCheckBoxLabel
-
+	local panel = vgui.Create("DCheckBoxLabel", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.shouldincrement")
+	panel:SetDark(true)
+	panel:SetConVar("ragdollpuppeteer_playback_shouldincrement")
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.shouldincrement")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
 
 	return panel
 end
 
+---@param cPanel DForm | DScrollPanel
+---@return DCheckBoxLabel
 function components.FloorWorldCollisions(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.floorworld", "ragdollpuppeteer_floor_worldcollisions")
-	---@cast panel DCheckBoxLabel
-
+	local panel = vgui.Create("DCheckBoxLabel", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.floorworld")
+	panel:SetDark(true)
+	panel:SetConVar("ragdollpuppeteer_floor_worldcollisions")
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.floorworld")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
 
 	return panel
 end
@@ -54,6 +67,7 @@ function components.AnimationSourceBox(cPanel)
 	panel:AddChoice("#ui.ragdollpuppeteer.label.smh", "smh")
 	panel:ChooseOption("#ui.ragdollpuppeteer.label.sequence", 1)
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.source")
+	panel:Dock(TOP)
 
 	return panel
 end
@@ -68,13 +82,19 @@ function components.RemoveGesture(cPanel)
 	return panel
 end
 
----@param cPanel DForm
+---@param cPanel DForm | DScrollPanel
 ---@return DButton
 function components.RecoverPuppeteer(cPanel)
-	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.recoverpuppeteer", "ragdollpuppeteer_recoverpuppeteer")
-	---@cast panel DButton
-
+	local panel = vgui.Create("DButton", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.recoverpuppeteer")
+	panel:SetDark(true)
+	panel:SetConsoleCommand("ragdollpuppeteer_recoverpuppeteer")
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.recoverpuppeteer")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
+
 	return panel
 end
 
@@ -142,47 +162,53 @@ function components.PlayButton()
 	return panel
 end
 
----@param cPanel DForm
+---@param cPanel DForm | DScrollPanel
 ---@return DCheckBoxLabel
 function components.NonPhysCheckBox(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.nonphys", "ragdollpuppeteer_animatenonphys")
-	---@cast panel DCheckBoxLabel
-
+	local panel = vgui.Create("DCheckBoxLabel", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.nonphys")
+	panel:SetDark(true)
+	panel:SetConVar("ragdollpuppeteer_animatenonphys")
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.nonphys")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
 
 	return panel
 end
 
----@param cPanel DForm
+---@param cPanel DForm | DScrollPanel
 ---@return DCheckBoxLabel
 function components.PuppeteerVisible(cPanel)
-	local panel = cPanel:CheckBox("#ui.ragdollpuppeteer.label.showpuppeteer", "ragdollpuppeteer_showpuppeteer")
-	---@cast panel DCheckBoxLabel
-
+	local panel = vgui.Create("DCheckBoxLabel", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.showpuppeteer")
+	panel:SetDark(true)
+	panel:SetConVar("ragdollpuppeteer_showpuppeteer")
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
 
 	return panel
 end
 
 ---@param cPanel DForm
 ---@return DPropertySheet
-function components.SequenceSheet(cPanel)
-	local sequenceSheet = vgui.Create("DPropertySheet", cPanel)
+function components.Sheet(cPanel)
+	local sheet = vgui.Create("DPropertySheet", cPanel)
 
-	cPanel:AddItem(sequenceSheet)
-	return sequenceSheet
+	cPanel:AddItem(sheet)
+	return sheet
 end
 
----@param cPanel DForm
----@param label string
----@param expanded boolean
----@return DForm
-function components.Container(cPanel, label, expanded)
-	local container = vgui.Create("DForm", cPanel)
-	container:SetLabel(label)
-	cPanel:AddItem(container)
+---@param sheet DPropertySheet
+---@return DScrollPanel
+function components.Container(sheet, label)
+	local container = vgui.Create("DScrollPanel", sheet)
 
-	container:DoExpansion(expanded)
+	sheet:AddSheet(label, container)
 
 	return container
 end
@@ -191,6 +217,7 @@ end
 function components.PuppeteerColors(cPanel)
 	local colorCombo = vgui.Create("DColorCombo", cPanel)
 	cPanel:AddItem(colorCombo)
+	colorCombo:Dock(FILL)
 
 	return colorCombo
 end
