@@ -3,7 +3,7 @@
 
 https://github.com/user-attachments/assets/0c9c8957-0ffa-4592-a3ca-d7ae0c6c2880
 
-The Ragdoll Puppeteer is a companion tool for ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like gestures, layer sequences, or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
+The Ragdoll Puppeteer is a companion tool for ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like layer sequences or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
 
 Here are two ways on how you can use this tool:
 
@@ -27,4 +27,4 @@ When making a pull request, make sure to confine to the style as that seen in ra
 
 - Winded and PenolAkushari: [Stand Poser](https://steamcommunity.com/sharedfiles/filedetails/?id=104576786) ([repo](https://github.com/Winded/StandingPoseTool/tree/master)) for inspiration on base implementation, [Ragdoll Mover](https://steamcommunity.com/sharedfiles/filedetails/?id=104575630) ([repo](https://github.com/Winded/RagdollMover/tree/master)) and [Stop Motion Helper](https://steamcommunity.com/sharedfiles/filedetails/?id=111895870) ([repo](https://github.com/Winded/StopMotionHelper)) for loading and handling SMH data
 - no loafing: [Animated Props](https://steamcommunity.com/sharedfiles/filedetails/?id=3214437941) ([repo](https://github.com/NO-LOAFING/AnimpropOverhaul/tree/main)) for inspiration and a quick peek at the source code for hints on manipulating entity sequences
-- W L K R E: GLua Quaternions [repo](https://github.com/JWalkerMailly/glua-quaternion) for working around gimbal locks related to Gestures and ManipulatedBone methods
+- W L K R E: GLua Quaternions ([repo](https://github.com/JWalkerMailly/glua-quaternion)) for library to help work around gimbal locks related to Gestures and ManipulatedBone methods
