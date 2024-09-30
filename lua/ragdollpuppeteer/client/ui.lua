@@ -160,10 +160,11 @@ function UI.Layout(panelChildren, puppeteer)
 		end)
 	end
 
-	-- FIXME: List goes out of the CPanel with many options
+	-- TODO: Rewrite UI for switching between animation lists.
+	-- FIXME: List goes out of the CPanel
+	sequenceSheet:SizeTo(-1, 500, 0.5)
 	smhList:SizeTo(-1, 0, 0.5)
 	smhBrowser:SizeTo(-1, 0, 0.5)
-	sequenceSheet:SizeTo(-1, 500, 0.5)
 end
 
 ---@param pose SMHFramePose[]
@@ -460,6 +461,7 @@ local function setupBoneNodesOf(puppet, boneTree)
 end
 
 ---Construct the ragdoll puppeteer control panel and return its components
+---@param cPanel DForm
 ---@param panelProps PanelProps
 ---@return PanelChildren
 function UI.ConstructPanel(cPanel, panelProps)
@@ -497,18 +499,26 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local settings = components.Settings(cPanel)
 	local settingsSheet = components.Sheet(settings)
-	local generalContainer = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.general")
+	local generalContainer, tab = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.general")
 	local nonPhysCheckbox = components.NonPhysCheckBox(generalContainer)
 	local showPuppeteer = components.PuppeteerVisible(generalContainer)
 	local floorCollisions = components.FloorWorldCollisions(generalContainer)
 	local shouldIncrement = components.ShouldIncrement(generalContainer)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
-	generalContainer:SizeToChildren(false, true)
 
-	local puppeteerContainer = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
+	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
 	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
+
+	-- Hack: Switch the active tab to get the size of that
+	settingsSheet:SetActiveTab(tab2.Tab)
+	settingsSheet:NoClipping(true)
+	settingsSheet:InvalidateChildren(true)
+	generalContainer:InvalidateChildren(true)
+	puppeteerContainer:InvalidateChildren(true)
+	puppeteerContainer:SizeToChildren(false, true)
+	generalContainer:SizeToChildren(false, true)
 	settingsSheet:SizeToChildren(false, true)
-	settingsSheet:SizeTo(-1, 300, 0)
+	settingsSheet:SetActiveTab(tab.Tab)
 
 	local boneTree = components.BoneTree(cPanel)
 
@@ -552,6 +562,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		playButton = playButton,
 		fpsWang = fpsWang,
 		heightOffset = heightOffset,
+		puppeteerColor = puppeteerColor,
 	}
 end
 

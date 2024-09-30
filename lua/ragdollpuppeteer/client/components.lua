@@ -204,20 +204,20 @@ function components.Sheet(cPanel)
 end
 
 ---@param sheet DPropertySheet
----@return DScrollPanel
+---@return DScrollPanel, table
 function components.Container(sheet, label)
 	local container = vgui.Create("DScrollPanel", sheet)
 
-	sheet:AddSheet(label, container)
+	local sheetTable = sheet:AddSheet(label, container)
 
-	return container
+	return container, sheetTable
 end
 
 ---@return DColorCombo
 function components.PuppeteerColors(cPanel)
 	local colorCombo = vgui.Create("DColorCombo", cPanel)
 	cPanel:AddItem(colorCombo)
-	colorCombo:Dock(FILL)
+	colorCombo:Dock(TOP)
 
 	return colorCombo
 end
