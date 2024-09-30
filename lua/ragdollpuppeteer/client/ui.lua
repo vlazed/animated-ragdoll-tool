@@ -909,12 +909,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	function sourceBox:OnSelect(_, _, option)
 		if option == "sequence" then
-			gestureSlider:SetEnabled(true)
+			gestureSlider:SetEnabled(game.SinglePlayer())
+			removeGesture:SetEnabled(game.SinglePlayer())
 			smhList:SizeTo(-1, 0, 0.5)
 			smhBrowser:SizeTo(-1, 0, 0.5)
 			sequenceSheet:SizeTo(-1, 500, 0.5)
 		else
 			gestureSlider:SetEnabled(false)
+			removeGesture:SetEnabled(false)
 			sequenceSheet:SizeTo(-1, 0, 0.5)
 			smhList:SizeTo(-1, 250, 0.5)
 			smhBrowser:SizeTo(-1, 250, 0.5)
