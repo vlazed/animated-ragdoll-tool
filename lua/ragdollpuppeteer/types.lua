@@ -101,6 +101,7 @@ local types = {}
 ---@field playButton DButton
 ---@field fpsWang DNumberWang
 ---@field heightOffset DNumSlider
+---@field puppeteerColor DColorCombo
 
 ---@class PanelProps
 ---@field puppet Entity

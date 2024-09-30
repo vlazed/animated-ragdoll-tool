@@ -125,8 +125,13 @@ function ENT:Think()
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
-	if puppeteers[1] and not self.height then
-		self.height = helpers.getRootHeightDifferenceOf(puppeteers[1])
+	if puppeteers[1] and IsValid(puppeteers[1]) then
+		if not self.height then
+			self.height = helpers.getRootHeightDifferenceOf(puppeteers[1])
+		end
+		if CLIENT then
+			self:SetColor(puppeteers[1]:GetColor())
+		end
 	end
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then

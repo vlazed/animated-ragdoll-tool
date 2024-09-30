@@ -16,6 +16,8 @@ TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["floor_worldcollisions"] = 1
 TOOL.ClientConVar["playback_shouldincrement"] = 1
 TOOL.ClientConVar["fps"] = 30
+TOOL.ClientConVar["color"] = "0 0 64"
+TOOL.ClientConVar["alpha"] = "100"
 
 local mode = TOOL:GetMode()
 
@@ -623,7 +625,7 @@ local ui = include("ragdollpuppeteer/client/ui.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
-local COLOR_BLUE = Color(0, 0, 64, 100)
+local COLOR_BLUE = constants.COLOR_BLUE
 
 ---@type PanelState
 local panelState = {

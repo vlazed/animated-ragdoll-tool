@@ -217,7 +217,6 @@ end
 function components.PuppeteerColors(cPanel)
 	local colorCombo = vgui.Create("DColorCombo", cPanel)
 	cPanel:AddItem(colorCombo)
-	colorCombo:Dock(TOP)
 
 	return colorCombo
 end

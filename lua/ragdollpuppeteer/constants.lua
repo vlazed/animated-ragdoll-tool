@@ -16,5 +16,6 @@ if CLIENT then
 end
 constants.DEFAULT_MAX_FRAME = 60
 constants.RAGDOLL_HEIGHT_DIFFERENCE = 100
+constants.COLOR_BLUE = Color(0, 0, 64, 100)
 
 return constants

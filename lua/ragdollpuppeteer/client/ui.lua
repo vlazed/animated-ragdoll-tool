@@ -8,9 +8,12 @@ local components = include("components.lua")
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.lib.quaternion"
 local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
+---@module "ragdollpuppeteer.lib.helpers"
+local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
+local COLOR_BLUE = constants.COLOR_BLUE
 
 local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
 local SEQUENCE_CHANGE_DELAY = 0.2
@@ -595,6 +598,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local angOffset = panelChildren.angOffset
 	local playButton = panelChildren.playButton
 	local heightOffset = panelChildren.heightOffset
+	local puppeteerColor = panelChildren.puppeteerColor
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -612,6 +616,29 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	for b = 1, puppet:GetBoneCount() do
 		filteredBones[b] = false
 	end
+
+	local convarChanging = false
+	local colorConVar = GetConVar("ragdollpuppeteer_color")
+	local alphaConVar = GetConVar("ragdollpuppeteer_alpha")
+	cvars.RemoveChangeCallback("ragdollpuppeteer_color", "ragdollpuppeteer_colorChanged")
+	cvars.AddChangeCallback("ragdollpuppeteer_color", function(cvar, oldVal, newVal)
+		convarChanging = true
+		puppeteerColor:SetColor(helpers.getColorFromString(newVal) or COLOR_BLUE)
+		convarChanging = false
+	end, "ragdollpuppeteer_colorChanged")
+
+	---@param color Color
+	function puppeteerColor:OnValueChanged(color)
+		animPuppeteer:SetColor4Part(color.r, color.g, color.b, alphaConVar and alphaConVar:GetInt() or 100)
+		if convarChanging then
+			return
+		end
+		colorConVar = colorConVar or GetConVar("ragdollpuppeteer_color")
+		if colorConVar then
+			colorConVar:SetString(helpers.getStringFromColor(color))
+		end
+	end
+	puppeteerColor:SetColor(colorConVar and helpers.getColorFromString(colorConVar:GetString()) or COLOR_BLUE)
 
 	function heightOffset:OnValueChanged(newValue)
 		animPuppeteer.heightOffset = newValue

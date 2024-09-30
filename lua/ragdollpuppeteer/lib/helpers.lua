@@ -4,6 +4,26 @@ local helpers = {}
 
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 
+---@param color Color
+---@return string
+function helpers.getStringFromColor(color)
+	local str = ("%d %d %d"):format(color.r, color.g, color.b)
+	return str
+end
+
+---@param str string
+---@return Color
+function helpers.getColorFromString(str)
+	local separator = " "
+	if string.find(str, ",") then
+		separator = ","
+	end
+	local colors = string.Split(str, separator)
+	return Color(colors[1] or 0, colors[2] or 0, colors[3] or 64, 100)
+end
+
+---@param entity Entity
+---@return number
 function helpers.getRootHeightDifferenceOf(entity)
 	local min = entity:WorldSpaceAABB()
 	local zMin = min.z
