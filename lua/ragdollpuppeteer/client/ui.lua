@@ -226,15 +226,20 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 				else
 					local gPos, gAng = animGesturer:GetBonePosition(b)
 					local oPos, oAng = baseGesturer:GetBonePosition(b)
-					local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
-					local dPos = gPos - oPos
-					dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteer:GetAngles())
+					if gPos and gAng and oPos and oAng then
+						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
+						local dPos = gPos - oPos
+						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteer:GetAngles())
 
-					gesturePos, gestureAng = dPos, dAng
+						gesturePos, gestureAng = dPos, dAng
+					elseif lastGesturePose[b] then
+						gesturePos, gestureAng = lastGesturePose[b][1], lastGesturePose[b][2]
+					end
 				end
 
 				puppeteer:ManipulateBonePosition(b, gesturePos)
 				puppeteer:ManipulateBoneAngles(b, gestureAng)
+				lastGesturePose[b] = { gesturePos, gestureAng }
 			end
 
 			local pos, ang = puppeteer:GetBonePosition(b)
