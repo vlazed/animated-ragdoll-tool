@@ -329,9 +329,11 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local playbackEnabled = GetConVar("sv_ragdollpuppeteer_allow_playback")
 		and GetConVar("sv_ragdollpuppeteer_allow_playback"):GetBool()
 	if not playbackEnabled then
-		chat.AddText("Ragdoll Puppeteer playback is disabled!")
+		chat.AddText("Ragdoll Puppeteer: Ragdoll Puppeteer playback is disabled!")
 		if game.SinglePlayer() then
-			chat.AddText('In the console, run "sv_ragdollpuppeteer_allow_playback 1"')
+			chat.AddText(
+				'Ragdoll Puppeteer: In the console, run "sv_ragdollpuppeteer_allow_playback 1" to enable playback'
+			)
 		end
 		return
 	end

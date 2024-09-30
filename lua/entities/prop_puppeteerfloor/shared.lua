@@ -190,7 +190,7 @@ function ENT:Think()
 		self.shouldRecover = not self:IsInWorld()
 		local distance = self:GetPos():Distance(owner:GetPos())
 		if self.shouldRecover and now - self.lastRecoveryTime > RECOVER_DELAY and distance > RECOVERY_DISTANCE then
-			print("Recovering floor")
+			print("[Ragdoll Puppeteer] Floor is out of bounds and far from player! Recovering floor...")
 			if IsValid(self.puppet) then
 				self:SetPos(self.puppet:GetPos())
 			elseif IsValid(owner) then
