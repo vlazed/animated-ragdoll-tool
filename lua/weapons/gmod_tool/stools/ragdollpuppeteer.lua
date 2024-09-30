@@ -18,6 +18,7 @@ TOOL.ClientConVar["playback_shouldincrement"] = 1
 TOOL.ClientConVar["fps"] = 30
 TOOL.ClientConVar["color"] = "0 0 64"
 TOOL.ClientConVar["alpha"] = "100"
+TOOL.ClientConVar["ignorez"] = 0
 
 local mode = TOOL:GetMode()
 
@@ -103,14 +104,15 @@ end
 
 function TOOL:Cleanup(userId)
 	if SERVER then
-		if RAGDOLLPUPPETEER_PLAYERS[userId] and IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
-			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
+		if RAGDOLLPUPPETEER_PLAYERS[userId] then
+			if IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
+				RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
+			end
+			RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
+			RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
+			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
+			RAGDOLLPUPPETEER_PLAYERS[userId].floor = NULL
 		end
-
-		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
-		RAGDOLLPUPPETEER_PLAYERS[userId].floor = NULL
 	end
 
 	if not IsValid(self:GetWeapon()) then
@@ -643,7 +645,7 @@ TOOL:BuildConVarList()
 local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetColor(COLOR_BLUE)
 	puppeteer:SetRenderMode(RENDERMODE_TRANSCOLOR)
-	puppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
+	puppeteer:SetMaterial(PUPPETEER_MATERIAL:GetName())
 	puppeteer.ragdollpuppeteer_currentMaterial = PUPPETEER_MATERIAL
 end
 
@@ -722,9 +724,9 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	-- Used for sequences, these puppeteers are always set to the first frame of the sequence, so we can easily extract the delta position and angle.
 	local basePuppeteer = createClientPuppeteer(model, puppet, ply)
 	local baseGesturer = createClientPuppeteer(model, puppet, ply)
-	basePuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
-	baseGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
-	animGesturer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
+	basePuppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
+	baseGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
+	animGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 
 	floor:AddPuppeteers({
 		animPuppeteer,

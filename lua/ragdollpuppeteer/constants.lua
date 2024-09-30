@@ -1,18 +1,9 @@
 local constants = {}
 
 if CLIENT then
-	constants.PUPPETEER_MATERIAL = CreateMaterial("ragdollpuppeteer_puppeteer", "VertexLitGeneric", {
-		["$basetexture"] = "color/white",
-		["$model"] = 1,
-		["$translucent"] = 1,
-		["$decal"] = 1,
-	})
-	constants.INVISIBLE_MATERIAL = CreateMaterial("ragdollpuppeteer_invisible", "VertexLitGeneric", {
-		["$basetexture"] = "ragdollpuppeteer/invisible",
-		["$additive"] = 1,
-		["$translucent"] = 1,
-		["$decal"] = 1,
-	})
+	constants.PUPPETEER_MATERIAL = Material("ragdollpuppeteer/puppeteer")
+	constants.PUPPETEER_MATERIAL_IGNOREZ = Material("ragdollpuppeteer/puppeteer_ignorez")
+	constants.INVISIBLE_MATERIAL = Material("ragdollpuppeteer/puppeteer_invisible")
 end
 constants.DEFAULT_MAX_FRAME = 60
 constants.RAGDOLL_HEIGHT_DIFFERENCE = 100

@@ -102,6 +102,7 @@ local types = {}
 ---@field fpsWang DNumberWang
 ---@field heightOffset DNumSlider
 ---@field puppeteerColor DColorCombo
+---@field puppeteerIgnoreZ DCheckBox
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -136,6 +137,7 @@ local types = {}
 ---@class RagdollPuppeteer: Entity
 ---@field angleOffset Angle
 ---@field heightOffset number
+---@field ragdollpuppeteer_currentMaterial IMaterial
 
 ---@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
 ---@alias BonePose table<Vector, Angle>

@@ -25,7 +25,6 @@ function ENT:DrawTranslucent()
 	end
 
 	local color, material = self:GetPuppeteerAppearance()
-	-- print(color, material)
 
 	render.SetMaterial(material)
 	render.DrawBox(self:GetPos(), self:GetAngles(), self.boxMin, self.boxMax, color)

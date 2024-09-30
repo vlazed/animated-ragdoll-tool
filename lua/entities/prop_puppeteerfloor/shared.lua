@@ -19,7 +19,13 @@ local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
+local PUPPETEER_MATERIAL_IGNOREZ = constants.PUPPETEER_MATERIAL_IGNOREZ
+local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
+local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 local floorCorrect = helpers.floorCorrect
+
+local puppeteerIgnoreZ = GetConVar("ragdollpuppeteer_ignorez")
+local puppeteerShow = GetConVar("ragdollpuppeteer_showpuppeteer")
 
 ---Add a table of puppeteers to the floor
 ---@param puppeteerTable Entity[]
@@ -126,11 +132,23 @@ function ENT:Think()
 	---@cast puppeteers RagdollPuppeteer[]
 
 	if puppeteers[1] and IsValid(puppeteers[1]) then
+		local puppeteer = puppeteers[1]
 		if not self.height then
-			self.height = helpers.getRootHeightDifferenceOf(puppeteers[1])
+			self.height = helpers.getRootHeightDifferenceOf(puppeteer)
 		end
 		if CLIENT then
-			self:SetColor(puppeteers[1]:GetColor())
+			puppeteerShow = puppeteerShow or GetConVar("ragdollpuppeteer_showpuppeteer")
+			puppeteerIgnoreZ = puppeteerIgnoreZ or GetConVar("ragdollpuppeteer_ignorez")
+			local showPuppeteer = puppeteerShow:GetInt() > 0
+			local ignoreZOn = puppeteerIgnoreZ:GetInt() > 0 and PUPPETEER_MATERIAL_IGNOREZ or PUPPETEER_MATERIAL
+			self:SetColor(puppeteer:GetColor())
+			if showPuppeteer then
+				puppeteer:SetMaterial(ignoreZOn:GetName())
+				puppeteer.ragdollpuppeteer_currentMaterial = ignoreZOn
+			else
+				puppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
+				puppeteer.ragdollpuppeteer_currentMaterial = constants.INVISIBLE_MATERIAL
+			end
 		end
 	end
 	for _, puppeteer in ipairs(puppeteers) do

@@ -1,0 +1,8 @@
+"UnlitGeneric"
+{
+	"$basetexture" "ragdollpuppeteer\invisible"
+	"$additive" "1"
+	"$translucent" "1"
+	"$decal" "1"
+}
+

@@ -11,8 +11,6 @@ local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
-local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
-local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 local COLOR_BLUE = constants.COLOR_BLUE
 
 local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
@@ -511,6 +509,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
 	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
+	local puppeteerIgnoreZ = components.PuppeteerIgnoreZ(puppeteerContainer)
 
 	-- Hack: Switch the active tab to get the size of that
 	settingsSheet:SetActiveTab(tab2.Tab)
@@ -566,6 +565,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		fpsWang = fpsWang,
 		heightOffset = heightOffset,
 		puppeteerColor = puppeteerColor,
+		puppeteerIgnoreZ = puppeteerIgnoreZ,
 	}
 end
 
@@ -599,6 +599,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local playButton = panelChildren.playButton
 	local heightOffset = panelChildren.heightOffset
 	local puppeteerColor = panelChildren.puppeteerColor
+	local puppeteerIgnoreZ = panelChildren.puppeteerIgnoreZ
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -620,6 +621,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local convarChanging = false
 	local colorConVar = GetConVar("ragdollpuppeteer_color")
 	local alphaConVar = GetConVar("ragdollpuppeteer_alpha")
+
+	-- If I add a remove change callback in the hook, nothing will go wrong.
 	cvars.RemoveChangeCallback("ragdollpuppeteer_color", "ragdollpuppeteer_colorChanged")
 	cvars.AddChangeCallback("ragdollpuppeteer_color", function(cvar, oldVal, newVal)
 		convarChanging = true
@@ -655,27 +658,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			removePlaybackTimer()
 			playButton:SetText("#ui.ragdollpuppeteer.label.play")
 		end
-	end
-
-	local lastCheck
-	function showPuppeteer:OnChange(checked)
-		-- FIXME: This gets called twice, which makes the statement below necessary; maybe due to the cvar?
-		if lastCheck ~= nil and lastCheck == checked then
-			return
-		end
-
-		if not IsValid(animPuppeteer) then
-			return
-		end
-
-		if checked then
-			animPuppeteer:SetMaterial("!" .. PUPPETEER_MATERIAL:GetName())
-			animPuppeteer.ragdollpuppeteer_currentMaterial = PUPPETEER_MATERIAL
-		else
-			animPuppeteer:SetMaterial("!" .. INVISIBLE_MATERIAL:GetName())
-			animPuppeteer.ragdollpuppeteer_currentMaterial = INVISIBLE_MATERIAL
-		end
-		lastCheck = checked
 	end
 
 	---@param node BoneTreeNode

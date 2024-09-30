@@ -194,6 +194,22 @@ function components.PuppeteerVisible(cPanel)
 	return panel
 end
 
+---@param cPanel DForm | DScrollPanel
+---@return DCheckBoxLabel
+function components.PuppeteerIgnoreZ(cPanel)
+	local panel = vgui.Create("DCheckBoxLabel", cPanel)
+	panel:SetText("#ui.ragdollpuppeteer.label.ignorez")
+	panel:SetDark(true)
+	panel:SetConVar("ragdollpuppeteer_ignorez")
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.ignorez")
+
+	cPanel:AddItem(panel)
+	panel:Dock(TOP)
+	panel:DockMargin(0, 10, 0, 0)
+
+	return panel
+end
+
 ---@param cPanel DForm
 ---@return DPropertySheet
 function components.Sheet(cPanel)
@@ -217,6 +233,8 @@ end
 function components.PuppeteerColors(cPanel)
 	local colorCombo = vgui.Create("DColorCombo", cPanel)
 	cPanel:AddItem(colorCombo)
+	colorCombo:Dock(TOP)
+	colorCombo:DockMargin(0, 10, 0, 0)
 
 	return colorCombo
 end
