@@ -814,14 +814,6 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 		return
 	end
 	csModel:Remove()
-
-	net.Start("queryDefaultBonePoseOfPuppet")
-
-	for b = 1, csModel:GetBoneCount() do
-		net.WriteTable(defaultBonePose[b], true)
-	end
-
-	net.SendToServer()
 end)
 
 local COLOR_WHITE = Color(200, 200, 200)

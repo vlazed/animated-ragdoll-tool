@@ -1,6 +1,6 @@
 local allowPlayback = CreateConVar(
 	"sv_ragdollpuppeteer_allow_playback",
-	"0",
+	"1",
 	FCVAR_ARCHIVE + FCVAR_NOTIFY,
 	"Allow +ragdollpuppeteer_playback to be called by players. (INCURS NET COST TO THE SERVER IF USED BY MULTIPLE PLAYERS!)",
 	0,

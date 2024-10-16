@@ -102,7 +102,7 @@ local types = {}
 ---@field fpsWang DNumberWang
 ---@field heightOffset DNumSlider
 ---@field puppeteerColor DColorCombo
----@field puppeteerIgnoreZ DCheckBox
+---@field puppeteerIgnoreZ DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity

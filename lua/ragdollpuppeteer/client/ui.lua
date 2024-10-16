@@ -508,15 +508,40 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local settings = components.Settings(cPanel)
 	local settingsSheet = components.Sheet(settings)
 	local generalContainer, tab = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.general")
-	local nonPhysCheckbox = components.NonPhysCheckBox(generalContainer)
-	local showPuppeteer = components.PuppeteerVisible(generalContainer)
-	local floorCollisions = components.FloorWorldCollisions(generalContainer)
-	local shouldIncrement = components.ShouldIncrement(generalContainer)
+	local nonPhysCheckbox = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.nonphys",
+		"ragdollpuppeteer_animatenonphys",
+		"#ui.ragdollpuppeteer.tooltip.nonphys"
+	)
+	local showPuppeteer = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.showpuppeteer",
+		"ragdollpuppeteer_showpuppeteer",
+		"#ui.ragdollpuppeteer.tooltip.showpuppeteer"
+	)
+	local floorCollisions = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.floorworld",
+		"ragdollpuppeteer_floor_worldcollisions",
+		"#ui.ragdollpuppeteer.tooltip.showpuppeteer"
+	)
+	local shouldIncrement = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.shouldincrement",
+		"ragdollpuppeteer_playback_shouldincrement",
+		"#ui.ragdollpuppeteer.tooltip.shouldincrement"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
 	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
-	local puppeteerIgnoreZ = components.PuppeteerIgnoreZ(puppeteerContainer)
+	local puppeteerIgnoreZ = components.CheckBox(
+		puppeteerContainer,
+		"#ui.ragdollpuppeteer.label.ignorez",
+		"ragdollpuppeteer_ignorez",
+		"#ui.ragdollpuppeteer.tooltip.ignorez"
+	)
 
 	-- Hack: Switch the active tab to get the size of that
 	settingsSheet:SetActiveTab(tab2.Tab)
@@ -848,7 +873,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function sliderValueChanged(slider, val, sequence, puppeteer, smh)
 		local prevFrame = slider.prevFrame
 		-- Only send when we go frame by frame
-		if math.abs(prevFrame - val) < 1 then
+		if math.abs(prevFrame - val) < 1 / baseFPS then
 			return
 		end
 		local _, option = sourceBox:GetSelected()

@@ -25,29 +25,16 @@ function components.SearchBar(cPanel)
 end
 
 ---@param cPanel DForm | DScrollPanel
+---@param label string
+---@param convar string
+---@param tooltip string
 ---@return DCheckBoxLabel
-function components.ShouldIncrement(cPanel)
+function components.CheckBox(cPanel, label, convar, tooltip)
 	local panel = vgui.Create("DCheckBoxLabel", cPanel)
-	panel:SetText("#ui.ragdollpuppeteer.label.shouldincrement")
+	panel:SetText(label)
 	panel:SetDark(true)
-	panel:SetConVar("ragdollpuppeteer_playback_shouldincrement")
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.shouldincrement")
-
-	cPanel:AddItem(panel)
-	panel:Dock(TOP)
-	panel:DockMargin(0, 10, 0, 0)
-
-	return panel
-end
-
----@param cPanel DForm | DScrollPanel
----@return DCheckBoxLabel
-function components.FloorWorldCollisions(cPanel)
-	local panel = vgui.Create("DCheckBoxLabel", cPanel)
-	panel:SetText("#ui.ragdollpuppeteer.label.floorworld")
-	panel:SetDark(true)
-	panel:SetConVar("ragdollpuppeteer_floor_worldcollisions")
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.floorworld")
+	panel:SetConVar(convar)
+	panel:SetTooltip(tooltip)
 
 	cPanel:AddItem(panel)
 	panel:Dock(TOP)
@@ -158,54 +145,6 @@ function components.PlayButton()
 
 	panel:SetIsToggle(true)
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.playback")
-
-	return panel
-end
-
----@param cPanel DForm | DScrollPanel
----@return DCheckBoxLabel
-function components.NonPhysCheckBox(cPanel)
-	local panel = vgui.Create("DCheckBoxLabel", cPanel)
-	panel:SetText("#ui.ragdollpuppeteer.label.nonphys")
-	panel:SetDark(true)
-	panel:SetConVar("ragdollpuppeteer_animatenonphys")
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.nonphys")
-
-	cPanel:AddItem(panel)
-	panel:Dock(TOP)
-	panel:DockMargin(0, 10, 0, 0)
-
-	return panel
-end
-
----@param cPanel DForm | DScrollPanel
----@return DCheckBoxLabel
-function components.PuppeteerVisible(cPanel)
-	local panel = vgui.Create("DCheckBoxLabel", cPanel)
-	panel:SetText("#ui.ragdollpuppeteer.label.showpuppeteer")
-	panel:SetDark(true)
-	panel:SetConVar("ragdollpuppeteer_showpuppeteer")
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.showpuppeteer")
-
-	cPanel:AddItem(panel)
-	panel:Dock(TOP)
-	panel:DockMargin(0, 10, 0, 0)
-
-	return panel
-end
-
----@param cPanel DForm | DScrollPanel
----@return DCheckBoxLabel
-function components.PuppeteerIgnoreZ(cPanel)
-	local panel = vgui.Create("DCheckBoxLabel", cPanel)
-	panel:SetText("#ui.ragdollpuppeteer.label.ignorez")
-	panel:SetDark(true)
-	panel:SetConVar("ragdollpuppeteer_ignorez")
-	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.ignorez")
-
-	cPanel:AddItem(panel)
-	panel:Dock(TOP)
-	panel:DockMargin(0, 10, 0, 0)
 
 	return panel
 end

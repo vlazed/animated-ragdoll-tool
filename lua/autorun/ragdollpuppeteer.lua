@@ -19,7 +19,7 @@ if SERVER then
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 
 	---@type RagdollPuppeteerPlayerField[]
-	RAGDOLLPUPPETEER_PLAYERS = {}
+	RAGDOLLPUPPETEER_PLAYERS = RAGDOLLPUPPETEER_PLAYERS or {}
 
 	---@param userId integer
 	local function addPlayerField(userId)
