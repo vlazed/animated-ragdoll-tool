@@ -11,6 +11,14 @@ function helpers.getStringFromColor(color)
 	return str
 end
 
+---@param v Vector Vector to project
+---@param n Vector Normal vector of plane
+---@return Vector projection Projection of vector on the plane
+function helpers.projectVectorToPlane(v, n)
+	local projection = v - v:Dot(n) / n:LengthSqr() ^ 2 * n
+	return projection
+end
+
 ---@param str string
 ---@return Color
 function helpers.getColorFromString(str)

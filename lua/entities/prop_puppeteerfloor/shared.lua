@@ -18,14 +18,18 @@ local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
+local VECTOR_UP = Vector(0, 0, 1)
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 local PUPPETEER_MATERIAL_IGNOREZ = constants.PUPPETEER_MATERIAL_IGNOREZ
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
+local projectVectorToPlane = helpers.projectVectorToPlane
 local floorCorrect = helpers.floorCorrect
 
 local puppeteerIgnoreZ = GetConVar("ragdollpuppeteer_ignorez")
 local puppeteerShow = GetConVar("ragdollpuppeteer_showpuppeteer")
+local attachToGround = GetConVar("ragdollpuppeteer_attachtoground")
+local anySurface = GetConVar("ragdollpuppeteer_anysurface")
 
 ---Add a table of puppeteers to the floor
 ---@param puppeteerTable Entity[]
@@ -128,6 +132,9 @@ function ENT:Think()
 		return true
 	end
 
+	attachToGround = attachToGround or GetConVar("ragdollpuppeteer_attachtoground")
+	anySurface = anySurface or GetConVar("ragdollpuppeteer_anysurface")
+
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
@@ -154,13 +161,31 @@ function ENT:Think()
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
 			local heightOffset = puppeteer.heightOffset or 0
-			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
-			puppeteer:SetPos(self:LocalToWorld(Vector(0, 0, heightOffset)))
-			if SERVER then
-				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
-			else
-				local angleOffset = puppeteer.angleOffset or angle_zero
-				puppeteer:SetAngles(self:GetAngles() + angleOffset)
+
+			puppeteer:SetPos(self:GetPos() - VECTOR_UP * FLOOR_THICKNESS)
+			puppeteer:SetPos(self:LocalToWorld(VECTOR_UP * heightOffset))
+			local angleOffset = puppeteer.angleOffset or angle_zero
+			puppeteer:SetAngles(self:GetAngles() + angleOffset)
+
+			local shouldAttachToGround = attachToGround:GetInt() > 0
+			local shouldAttachToAnySurface = anySurface:GetInt() > 0
+
+			if shouldAttachToGround then
+				local rayDirection = shouldAttachToAnySurface and -self:GetAngles():Up() or -VECTOR_UP
+				---@type TraceResult
+				local tr = util.TraceLine({
+					start = self:GetPos(),
+					endpos = rayDirection * 1e9,
+					filter = { self, puppeteer, self.puppet, unpack(puppeteers), "NPC" },
+				})
+				if tr.HitPos then
+					puppeteer:SetPos(tr.HitPos + tr.HitNormal * heightOffset)
+					local projectedForward =
+						projectVectorToPlane(self:GetAngles():Forward(), tr.HitNormal):GetNormalized()
+
+					puppeteer:SetAngles(projectedForward:AngleEx(tr.HitNormal))
+					puppeteer:SetAngles(puppeteer:LocalToWorldAngles(angleOffset))
+				end
 			end
 			if self.height > RAGDOLL_HEIGHT_DIFFERENCE then
 				floorCorrect(puppeteer, puppeteer, 1, self.height)

@@ -103,6 +103,8 @@ local types = {}
 ---@field heightOffset DNumSlider
 ---@field puppeteerColor DColorCombo
 ---@field puppeteerIgnoreZ DCheckBoxLabel
+---@field attachToGround DCheckBoxLabel
+---@field anySurface DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity

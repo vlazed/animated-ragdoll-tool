@@ -532,6 +532,18 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"ragdollpuppeteer_playback_shouldincrement",
 		"#ui.ragdollpuppeteer.tooltip.shouldincrement"
 	)
+	local attachToGround = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.attachtoground",
+		"ragdollpuppeteer_attachtoground",
+		"#ui.ragdollpuppeteer.tooltip.attachtoground"
+	)
+	local anySurface = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.anysurface",
+		"ragdollpuppeteer_anysurface",
+		"#ui.ragdollpuppeteer.tooltip.anysurface"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
@@ -598,6 +610,8 @@ function UI.ConstructPanel(cPanel, panelProps)
 		heightOffset = heightOffset,
 		puppeteerColor = puppeteerColor,
 		puppeteerIgnoreZ = puppeteerIgnoreZ,
+		attachToGround = attachToGround,
+		anySurface = anySurface,
 	}
 end
 
@@ -632,6 +646,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local heightOffset = panelChildren.heightOffset
 	local puppeteerColor = panelChildren.puppeteerColor
 	local puppeteerIgnoreZ = panelChildren.puppeteerIgnoreZ
+	local attachToGround = panelChildren.attachToGround
+	local anySurface = panelChildren.anySurface
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -661,6 +677,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		puppeteerColor:SetColor(helpers.getColorFromString(newVal) or COLOR_BLUE)
 		convarChanging = false
 	end, "ragdollpuppeteer_colorChanged")
+
+	---@param newVal boolean
+	function attachToGround:OnChange(newVal)
+		anySurface:SetEnabled(newVal)
+	end
 
 	---@param color Color
 	function puppeteerColor:OnValueChanged(color)
