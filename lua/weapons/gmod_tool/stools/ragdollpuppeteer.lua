@@ -460,9 +460,6 @@ local function readSMHPose(puppet, puppeteer, playerData)
 	local floor = playerData.floor
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
-	local angOffsetLength = net.ReadUInt(16)
-	local angOffset = decompressJSONToTable(net.ReadData(angOffsetLength))
-	floor:SetAngleOffset(Angle(angOffset[1], angOffset[2], angOffset[3]))
 	local animatingNonPhys = net.ReadBool()
 	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, playerData.filteredBones)
 	if animatingNonPhys then
@@ -561,13 +558,13 @@ if SERVER then
 	net.Receive("onPoseParamChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
-		local animPuppeteer = playerData.puppeteer
+		local floor = playerData.floor
 		local cycle = playerData.cycle
 
 		local animatingNonPhys = net.ReadBool()
 		local paramValue = net.ReadFloat()
 		local paramName = net.ReadString()
-		animPuppeteer:SetPoseParameter(paramName, paramValue)
+		floor["Set" .. paramName](floor, paramValue)
 		setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	end)
 
@@ -745,6 +742,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		baseGesturer = baseGesturer,
 		puppet = puppet,
 		physicsCount = physicsCount,
+		floor = floor,
 	}
 
 	-- UI Elements

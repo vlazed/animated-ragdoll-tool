@@ -12,6 +12,7 @@ ENT.Author = "vlazed"
 ENT.Purpose = "Control the position and rotation of the puppeteer using the floor"
 ENT.Instructions = "Set the list of puppeteers to move"
 ENT.Spawnable = false
+ENT.Editable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
 local RECOVER_DELAY = 2
@@ -27,6 +28,64 @@ local floorCorrect = helpers.floorCorrect
 local puppeteerIgnoreZ = GetConVar("ragdollpuppeteer_ignorez")
 local puppeteerShow = GetConVar("ragdollpuppeteer_showpuppeteer")
 
+function ENT:SetupDataTables()
+	-- Wow this looks ugly lmao
+	self:NetworkVar(
+		"Float",
+		0,
+		"Height",
+		{ KeyName = "height", Edit = { order = 1, category = "Offset", min = -100, max = 100, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		1,
+		"Pitch",
+		{ KeyName = "pitch", Edit = { order = 2, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		2,
+		"Yaw",
+		{ KeyName = "yaw", Edit = { order = 3, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		3,
+		"Roll",
+		{ KeyName = "roll", Edit = { order = 4, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+
+	self:NetworkVarNotify("Pitch", self.UpdateAngleOffset)
+	self:NetworkVarNotify("Yaw", self.UpdateAngleOffset)
+	self:NetworkVarNotify("Roll", self.UpdateAngleOffset)
+
+	if self.puppeteers and self.puppeteers[1] then
+		---@type RagdollPuppeteer
+		local puppeteer = self.puppeteers[1]
+		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+			local min, max = puppeteer:GetPoseParameterRange(i)
+			local name = puppeteer:GetPoseParameterName(i)
+			self:NetworkVar("Float", 4 + i, name, {
+				KeyName = name,
+				Edit = { category = "Pose Parameters", min = min, max = max, type = "Float", order = i },
+			})
+		end
+	end
+end
+
+function ENT:GetPoseParameters()
+	local data = {}
+	if self.puppeteers and self.puppeteers[1] then
+		---@type RagdollPuppeteer
+		local puppeteer = self.puppeteers[1]
+		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+			local name = puppeteer:GetPoseParameterName(i)
+			data[name] = puppeteer:GetPoseParameter(name)
+		end
+	end
+	return data
+end
+
 ---Add a table of puppeteers to the floor
 ---@param puppeteerTable Entity[]
 function ENT:AddPuppeteers(puppeteerTable)
@@ -40,6 +99,8 @@ function ENT:AddPuppeteers(puppeteerTable)
 	for _, puppeteer in ipairs(puppeteerTable) do
 		table.insert(self.puppeteers, puppeteer)
 	end
+
+	self:SetupDataTables()
 end
 
 ---Set the floor's puppet
@@ -79,6 +140,17 @@ end
 
 function ENT:SetAngleOffset(angle)
 	self.angleOffset = angle
+	self:SetPitch(angle.p) ---@diagnostic disable-line
+	self:SetYaw(angle.y) ---@diagnostic disable-line
+	self:SetRoll(angle.r) ---@diagnostic disable-line
+end
+
+function ENT:UpdateAngleOffset()
+	self.angleOffset = Angle(self:GetPitch(), self:GetYaw(), self:GetRoll()) ---@diagnostic disable-line
+end
+
+function ENT:GetAngleOffset()
+	return self.angleOffset
 end
 
 local propertyOrToolFilters = {
@@ -128,13 +200,17 @@ function ENT:Think()
 		return true
 	end
 
+	if not self:GetAngleOffset() then
+		self:SetAngleOffset(angle_zero)
+	end
+
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
 	if puppeteers[1] and IsValid(puppeteers[1]) then
 		local puppeteer = puppeteers[1]
-		if not self.height then
-			self.height = helpers.getRootHeightDifferenceOf(puppeteer)
+		if not self.puppeteerHeight then
+			self.puppeteerHeight = helpers.getRootHeightDifferenceOf(puppeteer)
 		end
 		if CLIENT then
 			puppeteerShow = puppeteerShow or GetConVar("ragdollpuppeteer_showpuppeteer")
@@ -153,17 +229,22 @@ function ENT:Think()
 	end
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
-			local heightOffset = puppeteer.heightOffset or 0
+			local heightOffset = self:GetHeight() or 0 ---@diagnostic disable-line
 			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
 			puppeteer:SetPos(self:LocalToWorld(Vector(0, 0, heightOffset)))
-			if SERVER then
-				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
-			else
-				local angleOffset = puppeteer.angleOffset or angle_zero
-				puppeteer:SetAngles(self:GetAngles() + angleOffset)
+			for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+				local poseName = puppeteer:GetPoseParameterName(i)
+				if self["Get" .. poseName] then
+					puppeteer:SetPoseParameter(poseName, self["Get" .. poseName](self))
+					if CLIENT then
+						puppeteer:InvalidateBoneCache()
+					end
+				end
 			end
-			if self.height > RAGDOLL_HEIGHT_DIFFERENCE then
-				floorCorrect(puppeteer, puppeteer, 1, self.height)
+
+			puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
+			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
+				floorCorrect(puppeteer, puppeteer, 1, self.puppeteerHeight)
 			end
 		end
 	end

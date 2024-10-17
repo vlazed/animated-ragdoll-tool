@@ -112,6 +112,7 @@ local types = {}
 ---@field gesturer Entity
 ---@field baseGesturer Entity
 ---@field model string
+---@field floor PuppeteerFloor
 
 ---@class PanelState
 ---@field maxFrames integer

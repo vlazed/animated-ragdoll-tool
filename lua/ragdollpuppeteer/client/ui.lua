@@ -273,18 +273,14 @@ end
 
 ---@param netString string
 ---@param frame integer
----@param angOffset table<Angle, Angle, Angle>
 ---@param physFrames SMHFrameData[]
 ---@param nonPhysFrames SMHFrameData[]
 ---@param nonPhys boolean
-local function writeSMHPose(netString, frame, angOffset, physFrames, nonPhysFrames, nonPhys, puppeteer)
+local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer)
 	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
-	local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 	net.Start(netString, true)
 	net.WriteBool(false)
 	encodePose(physBonePose, puppeteer)
-	net.WriteUInt(#compressedOffset, 16)
-	net.WriteData(compressedOffset)
 	net.WriteBool(nonPhys)
 	if nonPhys then
 		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
@@ -376,7 +372,6 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 					writeSMHPose(
 						"onFrameChange",
 						baseSlider:GetValue(),
-						angOffset,
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
@@ -640,6 +635,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local puppet = panelProps.puppet
 	local model = panelProps.model
 	local physicsCount = panelProps.physicsCount
+	local floor = panelProps.floor
 
 	local smhData
 
@@ -676,10 +672,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	puppeteerColor:SetColor(colorConVar and helpers.getColorFromString(colorConVar:GetString()) or COLOR_BLUE)
 
 	function heightOffset:OnValueChanged(newValue)
-		animPuppeteer.heightOffset = newValue
-		animGesturer.heightOffset = newValue
-		basePuppeteer.heightOffset = newValue
-		baseGesturer.heightOffset = newValue
+		---@diagnostic disable-next-line
+		floor:SetHeight(newValue)
 	end
 
 	function playButton:OnToggled(on)
@@ -705,7 +699,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function onAngleTrioValueChange()
 		local angleTrio = getAngleTrio(angOffset)
 		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
-		animPuppeteer.angleOffset = angleOffset
+		floor:SetAngleOffset(angleOffset)
 
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
@@ -731,7 +725,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				writeSMHPose(
 					"onFrameChange",
 					baseSlider:GetValue(),
-					angOffset,
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
 					nonPhysCheckbox:GetChecked(),
@@ -751,8 +744,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function onPoseParamChange(newValue, paramName, slider)
 		local _, option = sourceBox:GetSelected()
 
-		animPuppeteer:SetPoseParameter(paramName, newValue)
-		animPuppeteer:InvalidateBoneCache()
+		floor["Set" .. paramName](floor, newValue)
+
+		-- animPuppeteer:SetPoseParameter(paramName, newValue)
+		-- animPuppeteer:InvalidateBoneCache()
 
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
@@ -912,7 +907,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				writeSMHPose(
 					"onFrameChange",
 					val,
-					angOffset,
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
 					nonPhysCheckbox:GetChecked(),
@@ -954,7 +948,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		writeSMHPose(
 			"onSequenceChange",
 			0,
-			angOffset,
 			smhList:GetSelected()[1]:GetSortValue(3),
 			smhList:GetSelected()[1]:GetSortValue(4),
 			nonPhysCheckbox:GetChecked(),
