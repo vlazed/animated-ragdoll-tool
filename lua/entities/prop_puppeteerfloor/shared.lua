@@ -327,8 +327,8 @@ function ENT:SetPhysicsSize(puppeteer)
 	local corner = puppeteer:OBBMins()
 
 	local thickness = FLOOR_THICKNESS
-	local length = corner.x
-	local width = corner.y
+	local length = math.abs(corner.x) + 5
+	local width = math.abs(corner.y) + 5
 	local points = {
 		Vector(length, width, thickness),
 		Vector(length, width, -thickness),
