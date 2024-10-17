@@ -31,6 +31,7 @@ local ids = {
 	"ragdollpuppeteer_puppetCount",
 	"ragdollpuppeteer_floor",
 	"ragdollpuppeteer_sequence",
+	"ragdollpuppeteer_cycle",
 }
 
 ---@param puppeteer Entity
@@ -493,17 +494,20 @@ end
 ---@param npc NPC
 function TOOL:CopySequence(npc)
 	self:GetWeapon():SetNWInt(ids[5], npc:GetSequence())
+	self:GetWeapon():SetNWInt(ids[6], npc:GetCycle())
 end
 
 ---@param ent Entity | PuppeteerFloor
 function TOOL:PasteSequence(ent)
 	local sequence = self:GetWeapon():GetNWInt(ids[5])
+	local cycle = self:GetWeapon():GetNWInt(ids[6])
 	local ply = self:GetOwner()
 	local playerData = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
 	if sequence and playerData and playerData.puppet and playerData.floor then
 		if playerData.puppet == ent or playerData.floor == ent then
 			net.Start("onSequenceChange")
 			net.WriteString(playerData.puppet:GetSequenceName(sequence))
+			net.WriteFloat(cycle)
 			net.Send(ply)
 		end
 	end
