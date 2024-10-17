@@ -334,6 +334,12 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	return puppeteerFloor
 end
 
+local validClasses = {
+	["prop_ragdoll"] = true,
+	["prop_physics"] = true,
+	["prop_resizedragdoll_physparent"] = true,
+}
+
 ---Select a ragdoll as a puppet to puppeteer
 ---@param tr TraceResult
 ---@return boolean
@@ -342,11 +348,11 @@ function TOOL:LeftClick(tr)
 	local ply = self:GetOwner()
 	local userId = ply:UserID()
 
-	local ragdollPuppet = tr.Entity
+	local puppet = tr.Entity
 	do
-		local validPuppet = IsValid(ragdollPuppet)
-		local isRagdoll = ragdollPuppet:IsRagdoll()
-		if not validPuppet or not isRagdoll then
+		local validPuppet = IsValid(puppet)
+		local isValidClass = validClasses[puppet:GetClass()]
+		if not validPuppet or not isValidClass then
 			return false
 		end
 	end
@@ -355,20 +361,20 @@ function TOOL:LeftClick(tr)
 		return true
 	end
 
-	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
-	local puppetModel = ragdollPuppet:GetModel()
+	local physicsCount = puppet:GetPhysicsObjectCount()
+	local puppetModel = puppet:GetModel()
 
 	---@type Entity
-	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ragdollPuppet, ply)
+	local animPuppeteer = createServerPuppeteer(puppet, puppetModel, ply)
+	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, puppet, ply)
 
 	-- If we're selecting a different character, cleanup the previous selection
-	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
+	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= puppet then
 		self:Cleanup(userId)
 	end
 
 	self:SetPuppetPhysicsCount(physicsCount)
-	self:SetAnimationPuppet(ragdollPuppet)
+	self:SetAnimationPuppet(puppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
 	self:SetAnimationFloor(puppeteerFloor)
 
@@ -378,7 +384,7 @@ function TOOL:LeftClick(tr)
 			currentIndex = 0,
 			cycle = 0,
 			player = ply,
-			puppet = ragdollPuppet,
+			puppet = puppet,
 			puppeteer = animPuppeteer,
 			fps = 30,
 			physicsCount = physicsCount,
@@ -388,7 +394,7 @@ function TOOL:LeftClick(tr)
 			lastPose = {},
 		}
 	else
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = animPuppeteer
 		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = physicsCount
 		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
@@ -401,7 +407,7 @@ function TOOL:LeftClick(tr)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
 
 	-- End of lifecycle events
-	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
+	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		self:Cleanup(userId)
 	end)
 	-- Set stages for showing control panel for selected puppet
