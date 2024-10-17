@@ -133,6 +133,7 @@ local types = {}
 ---@field filteredBones integer[]
 ---@field floor PuppeteerFloor
 ---@field lastPose BonePose[]
+---@field animateNonPhys boolean
 
 ---@class RagdollPuppeteer: Entity
 ---@field angleOffset Angle

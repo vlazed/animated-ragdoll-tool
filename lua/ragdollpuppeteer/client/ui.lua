@@ -271,6 +271,27 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 	end
 end
 
+---@param sequenceId integer
+---@param animateNonPhys boolean
+---@param panelProps PanelProps
+---@param panelState PanelState
+local function sendSequenceChange(sequenceId, animateNonPhys, panelProps, panelState)
+	timer.Simple(SEQUENCE_CHANGE_DELAY, function()
+		net.Start("onSequenceChange")
+		net.WriteBool(true)
+		net.WriteInt(sequenceId, 14)
+		net.WriteBool(animateNonPhys)
+		writeSequencePose(
+			panelProps.puppeteer,
+			panelProps.puppet,
+			panelProps.physicsCount,
+			{ panelProps.baseGesturer, panelProps.gesturer },
+			panelState.defaultBonePose
+		)
+		net.SendToServer()
+	end)
+end
+
 ---@param netString string
 ---@param frame integer
 ---@param angOffset table<Angle, Angle, Angle>
@@ -392,6 +413,14 @@ local function removePlaybackTimer()
 	timer.Remove("ragdollpuppeteer_playback")
 end
 
+---@param puppeteer Entity
+---@param sequenceIndex integer
+local function setSequenceOf(puppeteer, sequenceIndex)
+	puppeteer:ResetSequence(sequenceIndex)
+	puppeteer:SetCycle(0)
+	puppeteer:SetPlaybackRate(0)
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
@@ -413,6 +442,31 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 		createPlaybackTimer(panelChildren, panelProps, panelState)
 	end)
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
+	net.Receive("onSequenceChange", function()
+		local sequence = net.ReadString()
+		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
+		if sequenceId > 0 then
+			setSequenceOf(panelProps.puppeteer, sequenceId)
+			setSequenceOf(panelProps.basePuppeteer, sequenceId)
+
+			local sequenceList = panelChildren.sequenceList
+			local row = sequenceList:GetLine(sequenceId + 1)
+			---@cast row DListView_Line
+
+			local seqInfo = panelProps.puppeteer:GetSequenceInfo(sequenceId)
+			currentSequence = seqInfo
+			---@diagnostic disable-next-line
+			baseFPS = row:GetValue(3)
+
+			print(sequenceId)
+			print(row:GetValue(1))
+
+			panelState.maxFrames = row:GetValue(4) - 1
+			panelChildren.baseSlider:SetMax(row:GetValue(4) - 1)
+
+			sendSequenceChange(sequenceId, panelChildren.nonPhysCheckBox:GetChecked(), panelProps, panelState)
+		end
+	end)
 end
 
 local boneIcons = {
@@ -599,14 +653,6 @@ function UI.ConstructPanel(cPanel, panelProps)
 		puppeteerColor = puppeteerColor,
 		puppeteerIgnoreZ = puppeteerIgnoreZ,
 	}
-end
-
----@param puppeteer Entity
----@param sequenceIndex integer
-local function setSequenceOf(puppeteer, sequenceIndex)
-	puppeteer:ResetSequence(sequenceIndex)
-	puppeteer:SetCycle(0)
-	puppeteer:SetPlaybackRate(0)
 end
 
 ---@param panelChildren PanelChildren
@@ -831,20 +877,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 
 		if sendNet then
-			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-				net.Start("onSequenceChange")
-				net.WriteBool(true)
-				net.WriteInt(currentIndex, 14)
-				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(
-					animPuppeteer,
-					puppet,
-					physicsCount,
-					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose
-				)
-				net.SendToServer()
-			end)
+			sendSequenceChange(currentIndex, nonPhysCheckbox:GetChecked(), panelProps, panelState)
 		end
 
 		return mutatedSequence
