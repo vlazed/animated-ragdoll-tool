@@ -1,8 +1,8 @@
----@module "ragdollpuppeteer.vendor"
+---@module "ragdollpuppeteer.lib.vendor"
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
----@module "ragdollpuppeteer.util"
+---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 TOOL.Category = "Poser"
@@ -386,6 +386,9 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply)
+	if puppet.PhysObjScales then
+		puppeteer:SetModelScale(math.max(puppet.PhysObjScales[0]:Unpack()))
+	end
 	puppeteer:Spawn()
 	styleServerPuppeteer(puppeteer)
 
@@ -413,6 +416,12 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	return puppeteerFloor
 end
 
+local validClasses = {
+	["prop_ragdoll"] = true,
+	["prop_physics"] = true,
+	["prop_resizedragdoll_physparent"] = true,
+}
+
 ---Select a ragdoll as a puppet to puppeteer
 ---@param tr TraceResult
 ---@return boolean
@@ -421,11 +430,11 @@ function TOOL:LeftClick(tr)
 	local ply = self:GetOwner()
 	local userId = ply:UserID()
 
-	local ragdollPuppet = tr.Entity
+	local puppet = tr.Entity
 	do
-		local validPuppet = IsValid(ragdollPuppet)
-		local isRagdoll = ragdollPuppet:IsRagdoll()
-		if not validPuppet or not isRagdoll then
+		local validPuppet = IsValid(puppet)
+		local isValidClass = validClasses[puppet:GetClass()]
+		if not validPuppet or not isValidClass then
 			return false
 		end
 	end
@@ -434,20 +443,20 @@ function TOOL:LeftClick(tr)
 		return true
 	end
 
-	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
-	local puppetModel = ragdollPuppet:GetModel()
+	local physicsCount = puppet:GetPhysicsObjectCount()
+	local puppetModel = puppet:GetModel()
 
 	---@type Entity
-	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ragdollPuppet, ply)
+	local animPuppeteer = createServerPuppeteer(puppet, puppetModel, ply)
+	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, puppet, ply)
 
 	-- If we're selecting a different character, cleanup the previous selection
-	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
+	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= puppet then
 		self:Cleanup(userId)
 	end
 
 	self:SetPuppetPhysicsCount(physicsCount)
-	self:SetAnimationPuppet(ragdollPuppet)
+	self:SetAnimationPuppet(puppet)
 	self:SetAnimationPuppeteer(animPuppeteer)
 	self:SetAnimationFloor(puppeteerFloor)
 
@@ -458,7 +467,7 @@ function TOOL:LeftClick(tr)
 			currentIndex = 0,
 			cycle = 0,
 			player = ply,
-			puppet = ragdollPuppet,
+			puppet = puppet,
 			puppeteer = animPuppeteer,
 			fps = 30,
 			physicsCount = physicsCount,
@@ -469,7 +478,7 @@ function TOOL:LeftClick(tr)
 			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
 		}
 	else
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = animPuppeteer
 		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = physicsCount
 		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
@@ -482,7 +491,7 @@ function TOOL:LeftClick(tr)
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
 
 	-- End of lifecycle events
-	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
+	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		self:Cleanup(userId)
 	end)
 	-- Set stages for showing control panel for selected puppet
@@ -708,7 +717,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
 			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
-			newPose[b + 1][1] = dPos
+			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
 			newPose[b + 1][2] = dAng
 		else
 			newPose[b + 1] = {}
@@ -739,6 +748,9 @@ local function createClientPuppeteer(model, puppet, ply)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
+	if puppet.SavedBoneMatrices then
+		puppeteer:SetModelScale(math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
+	end
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
 	return puppeteer
@@ -782,6 +794,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	floor:SetPuppet(puppet)
 
 	floor:SetPhysicsSize(animPuppeteer)
+
+	floor:SetPuppet(puppet)
 
 	local panelProps = {
 		model = model,
@@ -833,7 +847,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
-			net.WriteVector(newBasePose[b][1] + newGesturePose[b][1])
+			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
 			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])
 		end
 		net.SendToServer()
