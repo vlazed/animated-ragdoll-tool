@@ -431,11 +431,19 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("onSequenceChange", function()
 		local sequence = net.ReadString()
 		local cycle = net.ReadFloat()
+		local poseParamValues = {}
+		for i = 1, panelProps.puppeteer:GetNumPoseParameters() do
+			local val = net.ReadFloat()
+			if val then
+				poseParamValues[i] = val
+			end
+		end
 		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
 		if sequenceId > 0 then
 			setSequenceOf(panelProps.puppeteer, sequenceId)
 			setSequenceOf(panelProps.basePuppeteer, sequenceId)
 
+			local poseParams = panelChildren.poseParams
 			local sequenceList = panelChildren.sequenceList
 			---@diagnostic disable-next-line
 			local scrollBar = sequenceList.VBar
@@ -446,6 +454,9 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			sequenceList:SelectItem(row)
 			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
 			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
+			for i, poseParamValue in ipairs(poseParamValues) do
+				poseParams[i].slider:SetValue(poseParamValue)
+			end
 		end
 	end)
 end
