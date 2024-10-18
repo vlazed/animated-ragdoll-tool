@@ -387,6 +387,14 @@ local function removePlaybackTimer()
 	timer.Remove("ragdollpuppeteer_playback")
 end
 
+---@param puppeteer Entity
+---@param sequenceIndex integer
+local function setSequenceOf(puppeteer, sequenceIndex)
+	puppeteer:ResetSequence(sequenceIndex)
+	puppeteer:SetCycle(0)
+	puppeteer:SetPlaybackRate(0)
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
@@ -408,6 +416,22 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 		createPlaybackTimer(panelChildren, panelProps, panelState)
 	end)
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
+	net.Receive("onSequenceChange", function()
+		local sequence = net.ReadString()
+		local cycle = net.ReadFloat()
+		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
+		if sequenceId > 0 then
+			setSequenceOf(panelProps.puppeteer, sequenceId)
+			setSequenceOf(panelProps.basePuppeteer, sequenceId)
+
+			local sequenceList = panelChildren.sequenceList
+			local baseSlider = panelChildren.baseSlider
+			local row = sequenceList:GetLine(sequenceId + 1)
+			---@cast row DListView_Line
+			sequenceList:SelectItem(row)
+			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
+		end
+	end)
 end
 
 local boneIcons = {
@@ -608,14 +632,6 @@ function UI.ConstructPanel(cPanel, panelProps)
 		attachToGround = attachToGround,
 		anySurface = anySurface,
 	}
-end
-
----@param puppeteer Entity
----@param sequenceIndex integer
-local function setSequenceOf(puppeteer, sequenceIndex)
-	puppeteer:ResetSequence(sequenceIndex)
-	puppeteer:SetCycle(0)
-	puppeteer:SetPlaybackRate(0)
 end
 
 ---@param panelChildren PanelChildren

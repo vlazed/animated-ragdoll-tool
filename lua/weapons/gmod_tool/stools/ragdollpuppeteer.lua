@@ -32,6 +32,8 @@ local ids = {
 	"ragdollpuppeteer_puppeteer",
 	"ragdollpuppeteer_puppetCount",
 	"ragdollpuppeteer_floor",
+	"ragdollpuppeteer_sequence",
+	"ragdollpuppeteer_cycle",
 }
 
 ---@param puppeteer Entity
@@ -301,134 +303,6 @@ local function resetAllNonphysicalBonesOf(ent)
 	end
 end
 
----@param puppet Entity
----@param puppetModel string
----@param ply Player
----@return Entity
-local function createServerPuppeteer(puppet, puppetModel, ply)
-	local puppeteer = ents.Create("prop_dynamic")
-	puppeteer:SetModel(puppetModel)
-	setPlacementOf(puppeteer, puppet, ply)
-	puppeteer:Spawn()
-	styleServerPuppeteer(puppeteer)
-
-	return puppeteer
-end
-
----@param puppeteer Entity
----@param puppet Entity
----@param ply Player
----@return PuppeteerFloor
-local function createPuppeteerFloor(puppeteer, puppet, ply)
-	local puppeteerFloor = ents.Create("prop_puppeteerfloor")
-	---@cast puppeteerFloor PuppeteerFloor
-	puppeteerFloor:Spawn()
-	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
-	floorCorrect(puppeteerFloor, puppeteer, -1)
-
-	puppeteerFloor:AddPuppeteers({ puppeteer })
-	puppeteerFloor:SetPhysicsSize(puppeteer)
-	puppeteerFloor:SetPlayerOwner(ply)
-	puppeteerFloor:SetPuppet(puppet)
-
-	setAngleOf(puppeteerFloor, ply)
-
-	return puppeteerFloor
-end
-
----Select a ragdoll as a puppet to puppeteer
----@param tr TraceResult
----@return boolean
-function TOOL:LeftClick(tr)
-	---@type Player
-	local ply = self:GetOwner()
-	local userId = ply:UserID()
-
-	local ragdollPuppet = tr.Entity
-	do
-		local validPuppet = IsValid(ragdollPuppet)
-		local isRagdoll = ragdollPuppet:IsRagdoll()
-		if not validPuppet or not isRagdoll then
-			return false
-		end
-	end
-
-	if CLIENT then
-		return true
-	end
-
-	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
-	local puppetModel = ragdollPuppet:GetModel()
-
-	---@type Entity
-	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
-	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ragdollPuppet, ply)
-
-	-- If we're selecting a different character, cleanup the previous selection
-	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
-		self:Cleanup(userId)
-	end
-
-	self:SetPuppetPhysicsCount(physicsCount)
-	self:SetAnimationPuppet(ragdollPuppet)
-	self:SetAnimationPuppeteer(animPuppeteer)
-	self:SetAnimationFloor(puppeteerFloor)
-
-	local userId = ply:UserID()
-	if not RAGDOLLPUPPETEER_PLAYERS[userId] then
-		RAGDOLLPUPPETEER_PLAYERS[userId] = {
-			currentIndex = 0,
-			cycle = 0,
-			player = ply,
-			puppet = ragdollPuppet,
-			puppeteer = animPuppeteer,
-			fps = 30,
-			physicsCount = physicsCount,
-			filteredBones = {},
-			bonesReset = false,
-			floor = puppeteerFloor,
-			lastPose = {},
-		}
-	else
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
-		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = animPuppeteer
-		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = physicsCount
-		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
-		RAGDOLLPUPPETEER_PLAYERS[userId].bonesReset = false
-		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
-		RAGDOLLPUPPETEER_PLAYERS[userId].floor = puppeteerFloor
-		RAGDOLLPUPPETEER_PLAYERS[userId].lastPose = {}
-	end
-
-	queryDefaultBonePoseOfPuppet(puppetModel, ply)
-
-	-- End of lifecycle events
-	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
-		self:Cleanup(userId)
-	end)
-	-- Set stages for showing control panel for selected puppet
-	self:SetStage(1)
-	return true
-end
-
----Stop puppeteering a ragdoll
----@param tr TraceResult
----@return boolean?
-function TOOL:RightClick(tr)
-	-- FIXME: Properly clear any animation entities, clientside and serverside
-	local ply = self:GetOwner()
-	local userId = ply:UserID()
-	if IsValid(self:GetAnimationPuppet()) then
-		self:Cleanup(userId)
-		if CLIENT then
-			return true
-		end
-		net.Start("removeClientAnimPuppeteer")
-		net.Send(self:GetOwner())
-		return true
-	end
-end
-
 ---Decode the SMH pose from the client
 ---@return SMHFramePose[]
 local function decodePose()
@@ -504,6 +378,181 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	end
 end
 
+---@param puppet Entity
+---@param puppetModel string
+---@param ply Player
+---@return Entity
+local function createServerPuppeteer(puppet, puppetModel, ply)
+	local puppeteer = ents.Create("prop_dynamic")
+	puppeteer:SetModel(puppetModel)
+	setPlacementOf(puppeteer, puppet, ply)
+	puppeteer:Spawn()
+	styleServerPuppeteer(puppeteer)
+
+	return puppeteer
+end
+
+---@param puppeteer Entity
+---@param puppet Entity
+---@param ply Player
+---@return PuppeteerFloor
+local function createPuppeteerFloor(puppeteer, puppet, ply)
+	local puppeteerFloor = ents.Create("prop_puppeteerfloor")
+	---@cast puppeteerFloor PuppeteerFloor
+	puppeteerFloor:Spawn()
+	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
+	floorCorrect(puppeteerFloor, puppeteer, -1)
+
+	puppeteerFloor:AddPuppeteers({ puppeteer })
+	puppeteerFloor:SetPhysicsSize(puppeteer)
+	puppeteerFloor:SetPlayerOwner(ply)
+	puppeteerFloor:SetPuppet(puppet)
+
+	setAngleOf(puppeteerFloor, ply)
+
+	return puppeteerFloor
+end
+
+---Select a ragdoll as a puppet to puppeteer
+---@param tr TraceResult
+---@return boolean
+function TOOL:LeftClick(tr)
+	---@type Player
+	local ply = self:GetOwner()
+	local userId = ply:UserID()
+
+	local ragdollPuppet = tr.Entity
+	do
+		local validPuppet = IsValid(ragdollPuppet)
+		local isRagdoll = ragdollPuppet:IsRagdoll()
+		if not validPuppet or not isRagdoll then
+			return false
+		end
+	end
+
+	if CLIENT then
+		return true
+	end
+
+	local physicsCount = ragdollPuppet:GetPhysicsObjectCount()
+	local puppetModel = ragdollPuppet:GetModel()
+
+	---@type Entity
+	local animPuppeteer = createServerPuppeteer(ragdollPuppet, puppetModel, ply)
+	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, ragdollPuppet, ply)
+
+	-- If we're selecting a different character, cleanup the previous selection
+	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= ragdollPuppet then
+		self:Cleanup(userId)
+	end
+
+	self:SetPuppetPhysicsCount(physicsCount)
+	self:SetAnimationPuppet(ragdollPuppet)
+	self:SetAnimationPuppeteer(animPuppeteer)
+	self:SetAnimationFloor(puppeteerFloor)
+
+	local userId = ply:UserID()
+	if not RAGDOLLPUPPETEER_PLAYERS[userId] then
+		local animateNonPhys = ply:GetInfo("ragdollpuppeteer_animatenonphys")
+		RAGDOLLPUPPETEER_PLAYERS[userId] = {
+			currentIndex = 0,
+			cycle = 0,
+			player = ply,
+			puppet = ragdollPuppet,
+			puppeteer = animPuppeteer,
+			fps = 30,
+			physicsCount = physicsCount,
+			filteredBones = {},
+			bonesReset = false,
+			floor = puppeteerFloor,
+			lastPose = {},
+			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
+		}
+	else
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = ragdollPuppet
+		RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = animPuppeteer
+		RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = physicsCount
+		RAGDOLLPUPPETEER_PLAYERS[userId].player = ply
+		RAGDOLLPUPPETEER_PLAYERS[userId].bonesReset = false
+		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
+		RAGDOLLPUPPETEER_PLAYERS[userId].floor = puppeteerFloor
+		RAGDOLLPUPPETEER_PLAYERS[userId].lastPose = {}
+	end
+
+	queryDefaultBonePoseOfPuppet(puppetModel, ply)
+
+	-- End of lifecycle events
+	ragdollPuppet:CallOnRemove("RemoveAnimPuppeteer", function()
+		self:Cleanup(userId)
+	end)
+	-- Set stages for showing control panel for selected puppet
+	self:SetStage(1)
+	return true
+end
+
+---@param npc NPC
+function TOOL:CopySequence(npc)
+	self:GetWeapon():SetNWInt(ids[5], npc:GetSequence())
+	self:GetWeapon():SetNWInt(ids[6], npc:GetCycle())
+end
+
+---@param ent Entity | PuppeteerFloor
+function TOOL:PasteSequence(ent)
+	local sequence = self:GetWeapon():GetNWInt(ids[5])
+	local cycle = self:GetWeapon():GetNWInt(ids[6])
+	local ply = self:GetOwner()
+	local playerData = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
+	if sequence and playerData and playerData.puppet and playerData.floor then
+		if playerData.puppet == ent or playerData.floor == ent then
+			net.Start("onSequenceChange")
+			net.WriteString(playerData.puppet:GetSequenceName(sequence))
+			net.WriteFloat(cycle)
+			net.Send(ply)
+		end
+	end
+end
+
+local validPuppeteerClasses = {
+	["prop_ragdoll"] = true,
+	["prop_puppeteerfloor"] = true,
+}
+
+---Copy a sequence from an NPC or paste to a puppet or floor
+---@param tr TraceResult
+function TOOL:Reload(tr)
+	if tr.Entity and IsValid(tr.Entity) then
+		local entity = tr.Entity
+		if entity:IsNPC() then
+			---@cast entity NPC
+			self:CopySequence(entity)
+			return true
+		elseif validPuppeteerClasses[entity:GetClass()] then
+			---@cast entity Entity | PuppeteerFloor
+			self:PasteSequence(entity)
+			return true
+		end
+	end
+	return false
+end
+
+---Stop puppeteering a ragdoll
+---@param tr TraceResult
+---@return boolean?
+function TOOL:RightClick(tr)
+	-- FIXME: Properly clear any animation entities, clientside and serverside
+	local ply = self:GetOwner()
+	local userId = ply:UserID()
+	if IsValid(self:GetAnimationPuppet()) then
+		self:Cleanup(userId)
+		if CLIENT then
+			return true
+		end
+		net.Start("removeClientAnimPuppeteer")
+		net.Send(self:GetOwner())
+		return true
+	end
+end
+
 -- Network hooks from client
 if SERVER then
 	hook.Add("PlayerSpawn", "ragdollpuppeteer_spawnCleanup", function(player)
@@ -552,9 +601,6 @@ if SERVER then
 		else
 			readSMHPose(ragdollPuppet, animPuppeteer, playerData)
 		end
-
-		net.Start("onSequenceChange")
-		net.Send(sender)
 	end)
 
 	net.Receive("onPoseParamChange", function(_, sender)
