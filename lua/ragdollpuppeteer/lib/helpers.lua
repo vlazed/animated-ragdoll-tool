@@ -5,13 +5,13 @@ local helpers = {}
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 
 ---@param color Color
----@return string
+---@return string colorString A Color formatted as a string ("# # #" or "#,#,#").
 function helpers.getStringFromColor(color)
 	local str = ("%d %d %d"):format(color.r, color.g, color.b)
 	return str
 end
 
----@param str string
+---@param str string A Color formatted as a string ("# # #" or "#,#,#").
 ---@return Color
 function helpers.getColorFromString(str)
 	local separator = " "
@@ -23,7 +23,7 @@ function helpers.getColorFromString(str)
 end
 
 ---@param entity Entity
----@return number
+---@return number rootHeightDifference The half root height difference of the entity
 function helpers.getRootHeightDifferenceOf(entity)
 	local min = entity:WorldSpaceAABB()
 	local zMin = min.z
@@ -34,10 +34,10 @@ end
 ---Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
 ---if the difference between the puppeteer's set position and its lower position from the AABB is significantly
 ---different
----@param targetEntity Entity
----@param referenceEntity Entity?
----@param sign integer?
----@param difference number?
+---@param targetEntity Entity The entity to correctly offset from the floor
+---@param referenceEntity Entity? The entity as a basis for offset measurements
+---@param sign integer? The direction to offset the entity
+---@param difference number? The half-height of the entity's bounding box
 function helpers.floorCorrect(targetEntity, referenceEntity, sign, difference)
 	sign = sign or 1
 	referenceEntity = IsValid(referenceEntity) and referenceEntity or targetEntity

@@ -1,8 +1,8 @@
----@module "ragdollpuppeteer.vendor"
+---@module "ragdollpuppeteer.lib.vendor"
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
----@module "ragdollpuppeteer.util"
+---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 TOOL.Category = "Poser"
@@ -307,6 +307,9 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply)
+	if puppet.PhysObjScales then
+		puppeteer:SetModelScale(math.max(puppet.PhysObjScales[0]:Unpack()))
+	end
 	puppeteer:Spawn()
 	styleServerPuppeteer(puppeteer)
 
@@ -669,7 +672,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
 			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
-			newPose[b + 1][1] = dPos
+			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
 			newPose[b + 1][2] = dAng
 		else
 			newPose[b + 1] = {}
@@ -700,6 +703,9 @@ local function createClientPuppeteer(model, puppet, ply)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
+	if puppet.SavedBoneMatrices then
+		puppeteer:SetModelScale(math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
+	end
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
 	return puppeteer
@@ -742,6 +748,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	})
 
 	floor:SetPhysicsSize(animPuppeteer)
+
+	floor:SetPuppet(puppet)
 
 	local panelProps = {
 		model = model,
@@ -792,7 +800,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
-			net.WriteVector(newBasePose[b][1] + newGesturePose[b][1])
+			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
 			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])
 		end
 		net.SendToServer()
