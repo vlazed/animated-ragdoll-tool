@@ -420,7 +420,7 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	return puppeteerFloor
 end
 
-local validClasses = {
+local validPuppetClasses = {
 	["prop_ragdoll"] = true,
 	["prop_physics"] = true,
 	["prop_resizedragdoll_physparent"] = true,
@@ -437,7 +437,7 @@ function TOOL:LeftClick(tr)
 	local puppet = tr.Entity
 	do
 		local validPuppet = IsValid(puppet)
-		local isValidClass = validClasses[puppet:GetClass()]
+		local isValidClass = validPuppetClasses[puppet:GetClass()]
 		if not validPuppet or not isValidClass then
 			return false
 		end
@@ -538,7 +538,7 @@ function TOOL:PasteSequence(ent)
 	end
 end
 
-local validPuppeteerClasses = {
+local validPasteClasses = {
 	["prop_ragdoll"] = true,
 	["prop_puppeteerfloor"] = true,
 }
@@ -552,7 +552,7 @@ function TOOL:Reload(tr)
 			---@cast entity NPC
 			self:CopySequence(entity)
 			return true
-		elseif validPuppeteerClasses[entity:GetClass()] then
+		elseif validPasteClasses[entity:GetClass()] then
 			---@cast entity Entity | PuppeteerFloor
 			self:PasteSequence(entity)
 			return true

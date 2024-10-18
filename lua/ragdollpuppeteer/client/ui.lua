@@ -429,6 +429,7 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	end)
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
 	net.Receive("onSequenceChange", function()
+		-- Handle pasting of NPC sequences onto the puppet
 		local sequence = net.ReadString()
 		local cycle = net.ReadFloat()
 		local poseParamValues = {}
@@ -453,7 +454,9 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			local row = sequenceList:GetLine(sequenceId + 1)
 			---@cast row DListView_Line
 			sequenceList:SelectItem(row)
+			-- Move the scrollbar to the location of the highlighted sequence item in the sequence list
 			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
+			-- Send all frame and pose parameter updates to the server
 			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
 			for i, poseParamValue in ipairs(poseParamValues) do
 				poseParams[i].slider:SetValue(poseParamValue)
@@ -614,7 +617,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"#ui.ragdollpuppeteer.tooltip.ignorez"
 	)
 
-	-- Hack: Switch the active tab to get the size of that
+	-- Hack: Switch the active tab to set the size based on the contents of the puppeteer tab
 	settingsSheet:SetActiveTab(tab2.Tab)
 	settingsSheet:NoClipping(true)
 	settingsSheet:InvalidateChildren(true)
@@ -822,10 +825,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function onPoseParamChange(newValue, paramName, slider)
 		local _, option = sourceBox:GetSelected()
 
+		-- Set the pose parameter in the floor. The floor will automatically set the pose parameters through there
 		floor["Set" .. paramName](floor, newValue)
-
-		-- animPuppeteer:SetPoseParameter(paramName, newValue)
-		-- animPuppeteer:InvalidateBoneCache()
 
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
@@ -945,7 +946,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local sendingFrame = false
 	local function sliderValueChanged(slider, val, sequence, puppeteer, smh)
 		local prevFrame = slider.prevFrame
-		-- Only send when we go frame by frame
 		if math.abs(prevFrame - val) < 1 / baseFPS then
 			return
 		end
