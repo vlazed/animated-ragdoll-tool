@@ -38,6 +38,7 @@ if SERVER then
 			floor = NULL,
 			lastPose = {},
 			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
+			poseParams = {},
 		}
 	end
 

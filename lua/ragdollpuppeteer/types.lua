@@ -138,6 +138,7 @@ local types = {}
 ---@field floor PuppeteerFloor
 ---@field lastPose BonePose[]
 ---@field animateNonPhys boolean
+---@field poseParams table<number>
 
 ---@class RagdollPuppeteer: Entity
 ---@field angleOffset Angle

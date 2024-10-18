@@ -480,6 +480,7 @@ function TOOL:LeftClick(tr)
 			floor = puppeteerFloor,
 			lastPose = {},
 			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
+			poseParams = {},
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
@@ -505,9 +506,15 @@ end
 
 ---@param npc NPC
 function TOOL:CopySequence(npc)
+	local ply = self:GetOwner()
 	self:GetWeapon():SetNWInt(ids[5], npc:GetSequence())
 	self:GetWeapon():SetNWInt(ids[6], npc:GetCycle())
 	self:GetWeapon():SetNWEntity(ids[7], npc)
+	local poseParams = {}
+	for i = 0, npc:GetNumPoseParameters() - 1 do
+		poseParams[i + 1] = npc:GetPoseParameter(i)
+	end
+	RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].poseParams = poseParams
 end
 
 ---@param ent Entity | PuppeteerFloor
@@ -521,12 +528,10 @@ function TOOL:PasteSequence(ent)
 	if sequence and playerData and playerData.puppet and playerData.floor then
 		if playerData.puppet == ent or playerData.floor == ent then
 			net.Start("onSequenceChange")
-			net.WriteString(playerData.puppet:GetSequenceName(sequence))
+			net.WriteString(npc:GetSequenceName(sequence))
 			net.WriteFloat(cycle)
-			if IsValid(npc) then
-				for i = 0, npc:GetNumPoseParameters() - 1 do
-					net.WriteFloat(npc:GetPoseParameter(i))
-				end
+			for i = 1, npc:GetNumPoseParameters() do
+				net.WriteFloat(playerData.poseParams[i])
 			end
 			net.Send(ply)
 		end

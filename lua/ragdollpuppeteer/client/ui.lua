@@ -438,6 +438,7 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 				poseParamValues[i] = val
 			end
 		end
+
 		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
 		if sequenceId > 0 then
 			setSequenceOf(panelProps.puppeteer, sequenceId)
@@ -457,6 +458,12 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			for i, poseParamValue in ipairs(poseParamValues) do
 				poseParams[i].slider:SetValue(poseParamValue)
 			end
+		else
+			notification.AddLegacy(
+				"PASTE FAILED! The sequence " .. sequence .. "does not exist on this puppet!",
+				NOTIFY_ERROR,
+				5
+			)
 		end
 	end)
 end
