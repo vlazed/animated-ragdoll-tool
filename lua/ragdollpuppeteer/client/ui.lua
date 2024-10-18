@@ -437,10 +437,14 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			setSequenceOf(panelProps.basePuppeteer, sequenceId)
 
 			local sequenceList = panelChildren.sequenceList
+			---@diagnostic disable-next-line
+			local scrollBar = sequenceList.VBar
+			---@cast scrollBar DVScrollBar
 			local baseSlider = panelChildren.baseSlider
 			local row = sequenceList:GetLine(sequenceId + 1)
 			---@cast row DListView_Line
 			sequenceList:SelectItem(row)
+			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
 			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
 		end
 	end)
