@@ -19,6 +19,8 @@ TOOL.ClientConVar["fps"] = 30
 TOOL.ClientConVar["color"] = "0 0 64"
 TOOL.ClientConVar["alpha"] = "100"
 TOOL.ClientConVar["ignorez"] = 0
+TOOL.ClientConVar["attachtoground"] = 0
+TOOL.ClientConVar["anysurface"] = 0
 
 local mode = TOOL:GetMode()
 
@@ -731,6 +733,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		basePuppeteer,
 		baseGesturer,
 	})
+	floor:SetPuppet(puppet)
 
 	floor:SetPhysicsSize(animPuppeteer)
 
