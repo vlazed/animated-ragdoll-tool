@@ -386,7 +386,9 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply)
+	---@diagnostic disable-next-line
 	if puppet.PhysObjScales then
+		---@diagnostic disable-next-line
 		puppeteer:SetModelScale(math.max(puppet.PhysObjScales[0]:Unpack()))
 	end
 	puppeteer:Spawn()
@@ -748,7 +750,9 @@ local function createClientPuppeteer(model, puppet, ply)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
+	---@diagnostic disable-next-line
 	if puppet.SavedBoneMatrices then
+		---@diagnostic disable-next-line
 		puppeteer:SetModelScale(math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
 	end
 	disablePuppeteerJiggle(puppeteer)
