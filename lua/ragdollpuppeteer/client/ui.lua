@@ -304,12 +304,15 @@ local baseFPS = 30
 ---@param baseSlider DNumSlider
 ---@param gestureSlider DNumSlider
 ---@param val number
-local function moveSliderBy(baseSlider, gestureSlider, val)
+---@param incrementGestures boolean
+local function moveSliderBy(baseSlider, gestureSlider, val, incrementGestures)
 	if not IsValid(baseSlider) then
 		return
 	end
 	baseSlider:SetValue((baseSlider:GetValue() + val) % baseSlider:GetMax())
-	gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+	if incrementGestures then
+		gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+	end
 end
 
 ---@param panelChildren PanelChildren
@@ -351,9 +354,11 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 
 		local shouldIncrement = GetConVar("ragdollpuppeteer_playback_shouldincrement")
 			and GetConVar("ragdollpuppeteer_playback_shouldincrement"):GetInt() > 0
+		local incrementGestures = GetConVar("ragdollpuppeteer_playback_incrementgestures")
+			and GetConVar("ragdollpuppeteer_playback_incrementgestures"):GetInt() > 0
 		if shouldIncrement then
 			local increment = fps / baseFPS
-			moveSliderBy(baseSlider, gestureSlider, increment)
+			moveSliderBy(baseSlider, gestureSlider, increment, incrementGestures)
 		else
 			local _, option = sourceBox:GetSelected()
 			if option == "sequence" then
@@ -412,11 +417,11 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, -increment)
+		moveSliderBy(baseSlider, gestureSlider, -increment, panelChildren.incrementGestures:GetChecked())
 	end)
 	net.Receive("onFrameNext", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, increment)
+		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
 		-- local fps = net.ReadFloat()
@@ -558,6 +563,12 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"ragdollpuppeteer_playback_shouldincrement",
 		"#ui.ragdollpuppeteer.tooltip.shouldincrement"
 	)
+	local incrementGestures = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.incrementgestures",
+		"ragdollpuppeteer_playback_incrementgestures",
+		"#ui.ragdollpuppeteer.tooltip.incrementgestures"
+	)
 	local attachToGround = components.CheckBox(
 		generalContainer,
 		"#ui.ragdollpuppeteer.label.attachtoground",
@@ -638,6 +649,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		puppeteerIgnoreZ = puppeteerIgnoreZ,
 		attachToGround = attachToGround,
 		anySurface = anySurface,
+		incrementGestures = incrementGestures,
 	}
 end
 

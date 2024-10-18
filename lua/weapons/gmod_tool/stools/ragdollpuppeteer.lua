@@ -15,6 +15,7 @@ TOOL.ClientConVar["animatenonphys"] = 0
 TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["floor_worldcollisions"] = 1
 TOOL.ClientConVar["playback_shouldincrement"] = 1
+TOOL.ClientConVar["playback_incrementgestures"] = 1
 TOOL.ClientConVar["fps"] = 30
 TOOL.ClientConVar["color"] = "0 0 64"
 TOOL.ClientConVar["alpha"] = "100"

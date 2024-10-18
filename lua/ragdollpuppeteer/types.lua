@@ -105,6 +105,7 @@ local types = {}
 ---@field puppeteerIgnoreZ DCheckBoxLabel
 ---@field attachToGround DCheckBoxLabel
 ---@field anySurface DCheckBoxLabel
+---@field incrementGestures DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity
