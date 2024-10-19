@@ -3,7 +3,7 @@
 
 https://github.com/user-attachments/assets/0c9c8957-0ffa-4592-a3ca-d7ae0c6c2880
 
-The Ragdoll Puppeteer is a companion tool for ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like layer sequences or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
+The [Ragdoll Puppeteer](https://steamcommunity.com/sharedfiles/filedetails/?id=3333911060) is a companion tool for ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like layer sequences or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
 
 Here are two ways on how you can use this tool:
 
