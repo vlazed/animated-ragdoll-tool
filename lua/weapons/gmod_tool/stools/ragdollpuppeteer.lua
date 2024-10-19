@@ -729,9 +729,23 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
 			newPose[b + 1][2] = dAng
 		else
+			local bMatrix = puppeteer:GetBoneMatrix(b)
+			local dPos, dAng = vector_origin, angle_zero
+			if bMatrix then
+				local lPos, lAng = WorldToLocal(
+					bMatrix:GetTranslation(),
+					bMatrix:GetAngles(),
+					puppeteer:GetPos(),
+					puppeteer:GetAngles()
+				)
+				dPos = lPos - panelState.defaultBonePose[b + 1][1]
+				_, dAng =
+					WorldToLocal(lPos, lAng, panelState.defaultBonePose[b + 1][1], panelState.defaultBonePose[b + 1][2])
+			end
+
 			newPose[b + 1] = {}
-			newPose[b + 1][1] = vector_origin
-			newPose[b + 1][2] = angle_zero
+			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
+			newPose[b + 1][2] = dAng
 		end
 	end
 
