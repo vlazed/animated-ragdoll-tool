@@ -247,7 +247,7 @@ function ENT:Think()
 			end
 			puppeteer:SetPos(self:GetPos() - VECTOR_UP * FLOOR_THICKNESS)
 			puppeteer:SetPos(self:LocalToWorld(VECTOR_UP * heightOffset))
-			local angleOffset = puppeteer.angleOffset or angle_zero
+			local angleOffset = self:GetAngleOffset() or angle_zero
 			puppeteer:SetAngles(self:GetAngles() + angleOffset)
 
 			local shouldAttachToGround = attachToGround:GetInt() > 0
