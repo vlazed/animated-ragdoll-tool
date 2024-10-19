@@ -142,9 +142,8 @@ end
 ---Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
 ---@param puppet Entity
 ---@param targetPose SMHFramePose[]
----@param puppeteer Entity
 ---@param filteredBones integer[]
-local function setPhysicalBonePoseOf(puppet, targetPose, puppeteer, filteredBones)
+local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
@@ -332,14 +331,12 @@ end
 
 ---Helper for setting poses for SMH animations
 ---@param puppet Entity
----@param puppeteer Entity
 ---@param playerData RagdollPuppeteerPlayerField
-local function readSMHPose(puppet, puppeteer, playerData)
-	local floor = playerData.floor
+local function readSMHPose(puppet, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
 	local animatingNonPhys = net.ReadBool()
-	setPhysicalBonePoseOf(puppet, targetPose, puppeteer, playerData.filteredBones)
+	setPhysicalBonePoseOf(puppet, targetPose, playerData.filteredBones)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
@@ -596,7 +593,6 @@ if SERVER then
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local ragdollPuppet = playerData.puppet
-		local animPuppeteer = playerData.puppeteer
 
 		local isSequence = net.ReadBool()
 		if isSequence then
@@ -605,7 +601,7 @@ if SERVER then
 			playerData.cycle = cycle
 			setPuppeteerPose(cycle, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, animPuppeteer, playerData)
+			readSMHPose(ragdollPuppet, playerData)
 		end
 	end)
 
@@ -613,11 +609,7 @@ if SERVER then
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local ragdollPuppet = playerData.puppet
-		local animPuppeteer = playerData.puppeteer
 
-		if not IsValid(animPuppeteer) then
-			return
-		end
 		local isSequence = net.ReadBool()
 		if isSequence then
 			local seqIndex = net.ReadInt(14)
@@ -625,7 +617,7 @@ if SERVER then
 			playerData.currentIndex = seqIndex
 			setPuppeteerPose(0, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, animPuppeteer, playerData)
+			readSMHPose(ragdollPuppet, playerData)
 		end
 	end)
 
@@ -956,5 +948,8 @@ TOOL.Information = {
 	{
 		name = "right",
 		stage = 1,
+	},
+	{
+		name = "reload",
 	},
 }
