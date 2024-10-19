@@ -6,7 +6,7 @@ local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
 
 ---@param cPanel DForm
 ---@param model string
----@return DLabel
+---@return DLabel puppetLabel
 function components.PuppetLabel(cPanel, model)
 	local panel = cPanel:Help(language.GetPhrase("ui.ragdollpuppeteer.label.current") .. " " .. model)
 	---@cast panel DLabel
@@ -28,7 +28,7 @@ end
 ---@param label string
 ---@param convar string
 ---@param tooltip string
----@return DCheckBoxLabel
+---@return DCheckBoxLabel checkBox
 function components.CheckBox(cPanel, label, convar, tooltip)
 	local panel = vgui.Create("DCheckBoxLabel", cPanel)
 	panel:SetText(label)
@@ -44,7 +44,7 @@ function components.CheckBox(cPanel, label, convar, tooltip)
 end
 
 ---@param cPanel DForm
----@return DComboBox
+---@return DComboBox sourceBox Choose between SMH or model sequence animations
 function components.AnimationSourceBox(cPanel)
 	---@diagnostic disable-next-line
 	local panel = cPanel:ComboBox("#ui.ragdollpuppeteer.label.source")
@@ -60,7 +60,7 @@ function components.AnimationSourceBox(cPanel)
 end
 
 ---@param cPanel DForm
----@return DButton
+---@return DButton removeGesture Set the gesture sequence to the reference sequence
 function components.RemoveGesture(cPanel)
 	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.removegesture", "")
 	---@cast panel DButton
@@ -70,7 +70,7 @@ function components.RemoveGesture(cPanel)
 end
 
 ---@param cPanel DForm | DScrollPanel
----@return DButton
+---@return DButton recoverPuppeteer Teleport the puppeteer floor to the puppet
 function components.RecoverPuppeteer(cPanel)
 	local panel = vgui.Create("DButton", cPanel)
 	panel:SetText("#ui.ragdollpuppeteer.label.recoverpuppeteer")
@@ -101,7 +101,7 @@ function components.FrameSlider(cPanel, cvar, label, tooltip)
 end
 
 ---@param cPanel DForm
----@return DNumSlider
+---@return DNumSlider heightSlider Offset the puppeteer from the platform it is standing on
 function components.HeightSlider(cPanel)
 	local panel = cPanel:NumSlider("#ui.ragdollpuppeteer.label.height", "", -100, 100)
 	---@cast panel DNumSlider
@@ -112,7 +112,7 @@ function components.HeightSlider(cPanel)
 	return panel
 end
 
----@return DNumberWang
+---@return DNumberWang fpsWang Change the FPS ConVar
 function components.FPSWang()
 	local panel = vgui.Create("DNumberWang")
 	panel:SetConVar("ragdollpuppeteer_fps")
@@ -137,7 +137,7 @@ function components.FPSWang()
 	return panel
 end
 
----@return DButton
+---@return DButton playButton Play the puppeteer's animation
 function components.PlayButton()
 	---@diagnostic disable-next-line
 	local panel = vgui.Create("DButton")
@@ -168,7 +168,7 @@ function components.Container(sheet, label)
 	return container, sheetTable
 end
 
----@return DColorCombo
+---@return DColorCombo puppeteerColor Change the puppeteer's color
 function components.PuppeteerColors(cPanel)
 	local colorCombo = vgui.Create("DColorCombo", cPanel)
 	cPanel:AddItem(colorCombo)
@@ -252,7 +252,7 @@ function components.SMHFileBrowser(cPanel)
 end
 
 ---@param cPanel DForm
----@return DTree
+---@return DTree boneTree Filter bones
 function components.BoneTree(cPanel)
 	local boneTreeContainer = vgui.Create("DForm", cPanel)
 	cPanel:AddItem(boneTreeContainer)
@@ -301,7 +301,7 @@ end
 
 ---@param cPanel DForm
 ---@param puppeteer Entity
----@return PoseParameterSlider[]
+---@return PoseParameterSlider[] poseParamSliders Change the pose parameters of the puppeteer
 function components.PoseParameters(cPanel, puppeteer)
 	---@type PoseParameterSlider[]
 	local poseParams = {}

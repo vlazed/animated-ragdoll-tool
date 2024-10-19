@@ -140,9 +140,9 @@ end
 
 ---Set the puppet's physical bones to a target pose specified from the puppeteer, while offsetting with an angle
 ---Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
----@param puppet Entity
----@param targetPose SMHFramePose[]
----@param filteredBones integer[]
+---@param puppet Entity The puppet to set the physical bone poses
+---@param targetPose SMHFramePose[] The target physical pose for the puppet
+---@param filteredBones integer[] Bones that will not be set to their target pose
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
@@ -172,9 +172,9 @@ local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 end
 
 ---Directly influence the ragdoll nonphysical bones from SMH data
----@param puppet Entity
----@param targetPose SMHFramePose[]
----@param filteredBones integer[]
+---@param puppet Entity The puppet to set nonphysical bone poses
+---@param targetPose SMHFramePose[] The target nonphysical bone pose for the puppet
+---@param filteredBones integer[] Bones that will not be set to their target pose
 local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 	for b = 0, puppet:GetBoneCount() - 1 do
 		if filteredBones[b + 1] then
@@ -191,10 +191,10 @@ end
 
 ---Move and orient each physical bone of the puppet using the poses sent to us from the client
 ---Source: https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua
----@param puppet Entity
----@param puppeteer Entity
----@param filteredBones integer[]
----@param lastPose BonePose
+---@param puppet Entity The puppet to set physical bone poses
+---@param puppeteer Entity The puppeteer to use to set poses for the puppet. Only used in multiplayer
+---@param filteredBones integer[] Bones that will not be set to their target pose
+---@param lastPose BonePose The last pose to use if the pose doesn't exist for the current bone
 local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
 	if game.SinglePlayer() then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
@@ -244,8 +244,8 @@ end
 
 ---Instead of finding the default bone pose on the server, find them in the client
 ---We require the model so that we can build the client model with its default bone pose
----@param model string
----@param ply Player
+---@param model string The model for building the default bone pose
+---@param ply Player Who queried for the default bone pose
 local function queryDefaultBonePoseOfPuppet(model, ply)
 	net.Start("queryDefaultBonePoseOfPuppet", false)
 	net.WriteString(model)
@@ -254,7 +254,8 @@ end
 
 ---Instead of finding the nonphysical bone poses on the server, find them in the client
 ---We don't require the puppeteer as we always work with one puppet
----@param ply Player
+---@param ply Player Who queried for the nonphysical bone pose
+---@param cycle number The current frame of the puppeteer's animation
 local function queryNonPhysBonePoseOfPuppet(ply, cycle)
 	net.Start("queryNonPhysBonePoseOfPuppet", false)
 	net.WriteFloat(cycle)
@@ -264,8 +265,8 @@ end
 local floorCorrect = helpers.floorCorrect
 
 ---Move the puppeteer to the target entity's position, with the option to move to the ground
----@param puppeteer Entity
----@param target Entity
+---@param puppeteer Entity The puppeteer to move
+---@param target Entity The target entity that will move the puppeteer
 local function setPositionOf(puppeteer, target)
 	local targetPosition = target:GetPos()
 	local tr = util.TraceLine({
@@ -280,23 +281,23 @@ local function setPositionOf(puppeteer, target)
 end
 
 ---Make some entity face the target
----@param entity Entity
----@param target Entity
+---@param entity Entity The entity that will face the target
+---@param target Entity Target entity
 local function setAngleOf(entity, target)
 	local angle = (target:GetPos() - entity:GetPos()):Angle()
 	entity:SetAngles(Angle(0, angle.y, 0))
 end
 
 ---Set the puppeteer's position and angles
----@param puppeteer Entity
----@param puppet Entity
----@param ply Player | Entity
+---@param puppeteer Entity The puppeteer that will move to the puppet and face the player
+---@param puppet Entity The puppet to place the puppeteer
+---@param ply Player | Entity Who will make the puppeteer face them
 local function setPlacementOf(puppeteer, puppet, ply)
 	setPositionOf(puppeteer, puppet)
 	setAngleOf(puppeteer, ply)
 end
 
----@param ent Entity
+---@param ent Entity The entity to remove all bone manipulations
 local function resetAllNonphysicalBonesOf(ent)
 	for i = 0, ent:GetBoneCount() - 1 do
 		ent:ManipulateBonePosition(i, vector_origin)
@@ -330,8 +331,8 @@ local function decodePose()
 end
 
 ---Helper for setting poses for SMH animations
----@param puppet Entity
----@param playerData RagdollPuppeteerPlayerField
+---@param puppet Entity The puppet to set poses
+---@param playerData RagdollPuppeteerPlayerField Data to control the puppet's pose
 local function readSMHPose(puppet, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
@@ -349,9 +350,9 @@ local function readSMHPose(puppet, playerData)
 end
 
 ---Helper for setting poses for sequences
----@param cycle number
----@param animatingNonPhys boolean
----@param playerData RagdollPuppeteerPlayerField
+---@param cycle number Current frame of animation
+---@param animatingNonPhys boolean Whether to set nonphysical bones or not
+---@param playerData RagdollPuppeteerPlayerField Data to control the puppet's pose
 local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	local player = playerData.player
 	local puppet = playerData.puppet
@@ -377,10 +378,10 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	end
 end
 
----@param puppet Entity
----@param puppetModel string
----@param ply Player
----@return Entity
+---@param puppet Entity The puppet to create the puppeteer
+---@param puppetModel string The puppet's model
+---@param ply Player For whom to create the server puppeteer
+---@return Entity serverPuppeteer The serverside puppeteer
 local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
@@ -396,10 +397,10 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	return puppeteer
 end
 
----@param puppeteer Entity
----@param puppet Entity
----@param ply Player
----@return PuppeteerFloor
+---@param puppeteer Entity The puppeteer that will be parented to the floor
+---@param puppet Entity The puppet that will be parented to the floor
+---@param ply Player For whom to create the puppeteer platform
+---@return PuppeteerFloor puppeteerFloor The puppeteer floor
 local function createPuppeteerFloor(puppeteer, puppet, ply)
 	local puppeteerFloor = ents.Create("prop_puppeteerfloor")
 	---@cast puppeteerFloor PuppeteerFloor
@@ -417,6 +418,7 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	return puppeteerFloor
 end
 
+-- A set of classes for puppeteering
 local validPuppetClasses = {
 	["prop_ragdoll"] = true,
 	["prop_physics"] = true,
@@ -501,7 +503,8 @@ function TOOL:LeftClick(tr)
 	return true
 end
 
----@param npc NPC
+---Copy sequence information from an NPC and store it in the tool's networked variables
+---@param npc NPC Target NPC to get sequence information
 function TOOL:CopySequence(npc)
 	local ply = self:GetOwner()
 	self:GetWeapon():SetNWInt(ids[5], npc:GetSequence())
@@ -514,6 +517,7 @@ function TOOL:CopySequence(npc)
 	RAGDOLLPUPPETEER_PLAYERS[ply:UserID()].poseParams = poseParams
 end
 
+---Paste sequence information to the puppet
 ---@param ent Entity | PuppeteerFloor
 function TOOL:PasteSequence(ent)
 	local sequence = self:GetWeapon():GetNWInt(ids[5])
@@ -535,6 +539,7 @@ function TOOL:PasteSequence(ent)
 	end
 end
 
+-- A set of classes that will obtain the copied sequence information
 local validPasteClasses = {
 	["prop_ragdoll"] = true,
 	["prop_puppeteerfloor"] = true,
@@ -562,7 +567,6 @@ end
 ---@param tr TraceResult
 ---@return boolean?
 function TOOL:RightClick(tr)
-	-- FIXME: Properly clear any animation entities, clientside and serverside
 	local ply = self:GetOwner()
 	local userId = ply:UserID()
 	if IsValid(self:GetAnimationPuppet()) then
@@ -716,8 +720,8 @@ end
 ---@alias BoneOffsetArray BoneOffset[]
 
 ---Try to manipulate the bone angles of the puppet to match the puppeteer
----@param puppeteer Entity
----@return BoneOffsetArray
+---@param puppeteer Entity The puppeteer to obtain nonphysical bone pose information
+---@return BoneOffsetArray boneOffsets An array of bone offsets from the default bone pose
 local function matchNonPhysicalBonePoseOf(puppeteer)
 	local newPose = {}
 
@@ -763,10 +767,10 @@ local function disablePuppeteerJiggle(puppeteer)
 	end
 end
 
----@param model string
----@param puppet Entity
----@param ply Player
----@return Entity
+---@param model string The puppet's model
+---@param puppet Entity The puppet to create the puppeteer
+---@param ply Player For whom to create the puppeteer
+---@return Entity clientPuppeteer The clientside puppeteer
 local function createClientPuppeteer(model, puppet, ply)
 	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then

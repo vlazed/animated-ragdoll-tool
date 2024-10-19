@@ -4,7 +4,7 @@ local helpers = {}
 
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 
----@param color Color
+---@param color Color Color to stringify
 ---@return string colorString A Color formatted as a string ("# # #" or "#,#,#").
 function helpers.getStringFromColor(color)
 	local str = ("%d %d %d"):format(color.r, color.g, color.b)
@@ -20,7 +20,7 @@ function helpers.projectVectorToPlane(v, n)
 end
 
 ---@param str string A Color formatted as a string ("# # #" or "#,#,#").
----@return Color
+---@return Color color Parsed Color from string
 function helpers.getColorFromString(str)
 	local separator = " "
 	if string.find(str, ",") then
@@ -30,7 +30,7 @@ function helpers.getColorFromString(str)
 	return Color(colors[1] or 0, colors[2] or 0, colors[3] or 64, 100)
 end
 
----@param entity Entity
+---@param entity Entity Entity to find half root height difference
 ---@return number rootHeightDifference The half root height difference of the entity
 function helpers.getRootHeightDifferenceOf(entity)
 	local min = entity:WorldSpaceAABB()

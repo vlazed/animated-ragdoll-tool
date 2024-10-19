@@ -3,9 +3,9 @@
 local Vendor = {}
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
----@param entity Entity
----@param physBone integer
----@return integer
+---@param entity Entity Entity to obtain bone information
+---@param physBone integer Physics object id
+---@return integer parent Physics object parent of physBone
 function Vendor.GetPhysBoneParent(entity, physBone)
 	local b = Vendor.PhysBoneToBone(entity, physBone)
 	local i = 1
@@ -25,10 +25,10 @@ end
 
 ---Calculate the bone offsets with respect to the parent
 ---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
----@param puppeteer Entity
----@param child integer
----@return Vector
----@return Angle
+---@param puppeteer Entity Entity to obtain bone information
+---@param child integer Child bone index
+---@return Vector positionOffset Position of child bone with respect to parent bone
+---@return Angle angleOffset Angle of child bone with respect to parent bone
 function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
@@ -55,17 +55,17 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
 	return dPos, dAng
 end
 
----@param ent Entity
----@param bone integer
----@return integer
-function Vendor.PhysBoneToBone(ent, bone)
-	return ent:TranslatePhysBoneToBone(bone)
+---@param ent Entity Entity to translate physics bone
+---@param physBone integer Physics object id
+---@return integer bone Translated bone id
+function Vendor.PhysBoneToBone(ent, physBone)
+	return ent:TranslatePhysBoneToBone(physBone)
 end
 
 ---Get the pose of every bone of the entity, for nonphysical bone matching
 ---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
----@param ent Entity
----@return DefaultBonePose
+---@param ent Entity Entity in reference pose
+---@return DefaultBonePose defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
 function Vendor.getDefaultBonePoseOf(ent)
 	local defaultPose = {}
 	local entPos = ent:GetPos()
@@ -95,9 +95,9 @@ function Vendor.getDefaultBonePoseOf(ent)
 end
 
 ---https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L201
----@param ent Entity
----@param bone integer
----@return integer
+---@param ent Entity Entity to translate bone
+---@param bone integer Bone id
+---@return integer physBone Physics object id
 function Vendor.BoneToPhysBone(ent, bone)
 	for i = 0, ent:GetPhysicsObjectCount() - 1 do
 		local b = ent:TranslatePhysBoneToBone(i)
@@ -109,10 +109,10 @@ function Vendor.BoneToPhysBone(ent, bone)
 end
 
 ---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L5
----@param s number | Vector
----@param e number | Vector
----@param p number
----@return number | Vector
+---@param s number | Vector Start number or vector
+---@param e number | Vector End number or vector
+---@param p number Percentage between start and end, between 0 and 1
+---@return number | Vector lerped Interpolated number or vector
 function Vendor.LerpLinear(s, e, p)
 	-- Internally, lerp uses the __add, __sub, and __mul metamethods, and these operations are defined
 	-- for Vectors. We're casting here so we don't get any linting warnings.
@@ -122,19 +122,19 @@ function Vendor.LerpLinear(s, e, p)
 end
 
 ---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L11
----@param s Vector
----@param e Vector
----@param p number
----@return Vector
+---@param s Vector Start vector
+---@param e Vector End vector
+---@param p number Percentage between start and end, between 0 and 1
+---@return Vector lerpedVector Interpolated vector
 function Vendor.LerpLinearVector(s, e, p)
 	return LerpVector(p, s, e)
 end
 
 ---https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L17
----@param s Angle
----@param e Angle
----@param p number
----@return Angle
+---@param s Angle Start angle
+---@param e Angle End angle
+---@param p number Percentage between start and end, between 0 and 1
+---@return Angle lerpedAngle Interpolated angle
 function Vendor.LerpLinearAngle(s, e, p)
 	return LerpAngle(p, s, e)
 end
@@ -142,13 +142,13 @@ end
 ---Find the closest keyframe corresponding to the frame of keyframes
 ---Source: https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---Modified to directly work with json translation
----@param keyframes SMHFrameData[]
----@param frame integer
----@param ignoreCurrentFrame boolean
----@param modname SMHModifiers
----@return SMHFrameData?
----@return SMHFrameData?
----@return integer
+---@param keyframes SMHFrameData[] SMH Keyframe data
+---@param frame integer Target keyframe
+---@param ignoreCurrentFrame boolean Whether to consider the previous and next keyframes
+---@param modname SMHModifiers SMH Modifier name
+---@return SMHFrameData? previousKeyframe Previous keyframe near frame
+---@return SMHFrameData? nextKeyframe Next keyframe near frame
+---@return integer lerpMultiplier Percentage between previous keyframe and next keyframe
 function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modname)
 	if ignoreCurrentFrame == nil then
 		ignoreCurrentFrame = false

@@ -98,7 +98,7 @@ end
 ---The longest animation is assumed to be the main animation for the sequence
 ---@param sequenceInfo SequenceInfo
 ---@param puppeteer Entity
----@return table|unknown
+---@return table|unknown longestAnim The longest animation of the puppeteer's sequence
 local function findLongestAnimationIn(sequenceInfo, puppeteer)
 	local longestAnim = {
 		numframes = -1,
@@ -169,6 +169,7 @@ function UI.Layout(panelChildren, puppeteer)
 end
 
 ---@param pose SMHFramePose[]
+---@param puppeteer RagdollPuppeteer
 local function encodePose(pose, puppeteer)
 	local b = puppeteer:TranslatePhysBoneToBone(0)
 	local matrix = puppeteer:GetBoneMatrix(b)
