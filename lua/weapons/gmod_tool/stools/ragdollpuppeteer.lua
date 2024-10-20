@@ -389,7 +389,7 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	---@diagnostic disable-next-line
 	if puppet.PhysObjScales then
 		---@diagnostic disable-next-line
-		puppeteer:SetModelScale(math.max(puppet.PhysObjScales[0]:Unpack()))
+		puppeteer:SetModelScale(math.min(puppet.PhysObjScales[0]:Unpack()))
 	end
 	puppeteer:Spawn()
 	styleServerPuppeteer(puppeteer)
@@ -782,22 +782,23 @@ local function createClientPuppeteer(model, puppet, ply)
 	---@diagnostic disable-next-line
 	if puppet.SavedBoneMatrices then
 		---@diagnostic disable-next-line
-		puppeteer:SetModelScale(math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
+		puppeteer:SetModelScale(math.min(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
 	end
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
 	return puppeteer
 end
 
----TODO: Make the puppeteer look like the puppet when resized
----@param puppeteer Entity
----@param puppet Entity
-local function resizePuppeteerToPuppet(puppeteer, puppet)
+---If the view puppeteer is a prop_resizedragdoll_parent, resize the puppeteer
+---Source: https://github.com/NO-LOAFING/RagdollResizerPhys/blob/461c3779f2581117a2cbdd08f5a9e6fae29f7959/lua/entities/prop_resizedragdoll_physparent.lua#L508
+---@param puppeteer Entity The puppeteer to resize
+---@param puppet Entity The puppet that has the Ragdoll Resizer fields
+---@param boneCount number The number of bones
+---@param animPuppeteer Entity The core puppeteer
+local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, animPuppeteer)
 	if not IsValid(puppeteer) then
 		return
 	end
-
-	local boneCount = puppeteer:GetBoneCount()
 
 	---@diagnostic disable-next-line
 	if puppet.SavedBoneMatrices then	
@@ -809,7 +810,6 @@ local function resizePuppeteerToPuppet(puppeteer, puppet)
 
 			---@diagnostic disable-next-line
 			if puppet.PhysBones[i] then
-				-- This works
 				local pMatrix = nil
 				---@diagnostic disable-next-line
 				if puppet.PhysBoneOffsets[i] then
@@ -820,13 +820,17 @@ local function resizePuppeteerToPuppet(puppeteer, puppet)
 				if pMatrix and not puppet:GetStretch() then
 					---@diagnostic disable-next-line
 					pMatrix:Translate(puppet.PhysBoneOffsets[i])
+
 					cMatrix:SetTranslation(pMatrix:GetTranslation())
 				end
+
+				-- Scale the puppeteer
 				---@diagnostic disable-next-line
 				cMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
+
+				-- Finally, set the puppeteer's positions
 				puppeteer:SetBoneMatrix(i, cMatrix)
 			else
-				-- This doesn't work
 				local parentboneid = puppeteer:GetBoneParent(i)
 				local pMatrix = nil
 				if parentboneid and parentboneid != -1 then
@@ -840,8 +844,10 @@ local function resizePuppeteerToPuppet(puppeteer, puppet)
 				if pMatrix then
 					---@diagnostic disable-next-line
 					pMatrix:Translate(puppet.BoneOffsets[i]["posoffset"])
+					pMatrix:Translate(puppet:GetManipulateBonePosition(i))
 					---@diagnostic disable-next-line
 					pMatrix:Rotate(puppet.BoneOffsets[i]["angoffset"])
+					pMatrix:Rotate(puppet:GetManipulateBoneAngles(i))
 
 					---@diagnostic disable-next-line
 					pMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
@@ -883,6 +889,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	-- Used for sequences, these puppeteers are always set to the first frame of the sequence, so we can easily extract the delta position and angle.
 	local basePuppeteer = createClientPuppeteer(model, puppet, ply)
 	local baseGesturer = createClientPuppeteer(model, puppet, ply)
+
+	-- This is what gets shown to the player.
+	local viewPuppeteer = createClientPuppeteer(model, puppet, ply)
+	viewPuppeteer:SetIK(false)
+
+	animPuppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 	basePuppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 	baseGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 	animGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
@@ -892,10 +904,11 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		animGesturer,
 		basePuppeteer,
 		baseGesturer,
+		viewPuppeteer
 	})
 	floor:SetPuppet(puppet)
 
-	floor:SetPhysicsSize(animPuppeteer)
+	floor:SetPhysicsSize(viewPuppeteer)
 
 	floor:SetPuppet(puppet)
 
@@ -905,6 +918,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		gesturer = animGesturer,
 		basePuppeteer = basePuppeteer,
 		baseGesturer = baseGesturer,
+		viewPuppeteer = viewPuppeteer,
 		puppet = puppet,
 		physicsCount = physicsCount,
 		floor = floor,
@@ -920,12 +934,17 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
+	viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
+		resizePuppeteerToPuppet(ent, puppet, boneCount, animPuppeteer)
+	end)
+
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
 			animPuppeteer:Remove()
 			basePuppeteer:Remove()
 			animGesturer:Remove()
 			baseGesturer:Remove()
+			viewPuppeteer:Remove()
 			panelState.previousPuppeteer = NULL
 
 			if IsValid(panelChildren.sequenceList) then

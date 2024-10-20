@@ -114,6 +114,7 @@ local types = {}
 ---@field basePuppeteer Entity
 ---@field gesturer Entity
 ---@field baseGesturer Entity
+---@field viewPuppeteer Entity
 ---@field model string
 ---@field floor PuppeteerFloor
 

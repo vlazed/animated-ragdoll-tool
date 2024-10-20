@@ -8,7 +8,7 @@ local BLANK_MATERIAL = Material("debug/white")
 ---@return Color, IMaterial
 function ENT:GetPuppeteerAppearance()
 	---@type Entity
-	local puppeteer = self.puppeteers[1]
+	local puppeteer = self.puppeteers[#self.puppeteers]
 	-- We store this material in ui.lua
 	if IsValid(puppeteer) then
 		---@diagnostic disable-next-line

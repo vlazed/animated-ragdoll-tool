@@ -63,9 +63,9 @@ function ENT:SetupDataTables()
 	self:NetworkVarNotify("Yaw", self.UpdateAngleOffset)
 	self:NetworkVarNotify("Roll", self.UpdateAngleOffset)
 
-	if self.puppeteers and self.puppeteers[1] then
+	if self.puppeteers and self.puppeteers[#self.puppeteers] then
 		---@type RagdollPuppeteer
-		local puppeteer = self.puppeteers[1]
+		local puppeteer = self.puppeteers[#self.puppeteers]
 		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
 			local min, max = puppeteer:GetPoseParameterRange(i)
 			local name = puppeteer:GetPoseParameterName(i)
@@ -79,9 +79,9 @@ end
 
 function ENT:GetPoseParameters()
 	local data = {}
-	if self.puppeteers and self.puppeteers[1] then
+	if self.puppeteers and self.puppeteers[#self.puppeteers] then
 		---@type RagdollPuppeteer
-		local puppeteer = self.puppeteers[1]
+		local puppeteer = self.puppeteers[#self.puppeteers]
 		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
 			local name = puppeteer:GetPoseParameterName(i)
 			data[name] = puppeteer:GetPoseParameter(name)
@@ -213,8 +213,8 @@ function ENT:Think()
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
-	if puppeteers[1] and IsValid(puppeteers[1]) then
-		local puppeteer = puppeteers[1]
+	if puppeteers[#puppeteers] and IsValid(puppeteers[#puppeteers]) then
+		local puppeteer = puppeteers[#puppeteers]
 		if not self.puppeteerHeight then
 			self.puppeteerHeight = helpers.getRootHeightDifferenceOf(puppeteer)
 		end
@@ -259,7 +259,7 @@ function ENT:Think()
 				local tr = util.TraceLine({
 					start = self:GetPos(),
 					endpos = rayDirection * 1e9,
-					filter = { self, puppeteer, self.puppet, unpack(puppeteers), "NPC" },
+					filter = { self, puppeteer, self.puppet, unpack(puppeteers), "NPC", "prop_resizedragdoll_physobj" },
 				})
 				if tr.HitPos then
 					puppeteer:SetPos(tr.HitPos + tr.HitNormal * heightOffset)
