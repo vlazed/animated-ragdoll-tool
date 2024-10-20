@@ -789,6 +789,69 @@ local function createClientPuppeteer(model, puppet, ply)
 	return puppeteer
 end
 
+---TODO: Make the puppeteer look like the puppet when resized
+---@param puppeteer Entity
+---@param puppet Entity
+local function resizePuppeteerToPuppet(puppeteer, puppet)
+	if not IsValid(puppeteer) then
+		return
+	end
+
+	local boneCount = puppeteer:GetBoneCount()
+
+	---@diagnostic disable-next-line
+	if puppet.SavedBoneMatrices then	
+		for i = 0, boneCount - 1 do
+			local cMatrix = puppeteer:GetBoneMatrix(i)
+			if not cMatrix then
+				continue
+			end
+
+			---@diagnostic disable-next-line
+			if puppet.PhysBones[i] then
+				-- This works
+				local pMatrix = nil
+				---@diagnostic disable-next-line
+				if puppet.PhysBoneOffsets[i] then
+					---@diagnostic disable-next-line
+					pMatrix = puppeteer:GetBoneMatrix(puppet.PhysBones[i].parentid)
+				end
+				---@diagnostic disable-next-line
+				if pMatrix and not puppet:GetStretch() then
+					---@diagnostic disable-next-line
+					pMatrix:Translate(puppet.PhysBoneOffsets[i])
+					cMatrix:SetTranslation(pMatrix:GetTranslation())
+				end
+				---@diagnostic disable-next-line
+				cMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
+				puppeteer:SetBoneMatrix(i, cMatrix)
+			else
+				-- This doesn't work
+				local parentboneid = puppeteer:GetBoneParent(i)
+				local pMatrix = nil
+				if parentboneid and parentboneid != -1 then
+					pMatrix = puppeteer:GetBoneMatrix(parentboneid)
+				else
+					local matr = Matrix()
+					matr:SetTranslation(puppeteer:GetPos())
+					matr:SetAngles(puppeteer:GetAngles())
+					pMatrix = matr
+				end
+				if pMatrix then
+					---@diagnostic disable-next-line
+					pMatrix:Translate(puppet.BoneOffsets[i]["posoffset"])
+					---@diagnostic disable-next-line
+					pMatrix:Rotate(puppet.BoneOffsets[i]["angoffset"])
+
+					---@diagnostic disable-next-line
+					pMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
+					puppeteer:SetBoneMatrix(i, pMatrix)
+				end
+			end
+		end
+	end
+end
+
 ---@param cPanel DForm
 ---@param puppet Entity
 ---@param ply Player
@@ -803,6 +866,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	if not IsValid(floor) then
 		chat.AddText("Puppeteer floor did not pass here")
 		return
+	end
+
+	---@diagnostic disable-next-line
+	if puppet.ClassOverride and puppet.ClassOverride == "prop_resizedragdoll_physparent" then
+		chat.AddText("[Ragdoll Puppeteer] WARNING: Limited support for resized ragdolls! Expect bugs!")
+		print("[Ragdoll Puppeteer] WARNING: Limited support for resized ragdolls! Expect bugs!")
 	end
 
 	local model = puppet:GetModel()
