@@ -386,11 +386,6 @@ local function createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteer = ents.Create("prop_dynamic")
 	puppeteer:SetModel(puppetModel)
 	setPlacementOf(puppeteer, puppet, ply)
-	---@diagnostic disable-next-line
-	if puppet.PhysObjScales then
-		---@diagnostic disable-next-line
-		puppeteer:SetModelScale(math.min(puppet.PhysObjScales[0]:Unpack()))
-	end
 	puppeteer:Spawn()
 	styleServerPuppeteer(puppeteer)
 
@@ -730,7 +725,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
 			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
-			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
+			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
 		else
 			local bMatrix = puppeteer:GetBoneMatrix(b)
@@ -752,7 +747,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 			end
 
 			newPose[b + 1] = {}
-			newPose[b + 1][1] = dPos / puppeteer:GetModelScale() ^ 4
+			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
 		end
 	end
@@ -779,11 +774,6 @@ local function createClientPuppeteer(model, puppet, ply)
 	puppeteer:SetModel(model)
 	setPlacementOf(puppeteer, puppet, ply)
 	puppeteer:Spawn()
-	---@diagnostic disable-next-line
-	if puppet.SavedBoneMatrices then
-		---@diagnostic disable-next-line
-		puppeteer:SetModelScale(math.min(puppet.SavedBoneMatrices[0]:GetScale():Unpack()))
-	end
 	disablePuppeteerJiggle(puppeteer)
 	styleClientPuppeteer(puppeteer)
 	return puppeteer

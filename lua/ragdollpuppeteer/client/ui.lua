@@ -724,6 +724,15 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	local smhData
 
+	-- Set min and max of height slider for Resized Ragdolls
+	---@diagnostic disable-next-line
+	if puppet.SavedBoneMatrices then
+		---@diagnostic disable-next-line
+		local scale = math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack())
+		heightOffset:SetMin(-scale * 100)
+		heightOffset:SetMax(scale * 100)
+	end
+
 	setupBoneNodesOf(puppet, boneTree)
 
 	local filteredBones = {}
