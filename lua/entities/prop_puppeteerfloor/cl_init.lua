@@ -27,4 +27,10 @@ function ENT:DrawTranslucent()
 
 	render.SetMaterial(material)
 	render.DrawBox(self:GetPos(), self:GetAngles(), self.boxMin, self.boxMax, color)
+	if self.hitPos then
+		local inverted = Color(255 - color.r, 255 - color.g, 255 - color.b)
+		if material:GetName() ~= constants.INVISIBLE_MATERIAL:GetName() then
+			render.DrawLine(self:GetPos(), self.hitPos, inverted, false)
+		end
+	end
 end

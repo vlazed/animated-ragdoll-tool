@@ -295,7 +295,10 @@ function ENT:Think()
 
 					puppeteer:SetAngles(projectedForward:AngleEx(tr.HitNormal))
 					puppeteer:SetAngles(puppeteer:LocalToWorldAngles(angleOffset))
+					self.hitPos = tr.HitPos
 				end
+			else
+				self.hitPos = nil
 			end
 
 			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
