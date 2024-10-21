@@ -882,6 +882,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	baseGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 	animGesturer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 
+	floor:SetPuppet(puppet)
+
 	floor:AddPuppeteers({
 		animPuppeteer,
 		animGesturer,
@@ -889,7 +891,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		baseGesturer,
 		viewPuppeteer
 	})
-	floor:SetPuppet(puppet)
 
 	floor:SetPhysicsSize(viewPuppeteer)
 

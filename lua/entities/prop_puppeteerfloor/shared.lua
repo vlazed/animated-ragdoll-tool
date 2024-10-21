@@ -33,12 +33,16 @@ local attachToGround = GetConVar("ragdollpuppeteer_attachtoground")
 local anySurface = GetConVar("ragdollpuppeteer_anysurface")
 
 function ENT:SetupDataTables()
+	local scale = math.max(
+		self.puppet and self.puppet.SavedBoneMatrices and self.puppet.SavedBoneMatrices[0]:GetScale():Unpack() or 1
+	) * 100
+
 	-- Wow this looks ugly lmao
 	self:NetworkVar(
 		"Float",
 		0,
 		"Height",
-		{ KeyName = "height", Edit = { order = 1, category = "Offset", min = -100, max = 100, type = "Float" } }
+		{ KeyName = "height", Edit = { order = 1, category = "Offset", min = -scale, max = scale, type = "Float" } }
 	)
 	self:NetworkVar(
 		"Float",
