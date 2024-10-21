@@ -278,7 +278,15 @@ function ENT:Think()
 				local tr = util.TraceLine({
 					start = self:GetPos(),
 					endpos = rayDirection * 1e9,
-					filter = { self, puppeteer, self.puppet, unpack(puppeteers), "NPC", "prop_resizedragdoll_physobj" },
+					filter = {
+						self,
+						puppeteer,
+						self.puppet,
+						self.puppet:GetParent(),
+						unpack(puppeteers),
+						"NPC",
+						"prop_resizedragdoll_physobj",
+					},
 				})
 				if tr.HitPos then
 					puppeteer:SetPos(tr.HitPos + tr.HitNormal * (heightOffset - VECTOR_UP:Dot(puppeteerRootScale)))

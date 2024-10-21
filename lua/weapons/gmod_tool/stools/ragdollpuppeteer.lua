@@ -198,49 +198,56 @@ end
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 ---@param lastPose BonePose The last pose to use if the pose doesn't exist for the current bone
 local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
-	if game.SinglePlayer() then
-		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-			local phys = puppet:GetPhysicsObjectNum(i)
-			local b = puppet:TranslatePhysBoneToBone(i)
-
-			local pos, ang = net.ReadVector(), net.ReadAngle()
-			pos = pos and pos or lastPose[i][1] or vector_origin
-			ang = ang and ang or lastPose[i][2] or angle_zero
-
-			if filteredBones[b + 1] then
-				continue
-			end
-
-			phys:EnableMotion(true)
-			phys:Wake()
-			phys:SetPos(pos and pos or lastPose[i][1])
-			phys:SetAngles(ang and ang or lastPose[i][2])
-			phys:EnableMotion(false)
-			phys:Wake()
-			lastPose[i] = { pos, ang }
-		end
+	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
+		local parent = puppet:GetParent()
+		parent:SetPos(puppeteer:GetPos())
+		parent:SetAngles(puppeteer:GetAngles())
 	else
-		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-			local phys = puppet:GetPhysicsObjectNum(i)
-			local b = puppet:TranslatePhysBoneToBone(i)
-			if filteredBones[b + 1] then
-				continue
-			end
-
-			local pos, ang = puppeteer:GetBonePosition(b)
-
-			phys:EnableMotion(true)
-			phys:Wake()
-			phys:SetPos(pos)
-			phys:SetAngles(ang)
-			if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
+		if game.SinglePlayer() then
+			for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+				local phys = puppet:GetPhysicsObjectNum(i)
+				local b = puppet:TranslatePhysBoneToBone(i)
+	
+				local pos, ang = net.ReadVector(), net.ReadAngle()
+				pos = pos and pos or lastPose[i][1] or vector_origin
+				ang = ang and ang or lastPose[i][2] or angle_zero
+	
+				if filteredBones[b + 1] then
+					continue
+				end
+	
 				phys:EnableMotion(true)
 				phys:Wake()
-			else
+				phys:SetPos(pos and pos or lastPose[i][1])
+				phys:SetAngles(ang and ang or lastPose[i][2])
 				phys:EnableMotion(false)
 				phys:Wake()
+				lastPose[i] = { pos, ang }
+			end
+		else
+			for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+				local phys = puppet:GetPhysicsObjectNum(i)
+				local b = puppet:TranslatePhysBoneToBone(i)
+				if filteredBones[b + 1] then
+					continue
+				end
+	
+				local pos, ang = puppeteer:GetBonePosition(b)
+	
+				phys:EnableMotion(true)
+				phys:Wake()
+				phys:SetPos(pos)
+				phys:SetAngles(ang)
+				if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
+					phys:EnableMotion(true)
+					phys:Wake()
+				else
+					phys:EnableMotion(false)
+					phys:Wake()
+				end
 			end
 		end
+	
 	end
 end
 
