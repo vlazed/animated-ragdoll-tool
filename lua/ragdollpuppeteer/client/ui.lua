@@ -249,7 +249,7 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 				if gestureAng then
 					animPuppeteer:ManipulateBoneAngles(b, gestureAng)
 					basePuppeteer:ManipulateBoneAngles(b, gestureAng)
-					viewPuppeteer:ManipulateBonePosition(b, gesturePos)
+					viewPuppeteer:ManipulateBoneAngles(b, gestureAng)
 				end
 				lastGesturePose[b] = { gesturePos, gestureAng }
 			end

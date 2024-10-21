@@ -144,7 +144,7 @@ end
 ---@param targetPose SMHFramePose[] The target physical pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
-	local scale = puppet.PhysObjScales[0] or Vector(1,1,1)
+	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
 
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
