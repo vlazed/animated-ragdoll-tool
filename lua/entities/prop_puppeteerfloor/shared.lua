@@ -178,7 +178,7 @@ local propertyOrToolFilters = {
 function ENT:CanTool(ply, tr, mode, tool, button)
 	if propertyOrToolFilters[mode] then
 		if CLIENT then
-			notification.AddLegacy("This tool is disabled on the puppeteer!", NOTIFY_ERROR, 3)
+			notification.AddLegacy(language.GetPhrase("ui.ragdollpuppeteer.notify.tooldisabled"), NOTIFY_ERROR, 3)
 		end
 		return false
 	end
@@ -299,7 +299,7 @@ function ENT:Think()
 		self.shouldRecover = not self:IsInWorld()
 		local distance = self:GetPos():Distance(owner:GetPos())
 		if self.shouldRecover and now - self.lastRecoveryTime > RECOVER_DELAY and distance > RECOVERY_DISTANCE then
-			print("[Ragdoll Puppeteer] Floor is out of bounds and far from player! Recovering floor...")
+			print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.outofbounds"))
 			if IsValid(self.puppet) then
 				self:SetPos(self.puppet:GetPos())
 			elseif IsValid(owner) then
