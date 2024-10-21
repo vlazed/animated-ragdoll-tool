@@ -827,7 +827,6 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, floor)
 				if puppet.PhysBoneOffsets[i] then
 					pMatrix = puppeteer:GetBoneMatrix(puppet.PhysBones[i].parentid)
 				end
-				-- TODO: Add support for Stretchy Resized Ragdolls option
 				if pMatrix then
 					pMatrix:Translate(puppet.PhysBoneOffsets[i])
 					cMatrix:SetTranslation(pMatrix:GetTranslation())
