@@ -339,11 +339,9 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local playbackEnabled = GetConVar("sv_ragdollpuppeteer_allow_playback")
 		and GetConVar("sv_ragdollpuppeteer_allow_playback"):GetBool()
 	if not playbackEnabled then
-		chat.AddText("Ragdoll Puppeteer: Ragdoll Puppeteer playback is disabled!")
+		chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.playbackdisabled1"))
 		if game.SinglePlayer() then
-			chat.AddText(
-				'Ragdoll Puppeteer: In the console, run "sv_ragdollpuppeteer_allow_playback 1" to enable playback'
-			)
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.playbackdisabled2"))
 		end
 		return
 	end
@@ -468,7 +466,7 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 			end
 		else
 			notification.AddLegacy(
-				"PASTE FAILED! The sequence " .. sequence .. "does not exist on this puppet!",
+				language.GetPhrase("ui.ragdollpuppeteer.notify.pastefailed"):format(sequence),
 				NOTIFY_ERROR,
 				5
 			)

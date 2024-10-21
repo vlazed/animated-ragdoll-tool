@@ -866,8 +866,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	---@diagnostic disable-next-line
 	if puppet.ClassOverride and puppet.ClassOverride == "prop_resizedragdoll_physparent" then
-		chat.AddText("[Ragdoll Puppeteer] WARNING: Limited support for resized ragdolls! Expect bugs!")
-		print("[Ragdoll Puppeteer] WARNING: Limited support for resized ragdolls! Expect bugs!")
+		chat.AddText("Ragdoll Puppeteer:" .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
+		print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
 	end
 
 	local model = puppet:GetModel()
