@@ -254,7 +254,7 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 				lastGesturePose[b] = { gesturePos, gestureAng }
 			end
 
-			local pos, ang = puppeteers[1]:GetBonePosition(b)
+			local pos, ang = puppeteers[3]:GetBonePosition(b)
 			if puppet:GetClass() == "prop_physics" then
 				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
 			end
