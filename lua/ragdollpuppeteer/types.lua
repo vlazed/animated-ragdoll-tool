@@ -179,5 +179,7 @@ local types = {}
 ---@field RemovePuppeteers fun(self: PuppeteerFloor) Remove puppeteers from the world
 ---@field ClearPuppeteers fun(self: PuppeteerFloor) Clear the puppeteer table
 ---@field SetPlayerOwner fun(self: PuppeteerFloor, ply: Player)
+---@field SetPuppeteerRootScale fun(self: PuppeteerFloor, newScale: Vector)
+---@field GetPuppeteerRootScale fun(self: PuppeteerFloor): puppeteerRootScale: Vector
 
 return types

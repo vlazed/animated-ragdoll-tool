@@ -118,7 +118,7 @@ function ENT:SetPuppet(puppet)
 end
 
 ---Get the floor's puppet
----@return Entity
+---@return Entity | ResizedRagdoll
 function ENT:GetPuppet()
 	return self.puppet
 end
@@ -202,6 +202,14 @@ function ENT:CanProperty(ply, property)
 	return true
 end
 
+function ENT:GetPuppeteerRootScale()
+	return self.puppeteerRootScale
+end
+
+function ENT:SetPuppeteerRootScale(newScale)
+	self.puppeteerRootScale = newScale
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
@@ -240,6 +248,7 @@ function ENT:Think()
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
 			local heightOffset = self:GetHeight() or 0 ---@diagnostic disable-line
+			local puppeteerRootScale = self:GetPuppeteerRootScale() or vector_origin
 			for i = 0, puppeteer:GetNumPoseParameters() - 1 do
 				local poseName = puppeteer:GetPoseParameterName(i)
 				if self["Get" .. poseName] then
@@ -249,8 +258,14 @@ function ENT:Think()
 					end
 				end
 			end
-			puppeteer:SetPos(self:GetPos() - VECTOR_UP * FLOOR_THICKNESS)
-			puppeteer:SetPos(self:LocalToWorld(VECTOR_UP * heightOffset))
+			puppeteer:SetPos(self:GetPos())
+			puppeteer:SetPos(
+				self:LocalToWorld(
+					VECTOR_UP * heightOffset
+						- VECTOR_UP:Dot(puppeteerRootScale) * VECTOR_UP
+						- VECTOR_UP * FLOOR_THICKNESS
+				)
+			)
 			local angleOffset = self:GetAngleOffset() or angle_zero
 			puppeteer:SetAngles(self:GetAngles() + angleOffset)
 
@@ -266,7 +281,7 @@ function ENT:Think()
 					filter = { self, puppeteer, self.puppet, unpack(puppeteers), "NPC", "prop_resizedragdoll_physobj" },
 				})
 				if tr.HitPos then
-					puppeteer:SetPos(tr.HitPos + tr.HitNormal * heightOffset)
+					puppeteer:SetPos(tr.HitPos + tr.HitNormal * (heightOffset - VECTOR_UP:Dot(puppeteerRootScale)))
 					local projectedForward =
 						projectVectorToPlane(self:GetAngles():Forward(), tr.HitNormal):GetNormalized()
 
