@@ -924,12 +924,14 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
-	viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
+	local id = viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
 		resizePuppeteerToPuppet(ent, puppet, boneCount, animPuppeteer)
 	end)
 
 	local function removePuppeteer()
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
+			viewPuppeteer:RemoveCallback("BuildBonePositions", id)
+
 			animPuppeteer:Remove()
 			basePuppeteer:Remove()
 			animGesturer:Remove()

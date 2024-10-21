@@ -192,14 +192,13 @@ local lastGesturePose = {}
 
 ---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 ---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
----@param puppeteer Entity
+---@param puppeteers Entity[]
 ---@param puppet Entity
 ---@param physicsCount integer
 ---@param gesturers Entity[]
 ---@param defaultBonePose DefaultBonePose
----@param viewPuppeteer Entity
-local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, defaultBonePose, viewPuppeteer)
-	if not IsValid(puppeteer) or not IsValid(puppet) then
+local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, defaultBonePose)
+	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 		return
 	end
 
@@ -212,7 +211,7 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 
 			if defaultBonePose and currentGesture.anims then
 				local gesturePos, gestureAng
-				if puppeteer:GetBoneParent(b) > -1 then
+				if puppeteers[1]:GetBoneParent(b) > -1 then
 					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
 					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
@@ -231,7 +230,7 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 					if gPos and gAng and oPos and oAng then
 						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
 						local dPos = gPos - oPos
-						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteer:GetAngles())
+						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteers[1]:GetAngles())
 
 						gesturePos, gestureAng = dPos, dAng
 					elseif lastGesturePose[b] then
@@ -240,19 +239,19 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 				end
 
 				if gesturePos then
-					puppeteer:ManipulateBonePosition(b, gesturePos)
-					viewPuppeteer:ManipulateBonePosition(b, gesturePos)
+					puppeteers[1]:ManipulateBonePosition(b, gesturePos)
+					puppeteers[2]:ManipulateBonePosition(b, gesturePos)
 				end
 				if gestureAng then
-					puppeteer:ManipulateBoneAngles(b, gestureAng)
-					viewPuppeteer:ManipulateBoneAngles(b, gestureAng)
+					puppeteers[1]:ManipulateBoneAngles(b, gestureAng)
+					puppeteers[2]:ManipulateBoneAngles(b, gestureAng)
 				end
 				lastGesturePose[b] = { gesturePos, gestureAng }
 			end
 
-			local pos, ang = puppeteer:GetBonePosition(b)
+			local pos, ang = puppeteers[1]:GetBonePosition(b)
 			if puppet:GetClass() == "prop_physics" then
-				pos, ang = puppeteer:GetPos(), puppeteer:GetAngles()
+				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
 			end
 
 			if not pos and lastPose[i] then
@@ -263,8 +262,8 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 				ang = lastPose[i][2]
 			end
 
-			if pos == puppeteer:GetPos() then
-				local matrix = puppeteer:GetBoneMatrix(b)
+			if pos == puppeteers[1]:GetPos() then
+				local matrix = puppeteers[1]:GetBoneMatrix(b)
 				if matrix then
 					pos = matrix:GetTranslation()
 					ang = matrix:GetAngles()
@@ -378,12 +377,11 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose,
-					viewPuppeteer
+					panelState.defaultBonePose
 				)
 				net.SendToServer()
 			else
@@ -431,7 +429,6 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		-- local fps = net.ReadFloat()
 		createPlaybackTimer(panelChildren, panelProps, panelState)
 	end)
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
@@ -813,12 +810,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			writeSequencePose(
-				animPuppeteer,
+				{ animPuppeteer, viewPuppeteer },
 				puppet,
 				physicsCount,
 				{ baseGesturer, animGesturer },
-				panelState.defaultBonePose,
-				viewPuppeteer
+				panelState.defaultBonePose
 			)
 			net.SendToServer()
 		else
@@ -856,12 +852,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose,
-					viewPuppeteer
+					panelState.defaultBonePose
 				)
 				net.SendToServer()
 			end
@@ -933,12 +928,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose,
-					viewPuppeteer
+					panelState.defaultBonePose
 				)
 				net.SendToServer()
 			end)
@@ -977,7 +971,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				return
 			end
 			local numframes = slider:GetMax()
-			slider:SetValue(math.Clamp(val, slider:GetMin(), numframes))
+			slider:SetValue(val)
 			local cycle = val / numframes
 			puppeteer:SetCycle(cycle)
 
@@ -992,12 +986,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose,
-					viewPuppeteer
+					panelState.defaultBonePose
 				)
 				net.SendToServer()
 				sendingFrame = false
