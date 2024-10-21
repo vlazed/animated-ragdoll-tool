@@ -143,33 +143,39 @@ end
 ---@param puppet Entity | ResizedRagdoll The puppet to set the physical bone poses
 ---@param targetPose SMHFramePose[] The target physical pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
-local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
+local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppeteer)
 	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
 
-	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-		local b = puppet:TranslatePhysBoneToBone(i)
-		local phys = puppet:GetPhysicsObjectNum(i)
-		local parent = puppet:GetPhysicsObjectNum(vendor.GetPhysBoneParent(puppet, i))
-		if not targetPose[i] or filteredBones[b + 1] then
-			continue
-		end
-		if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
-			local pos, ang =
-				LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
-			phys:EnableMotion(false)
-			phys:SetPos(pos)
-			phys:SetAngles(ang)
-		else
-			-- Then, set target position of puppet with offset
-			local fPos, fAng =
-				LocalToWorld(targetPose[i].Pos * scale, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
+	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
+		local parent = puppet:GetParent()
+		parent:SetPos(puppeteer:GetPos())
+		parent:SetAngles(puppeteer:GetAngles())
+	else
+		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+			local b = puppet:TranslatePhysBoneToBone(i)
+			local phys = puppet:GetPhysicsObjectNum(i)
+			local parent = puppet:GetPhysicsObjectNum(vendor.GetPhysBoneParent(puppet, i))
+			if not targetPose[i] or filteredBones[b + 1] then
+				continue
+			end
+			if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
+				local pos, ang =
+					LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
+				phys:EnableMotion(false)
+				phys:SetPos(pos)
+				phys:SetAngles(ang)
+			else
+				-- Then, set target position of puppet with offset
+				local fPos, fAng =
+					LocalToWorld(targetPose[i].Pos * scale, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
 
-			phys:EnableMotion(false)
-			phys:SetPos(fPos)
-			-- Finally, set angle of puppet itself
-			phys:SetAngles(fAng)
+				phys:EnableMotion(false)
+				phys:SetPos(fPos)
+				-- Finally, set angle of puppet itself
+				phys:SetAngles(fAng)
+			end
+			phys:Wake()
 		end
-		phys:Wake()
 	end
 end
 
@@ -347,7 +353,7 @@ local function readSMHPose(puppet, playerData)
 	-- Assumes that we are in the networking scope
 	local targetPose = decodePose()
 	local animatingNonPhys = net.ReadBool()
-	setPhysicalBonePoseOf(puppet, targetPose, playerData.filteredBones)
+	setPhysicalBonePoseOf(puppet, targetPose, playerData.filteredBones, playerData.puppeteer)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))

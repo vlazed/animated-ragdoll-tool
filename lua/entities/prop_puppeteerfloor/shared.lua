@@ -326,7 +326,9 @@ function ENT:Think()
 		self.shouldRecover = not self:IsInWorld()
 		local distance = self:GetPos():Distance(owner:GetPos())
 		if self.shouldRecover and now - self.lastRecoveryTime > RECOVER_DELAY and distance > RECOVERY_DISTANCE then
-			print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.outofbounds"))
+			if CLIENT then
+				print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.outofbounds"))
+			end
 			if IsValid(self.puppet) then
 				self:SetPos(self.puppet:GetPos())
 			elseif IsValid(owner) then
