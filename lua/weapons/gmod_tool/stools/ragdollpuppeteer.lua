@@ -326,6 +326,7 @@ local function decodePose()
 		pose[i].Scale = net.ReadVector()
 		pose[i].LocalPos = net.ReadVector()
 		pose[i].LocalAng = net.ReadAngle()
+		-- FIXME: We don't have to send the root position and root angle for the bones that aren't the root. Send these separately
 		pose[i].RootPos = net.ReadVector()
 		pose[i].RootAng = net.ReadAngle()
 	end
@@ -419,6 +420,8 @@ end
 local validPuppetClasses = {
 	["prop_ragdoll"] = true,
 	["prop_physics"] = true,
+	["prop_effect"] = true,
+	["prop_dynamic"] = true,
 	["prop_resizedragdoll_physparent"] = true,
 }
 
@@ -431,6 +434,10 @@ function TOOL:LeftClick(tr)
 	local userId = ply:UserID()
 
 	local puppet = tr.Entity
+	if puppet:GetClass() == "prop_effect" then
+		-- Get the immediate first model that it finds in there
+		puppet = #tr.Entity:GetChildren()>0 and tr.Entity:GetChildren()[1] or tr.Entity
+	end
 	do
 		local validPuppet = IsValid(puppet)
 		local isValidClass = validPuppetClasses[puppet:GetClass()]
@@ -800,6 +807,8 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, floor)
 				continue
 			end
 
+			-- We have to pass over the puppet's offsets over to the puppeteer, using the offsetting methods from the 
+			-- resized ragdoll entities
 			if puppet.PhysBones[i] then
 				local pMatrix = nil
 				if puppet.PhysBoneOffsets[i] then
@@ -865,11 +874,11 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	if puppet.ClassOverride and puppet.ClassOverride == "prop_resizedragdoll_physparent" then
 		chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
-		print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
 	end
 
 	local model = puppet:GetModel()
 
+	-- This gets set behind the scenes.
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
 	animPuppeteer:SetIK(false)
 	local animGesturer = createClientPuppeteer(model, puppet, ply)
