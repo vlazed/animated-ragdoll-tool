@@ -140,10 +140,12 @@ end
 
 ---Set the puppet's physical bones to a target pose specified from the puppeteer, while offsetting with an angle
 ---Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
----@param puppet Entity The puppet to set the physical bone poses
+---@param puppet Entity | ResizedRagdoll The puppet to set the physical bone poses
 ---@param targetPose SMHFramePose[] The target physical pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
+	local scale = puppet.PhysObjScales[0] or Vector(1,1,1)
+
 	for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 		local b = puppet:TranslatePhysBoneToBone(i)
 		local phys = puppet:GetPhysicsObjectNum(i)
@@ -160,7 +162,7 @@ local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones)
 		else
 			-- Then, set target position of puppet with offset
 			local fPos, fAng =
-				LocalToWorld(targetPose[i].Pos, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
+				LocalToWorld(targetPose[i].Pos * scale, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
 
 			phys:EnableMotion(false)
 			phys:SetPos(fPos)
@@ -782,40 +784,33 @@ end
 ---If the view puppeteer is a prop_resizedragdoll_parent, resize the puppeteer
 ---Source: https://github.com/NO-LOAFING/RagdollResizerPhys/blob/461c3779f2581117a2cbdd08f5a9e6fae29f7959/lua/entities/prop_resizedragdoll_physparent.lua#L508
 ---@param puppeteer Entity The puppeteer to resize
----@param puppet Entity The puppet that has the Ragdoll Resizer fields
+---@param puppet Entity | ResizedRagdoll The puppet that has the Ragdoll Resizer fields
 ---@param boneCount number The number of bones
----@param animPuppeteer Entity The core puppeteer
-local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, animPuppeteer)
+local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount)
 	if not IsValid(puppeteer) then
 		return
 	end
 
-	---@diagnostic disable-next-line
-	if puppet.SavedBoneMatrices then	
+	if puppet.SavedBoneMatrices then
 		for i = 0, boneCount - 1 do
+			---@type VMatrix
 			local cMatrix = puppeteer:GetBoneMatrix(i)
 			if not cMatrix then
 				continue
 			end
 
-			---@diagnostic disable-next-line
 			if puppet.PhysBones[i] then
 				local pMatrix = nil
-				---@diagnostic disable-next-line
 				if puppet.PhysBoneOffsets[i] then
-					---@diagnostic disable-next-line
 					pMatrix = puppeteer:GetBoneMatrix(puppet.PhysBones[i].parentid)
 				end
-				---@diagnostic disable-next-line
 				if pMatrix and not puppet:GetStretch() then
-					---@diagnostic disable-next-line
 					pMatrix:Translate(puppet.PhysBoneOffsets[i])
 
 					cMatrix:SetTranslation(pMatrix:GetTranslation())
 				end
 
 				-- Scale the puppeteer
-				---@diagnostic disable-next-line
 				cMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
 
 				-- Finally, set the puppeteer's positions
@@ -832,15 +827,14 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, animPuppete
 					pMatrix = matr
 				end
 				if pMatrix then
-					---@diagnostic disable-next-line
 					pMatrix:Translate(puppet.BoneOffsets[i]["posoffset"])
 					pMatrix:Translate(puppet:GetManipulateBonePosition(i))
-					---@diagnostic disable-next-line
 					pMatrix:Rotate(puppet.BoneOffsets[i]["angoffset"])
 					pMatrix:Rotate(puppet:GetManipulateBoneAngles(i))
 
-					---@diagnostic disable-next-line
-					pMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
+					if puppet.SavedBoneMatrices[i] then
+						pMatrix:SetScale(puppet.SavedBoneMatrices[i]:GetScale())
+					end
 					puppeteer:SetBoneMatrix(i, pMatrix)
 				end
 			end
@@ -849,7 +843,7 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, animPuppete
 end
 
 ---@param cPanel DForm
----@param puppet Entity
+---@param puppet Entity | ResizedRagdoll
 ---@param ply Player
 ---@param physicsCount integer
 ---@param floor PuppeteerFloor
@@ -864,9 +858,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		return
 	end
 
-	---@diagnostic disable-next-line
 	if puppet.ClassOverride and puppet.ClassOverride == "prop_resizedragdoll_physparent" then
-		chat.AddText("Ragdoll Puppeteer:" .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
+		chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
 		print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.ragdollresizersupport"))
 	end
 
@@ -925,7 +918,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
 	local id = viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
-		resizePuppeteerToPuppet(ent, puppet, boneCount, animPuppeteer)
+		resizePuppeteerToPuppet(ent, puppet, boneCount)
 	end)
 
 	local function removePuppeteer()

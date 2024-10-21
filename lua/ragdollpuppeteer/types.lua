@@ -126,6 +126,22 @@ local types = {}
 
 -- Miscellaneous Types
 
+---@class ResizedBoneOffset
+---@field posoffset Vector
+---@field angoffset Angle
+
+---@class ResizedPhysBones
+---@field parentid integer
+
+---@class ResizedRagdoll: Entity
+---@field PhysObjScales Vector[]
+---@field SavedBoneMatrices VMatrix[]
+---@field BoneOffsets ResizedBoneOffset[]
+---@field ClassOverride string
+---@field PhysBones integer
+---@field PhysBoneOffsets Vector[]
+---@field GetStretch fun(self: Entity|ResizedRagdoll): boolean
+
 ---@class RagdollPuppeteerPlayerField
 ---@field player Player
 ---@field puppet Entity
