@@ -814,8 +814,7 @@ end
 ---@param puppeteer Entity The puppeteer to resize
 ---@param puppet Entity | ResizedRagdoll The puppet that has the Ragdoll Resizer fields
 ---@param boneCount number The number of bones
----@param floor PuppeteerFloor The floor for giving scaling parameters
-local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, floor)
+local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount)
 	if not IsValid(puppeteer) then
 		return
 	end
@@ -838,10 +837,6 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount, floor)
 				if pMatrix then
 					pMatrix:Translate(puppet.PhysBoneOffsets[i])
 					cMatrix:SetTranslation(pMatrix:GetTranslation())
-				end
-				if not pMatrix then
-					-- If we don't have a parent, we're likely the root, assuming that all ragdolls only have one root bone.
-					floor:SetPuppeteerRootScale(puppeteer:GetRenderBounds())
 				end
 
 				-- Scale the puppeteer
@@ -952,8 +947,19 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
+	local count = 0
 	local id = viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
-		resizePuppeteerToPuppet(ent, puppet, boneCount, floor)
+		---@cast ent Entity
+		resizePuppeteerToPuppet(ent, puppet, boneCount)
+		count = count + 1
+		-- After a sufficient amount of resizing, the puppeteer should have all its bones resized so that we can finally set the root scale
+		if count >= 25 and IsValid(floor) and not floor:GetPuppeteerRootScale() and puppet.SavedBoneMatrices then
+			local floorPos = floor:GetPos()
+			local pelvisPos = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0)) and ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0)):GetTranslation() or vector_origin
+			local min = ent:GetRenderBounds()
+
+			floor:SetPuppeteerRootScale((floorPos - pelvisPos) - min)
+		end
 	end)
 
 	local function removePuppeteer()

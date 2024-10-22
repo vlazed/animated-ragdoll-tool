@@ -260,11 +260,7 @@ function ENT:Think()
 			end
 			puppeteer:SetPos(self:GetPos())
 			puppeteer:SetPos(
-				self:LocalToWorld(
-					VECTOR_UP * heightOffset
-						- VECTOR_UP:Dot(puppeteerRootScale) * VECTOR_UP
-						- VECTOR_UP * FLOOR_THICKNESS
-				)
+				self:LocalToWorld((heightOffset + VECTOR_UP:Dot(puppeteerRootScale) - FLOOR_THICKNESS) * VECTOR_UP)
 			)
 			local angleOffset = self:GetAngleOffset() or angle_zero
 			puppeteer:SetAngles(self:GetAngles() + angleOffset)
@@ -289,7 +285,7 @@ function ENT:Think()
 					},
 				})
 				if tr.HitPos then
-					puppeteer:SetPos(tr.HitPos + tr.HitNormal * (heightOffset - VECTOR_UP:Dot(puppeteerRootScale)))
+					puppeteer:SetPos(tr.HitPos + tr.HitNormal * (heightOffset + VECTOR_UP:Dot(puppeteerRootScale)))
 					local projectedForward =
 						projectVectorToPlane(self:GetAngles():Forward(), tr.HitNormal):GetNormalized()
 
