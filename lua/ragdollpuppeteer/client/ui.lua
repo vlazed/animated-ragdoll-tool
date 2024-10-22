@@ -30,6 +30,10 @@ local currentGesture = {
 	anims = {},
 }
 
+local function alwaysTrue(_)
+	return true
+end
+
 local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
 end
@@ -156,9 +160,7 @@ function UI.Layout(panelChildren, puppeteer)
 	local sequenceSheetItems = sequenceSheet:GetItems()
 	for i = 1, #sequenceSheetItems do
 		local list = sequenceSheetItems[i]["Panel"]
-		UI.PopulateSequenceList(list, puppeteer, function(_)
-			return true
-		end)
+		UI.PopulateSequenceList(list, puppeteer, alwaysTrue)
 	end
 
 	-- TODO: Rewrite UI for switching between animation lists.
@@ -1075,9 +1077,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhBrowser:OnSelect(filePath)
 		UI.ClearList(smhList)
 		smhData = smh.parseSMHFile(filePath, model)
-		populateSMHEntitiesList(smhList, model, smhData, function(_)
-			return true
-		end)
+		populateSMHEntitiesList(smhList, model, smhData, alwaysTrue)
 	end
 end
 
