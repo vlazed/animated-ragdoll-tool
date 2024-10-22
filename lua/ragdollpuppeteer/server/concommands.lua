@@ -52,9 +52,9 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 	local playbackAllowed = allowPlayback:GetInt()
 
 	if playbackAllowed <= 0 then
-		print("[Ragdoll Puppeteer] +ragdollpuppeteer_playback is disabled in this server!")
+		print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.playbackdisabled1"))
 		if game.SinglePlayer() then
-			print('[Ragdoll Puppeteer] Run "sv_ragdollpuppeteer_allow_playback 1" to enable playback')
+			print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.playbackdisabled2"))
 		end
 		return
 	end

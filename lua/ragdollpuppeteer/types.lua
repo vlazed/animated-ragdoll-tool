@@ -103,6 +103,9 @@ local types = {}
 ---@field heightOffset DNumSlider
 ---@field puppeteerColor DColorCombo
 ---@field puppeteerIgnoreZ DCheckBoxLabel
+---@field attachToGround DCheckBoxLabel
+---@field anySurface DCheckBoxLabel
+---@field incrementGestures DCheckBoxLabel
 
 ---@class PanelProps
 ---@field puppet Entity
@@ -111,7 +114,9 @@ local types = {}
 ---@field basePuppeteer Entity
 ---@field gesturer Entity
 ---@field baseGesturer Entity
+---@field viewPuppeteer Entity
 ---@field model string
+---@field floor PuppeteerFloor
 
 ---@class PanelState
 ---@field maxFrames integer
@@ -120,6 +125,22 @@ local types = {}
 ---@field physicsObjects PhysicsObject[]
 
 -- Miscellaneous Types
+
+---@class ResizedBoneOffset
+---@field posoffset Vector
+---@field angoffset Angle
+
+---@class ResizedPhysBones
+---@field parentid integer
+
+---@class ResizedRagdoll: Entity
+---@field PhysObjScales Vector[]
+---@field SavedBoneMatrices VMatrix[]
+---@field BoneOffsets ResizedBoneOffset[]
+---@field ClassOverride string
+---@field PhysBones integer
+---@field PhysBoneOffsets Vector[]
+---@field GetStretch fun(self: Entity|ResizedRagdoll): boolean
 
 ---@class RagdollPuppeteerPlayerField
 ---@field player Player
@@ -133,6 +154,8 @@ local types = {}
 ---@field filteredBones integer[]
 ---@field floor PuppeteerFloor
 ---@field lastPose BonePose[]
+---@field animateNonPhys boolean
+---@field poseParams table<number>
 
 ---@class RagdollPuppeteer: Entity
 ---@field angleOffset Angle
@@ -156,5 +179,7 @@ local types = {}
 ---@field RemovePuppeteers fun(self: PuppeteerFloor) Remove puppeteers from the world
 ---@field ClearPuppeteers fun(self: PuppeteerFloor) Clear the puppeteer table
 ---@field SetPlayerOwner fun(self: PuppeteerFloor, ply: Player)
+---@field SetPuppeteerRootScale fun(self: PuppeteerFloor, newScale: Vector)
+---@field GetPuppeteerRootScale fun(self: PuppeteerFloor): puppeteerRootScale: Vector
 
 return types

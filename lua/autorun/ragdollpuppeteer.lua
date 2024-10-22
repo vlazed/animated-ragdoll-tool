@@ -23,8 +23,10 @@ if SERVER then
 
 	---@param userId integer
 	local function addPlayerField(userId)
+		local player = Player(userId)
+		local animateNonPhys = player:GetInfo("ragdollpuppeteer_animatenonphys")
 		RAGDOLLPUPPETEER_PLAYERS[userId] = {
-			player = Player(userId),
+			player = player,
 			puppet = NULL,
 			puppeteer = NULL,
 			physicsCount = 0,
@@ -35,6 +37,8 @@ if SERVER then
 			bonesReset = false,
 			floor = NULL,
 			lastPose = {},
+			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
+			poseParams = {},
 		}
 	end
 

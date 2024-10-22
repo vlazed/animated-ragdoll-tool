@@ -30,6 +30,10 @@ local currentGesture = {
 	anims = {},
 }
 
+local function alwaysTrue(_)
+	return true
+end
+
 local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
 end
@@ -98,7 +102,7 @@ end
 ---The longest animation is assumed to be the main animation for the sequence
 ---@param sequenceInfo SequenceInfo
 ---@param puppeteer Entity
----@return table|unknown
+---@return table|unknown longestAnim The longest animation of the puppeteer's sequence
 local function findLongestAnimationIn(sequenceInfo, puppeteer)
 	local longestAnim = {
 		numframes = -1,
@@ -156,9 +160,7 @@ function UI.Layout(panelChildren, puppeteer)
 	local sequenceSheetItems = sequenceSheet:GetItems()
 	for i = 1, #sequenceSheetItems do
 		local list = sequenceSheetItems[i]["Panel"]
-		UI.PopulateSequenceList(list, puppeteer, function(_)
-			return true
-		end)
+		UI.PopulateSequenceList(list, puppeteer, alwaysTrue)
 	end
 
 	-- TODO: Rewrite UI for switching between animation lists.
@@ -169,6 +171,7 @@ function UI.Layout(panelChildren, puppeteer)
 end
 
 ---@param pose SMHFramePose[]
+---@param puppeteer RagdollPuppeteer
 local function encodePose(pose, puppeteer)
 	local b = puppeteer:TranslatePhysBoneToBone(0)
 	local matrix = puppeteer:GetBoneMatrix(b)
@@ -191,26 +194,29 @@ local lastGesturePose = {}
 
 ---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 ---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
----@param puppeteer Entity
----@param puppet Entity
+---@param puppeteers Entity[]
+---@param puppet Entity | ResizedRagdoll
 ---@param physicsCount integer
 ---@param gesturers Entity[]
 ---@param defaultBonePose DefaultBonePose
-local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, defaultBonePose)
-	if not IsValid(puppeteer) or not IsValid(puppet) then
+local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, defaultBonePose)
+	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 		return
 	end
 
 	if game.SinglePlayer() then
 		local baseGesturer = gesturers[1]
 		local animGesturer = gesturers[2]
+		local animPuppeteer = puppeteers[1]
+		local basePuppeteer = puppeteers[2]
+		local viewPuppeteer = puppeteers[3]
 		local newPose = {}
 		for i = 0, physicsCount - 1 do
 			local b = puppet:TranslatePhysBoneToBone(i)
 
 			if defaultBonePose and currentGesture.anims then
 				local gesturePos, gestureAng
-				if puppeteer:GetBoneParent(b) > -1 then
+				if puppeteers[1]:GetBoneParent(b) > -1 then
 					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
 					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
 
@@ -229,7 +235,7 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 					if gPos and gAng and oPos and oAng then
 						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
 						local dPos = gPos - oPos
-						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteer:GetAngles())
+						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteers[1]:GetAngles())
 
 						gesturePos, gestureAng = dPos, dAng
 					elseif lastGesturePose[b] then
@@ -237,12 +243,23 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 					end
 				end
 
-				puppeteer:ManipulateBonePosition(b, gesturePos)
-				puppeteer:ManipulateBoneAngles(b, gestureAng)
+				if gesturePos then
+					animPuppeteer:ManipulateBonePosition(b, gesturePos)
+					basePuppeteer:ManipulateBonePosition(b, gesturePos)
+					viewPuppeteer:ManipulateBonePosition(b, gesturePos)
+				end
+				if gestureAng then
+					animPuppeteer:ManipulateBoneAngles(b, gestureAng)
+					basePuppeteer:ManipulateBoneAngles(b, gestureAng)
+					viewPuppeteer:ManipulateBoneAngles(b, gestureAng)
+				end
 				lastGesturePose[b] = { gesturePos, gestureAng }
 			end
 
-			local pos, ang = puppeteer:GetBonePosition(b)
+			local pos, ang = puppeteers[3]:GetBonePosition(b)
+			if puppet:GetClass() == "prop_physics" then
+				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
+			end
 
 			if not pos and lastPose[i] then
 				pos = lastPose[i][1]
@@ -252,15 +269,25 @@ local function writeSequencePose(puppeteer, puppet, physicsCount, gesturers, def
 				ang = lastPose[i][2]
 			end
 
-			if pos == puppeteer:GetPos() then
-				local matrix = puppeteer:GetBoneMatrix(b)
+			if pos == animPuppeteer:GetPos() then
+				local matrix = animPuppeteer:GetBoneMatrix(b)
 				if matrix then
 					pos = matrix:GetTranslation()
 					ang = matrix:GetAngles()
 				end
 			end
 
-			-- Save the current bone pose, so later iterations can use it to offset their own bone poses with respect to this one
+			if i == 0 then
+				local baseMatrix = basePuppeteer:GetBoneMatrix(b)
+				local animMatrix = animPuppeteer:GetBoneMatrix(b)
+				if baseMatrix and animMatrix and puppet.SavedBoneMatrices and puppet.SavedBoneMatrices[b] then
+					local scale = puppet.SavedBoneMatrices[b]:GetScale()
+					local offsetPos = (animMatrix:GetTranslation() - baseMatrix:GetTranslation()) * scale
+					pos = baseMatrix:GetTranslation() + offsetPos
+				end
+			end
+
+			-- Save the current bone pose, so later iterations can use it if the bone matrix doesn't exist for some reason
 			newPose[i] = { pos, ang }
 
 			net.WriteVector(pos)
@@ -273,18 +300,14 @@ end
 
 ---@param netString string
 ---@param frame integer
----@param angOffset table<Angle, Angle, Angle>
 ---@param physFrames SMHFrameData[]
 ---@param nonPhysFrames SMHFrameData[]
 ---@param nonPhys boolean
-local function writeSMHPose(netString, frame, angOffset, physFrames, nonPhysFrames, nonPhys, puppeteer)
+local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer)
 	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
-	local compressedOffset = compressTableToJSON(getAngleTrio(angOffset))
 	net.Start(netString, true)
 	net.WriteBool(false)
 	encodePose(physBonePose, puppeteer)
-	net.WriteUInt(#compressedOffset, 16)
-	net.WriteData(compressedOffset)
 	net.WriteBool(nonPhys)
 	if nonPhys then
 		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
@@ -301,12 +324,15 @@ local baseFPS = 30
 ---@param baseSlider DNumSlider
 ---@param gestureSlider DNumSlider
 ---@param val number
-local function moveSliderBy(baseSlider, gestureSlider, val)
+---@param incrementGestures boolean
+local function moveSliderBy(baseSlider, gestureSlider, val, incrementGestures)
 	if not IsValid(baseSlider) then
 		return
 	end
 	baseSlider:SetValue((baseSlider:GetValue() + val) % baseSlider:GetMax())
-	gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+	if incrementGestures then
+		gestureSlider:SetValue((gestureSlider:GetValue() + val) % gestureSlider:GetMax())
+	end
 end
 
 ---@param panelChildren PanelChildren
@@ -321,6 +347,8 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local smhList = panelChildren.smhList
 
 	local animPuppeteer = panelProps.puppeteer
+	local basePuppeteer = panelProps.basePuppeteer
+	local viewPuppeteer = panelProps.viewPuppeteer
 	local baseGesturer = panelProps.baseGesturer
 	local animGesturer = panelProps.gesturer
 	local puppet = panelProps.puppet
@@ -329,11 +357,9 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 	local playbackEnabled = GetConVar("sv_ragdollpuppeteer_allow_playback")
 		and GetConVar("sv_ragdollpuppeteer_allow_playback"):GetBool()
 	if not playbackEnabled then
-		chat.AddText("Ragdoll Puppeteer: Ragdoll Puppeteer playback is disabled!")
+		chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.playbackdisabled1"))
 		if game.SinglePlayer() then
-			chat.AddText(
-				'Ragdoll Puppeteer: In the console, run "sv_ragdollpuppeteer_allow_playback 1" to enable playback'
-			)
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.playbackdisabled2"))
 		end
 		return
 	end
@@ -348,9 +374,11 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 
 		local shouldIncrement = GetConVar("ragdollpuppeteer_playback_shouldincrement")
 			and GetConVar("ragdollpuppeteer_playback_shouldincrement"):GetInt() > 0
+		local incrementGestures = GetConVar("ragdollpuppeteer_playback_incrementgestures")
+			and GetConVar("ragdollpuppeteer_playback_incrementgestures"):GetInt() > 0
 		if shouldIncrement then
 			local increment = fps / baseFPS
-			moveSliderBy(baseSlider, gestureSlider, increment)
+			moveSliderBy(baseSlider, gestureSlider, increment, incrementGestures)
 		else
 			local _, option = sourceBox:GetSelected()
 			if option == "sequence" then
@@ -358,13 +386,14 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 				local val = baseSlider:GetValue()
 				local cycle = val / numframes
 				animPuppeteer:SetCycle(cycle)
+				viewPuppeteer:SetCycle(cycle)
 
 				net.Start("onFrameChange", true)
 				net.WriteBool(true)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
@@ -376,7 +405,6 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 					writeSMHPose(
 						"onFrameChange",
 						baseSlider:GetValue(),
-						angOffset,
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
@@ -392,6 +420,14 @@ local function removePlaybackTimer()
 	timer.Remove("ragdollpuppeteer_playback")
 end
 
+---@param puppeteer Entity
+---@param sequenceIndex integer
+local function setSequenceOf(puppeteer, sequenceIndex)
+	puppeteer:ResetSequence(sequenceIndex)
+	puppeteer:SetCycle(0)
+	puppeteer:SetPlaybackRate(0)
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
@@ -402,17 +438,58 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, -increment)
+		moveSliderBy(baseSlider, gestureSlider, -increment, panelChildren.incrementGestures:GetChecked())
 	end)
 	net.Receive("onFrameNext", function()
 		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, increment)
+		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		-- local fps = net.ReadFloat()
 		createPlaybackTimer(panelChildren, panelProps, panelState)
 	end)
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
+	net.Receive("onSequenceChange", function()
+		-- Handle pasting of NPC sequences onto the puppet
+		local sequence = net.ReadString()
+		local cycle = net.ReadFloat()
+		local poseParamValues = {}
+		for i = 1, panelProps.puppeteer:GetNumPoseParameters() do
+			local val = net.ReadFloat()
+			if val then
+				poseParamValues[i] = val
+			end
+		end
+
+		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
+		if sequenceId > 0 then
+			setSequenceOf(panelProps.viewPuppeteer, sequenceId)
+			setSequenceOf(panelProps.puppeteer, sequenceId)
+			setSequenceOf(panelProps.basePuppeteer, sequenceId)
+
+			local poseParams = panelChildren.poseParams
+			local sequenceList = panelChildren.sequenceList
+			---@diagnostic disable-next-line
+			local scrollBar = sequenceList.VBar
+			---@cast scrollBar DVScrollBar
+			local baseSlider = panelChildren.baseSlider
+			local row = sequenceList:GetLine(sequenceId + 1)
+			---@cast row DListView_Line
+			sequenceList:SelectItem(row)
+			-- Move the scrollbar to the location of the highlighted sequence item in the sequence list
+			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
+			-- Send all frame and pose parameter updates to the server
+			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
+			for i, poseParamValue in ipairs(poseParamValues) do
+				poseParams[i].slider:SetValue(poseParamValue)
+			end
+		else
+			notification.AddLegacy(
+				language.GetPhrase("ui.ragdollpuppeteer.notify.pastefailed"):format(sequence),
+				NOTIFY_ERROR,
+				5
+			)
+		end
+	end)
 end
 
 local boneIcons = {
@@ -532,6 +609,24 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"ragdollpuppeteer_playback_shouldincrement",
 		"#ui.ragdollpuppeteer.tooltip.shouldincrement"
 	)
+	local incrementGestures = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.incrementgestures",
+		"ragdollpuppeteer_playback_incrementgestures",
+		"#ui.ragdollpuppeteer.tooltip.incrementgestures"
+	)
+	local attachToGround = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.attachtoground",
+		"ragdollpuppeteer_attachtoground",
+		"#ui.ragdollpuppeteer.tooltip.attachtoground"
+	)
+	local anySurface = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.anysurface",
+		"ragdollpuppeteer_anysurface",
+		"#ui.ragdollpuppeteer.tooltip.anysurface"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
@@ -543,7 +638,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"#ui.ragdollpuppeteer.tooltip.ignorez"
 	)
 
-	-- Hack: Switch the active tab to get the size of that
+	-- Hack: Switch the active tab to set the size based on the contents of the puppeteer tab
 	settingsSheet:SetActiveTab(tab2.Tab)
 	settingsSheet:NoClipping(true)
 	settingsSheet:InvalidateChildren(true)
@@ -598,15 +693,10 @@ function UI.ConstructPanel(cPanel, panelProps)
 		heightOffset = heightOffset,
 		puppeteerColor = puppeteerColor,
 		puppeteerIgnoreZ = puppeteerIgnoreZ,
+		attachToGround = attachToGround,
+		anySurface = anySurface,
+		incrementGestures = incrementGestures,
 	}
-end
-
----@param puppeteer Entity
----@param sequenceIndex integer
-local function setSequenceOf(puppeteer, sequenceIndex)
-	puppeteer:ResetSequence(sequenceIndex)
-	puppeteer:SetCycle(0)
-	puppeteer:SetPlaybackRate(0)
 end
 
 ---@param panelChildren PanelChildren
@@ -632,6 +722,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local heightOffset = panelChildren.heightOffset
 	local puppeteerColor = panelChildren.puppeteerColor
 	local puppeteerIgnoreZ = panelChildren.puppeteerIgnoreZ
+	local attachToGround = panelChildren.attachToGround
+	local anySurface = panelChildren.anySurface
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -640,8 +732,19 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local puppet = panelProps.puppet
 	local model = panelProps.model
 	local physicsCount = panelProps.physicsCount
+	local floor = panelProps.floor
+	local viewPuppeteer = panelProps.viewPuppeteer
 
 	local smhData
+
+	-- Set min and max of height slider for Resized Ragdolls
+	---@diagnostic disable-next-line
+	if puppet.SavedBoneMatrices then
+		---@diagnostic disable-next-line
+		local scale = math.max(puppet.SavedBoneMatrices[0]:GetScale():Unpack())
+		heightOffset:SetMin(-scale * 100)
+		heightOffset:SetMax(scale * 100)
+	end
 
 	setupBoneNodesOf(puppet, boneTree)
 
@@ -662,9 +765,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		convarChanging = false
 	end, "ragdollpuppeteer_colorChanged")
 
+	---@param newVal boolean
+	function attachToGround:OnChange(newVal)
+		anySurface:SetEnabled(newVal)
+	end
+
 	---@param color Color
 	function puppeteerColor:OnValueChanged(color)
-		animPuppeteer:SetColor4Part(color.r, color.g, color.b, alphaConVar and alphaConVar:GetInt() or 100)
+		viewPuppeteer:SetColor4Part(color.r, color.g, color.b, alphaConVar and alphaConVar:GetInt() or 100)
 		if convarChanging then
 			return
 		end
@@ -676,10 +784,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	puppeteerColor:SetColor(colorConVar and helpers.getColorFromString(colorConVar:GetString()) or COLOR_BLUE)
 
 	function heightOffset:OnValueChanged(newValue)
-		animPuppeteer.heightOffset = newValue
-		animGesturer.heightOffset = newValue
-		basePuppeteer.heightOffset = newValue
-		baseGesturer.heightOffset = newValue
+		---@diagnostic disable-next-line
+		floor:SetHeight(newValue)
 	end
 
 	function playButton:OnToggled(on)
@@ -705,7 +811,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function onAngleTrioValueChange()
 		local angleTrio = getAngleTrio(angOffset)
 		local angleOffset = Angle(angleTrio[1], angleTrio[2], angleTrio[3])
-		animPuppeteer.angleOffset = angleOffset
+		floor:SetAngleOffset(angleOffset)
 
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
@@ -713,13 +819,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			local val = baseSlider:GetValue()
 			local cycle = val / numframes
 			animPuppeteer:SetCycle(cycle)
+			viewPuppeteer:SetCycle(cycle)
 
 			net.Start("onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
 			writeSequencePose(
-				animPuppeteer,
+				{ animPuppeteer, basePuppeteer, viewPuppeteer },
 				puppet,
 				physicsCount,
 				{ baseGesturer, animGesturer },
@@ -731,7 +838,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				writeSMHPose(
 					"onFrameChange",
 					baseSlider:GetValue(),
-					angOffset,
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
 					nonPhysCheckbox:GetChecked(),
@@ -751,8 +857,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local function onPoseParamChange(newValue, paramName, slider)
 		local _, option = sourceBox:GetSelected()
 
-		animPuppeteer:SetPoseParameter(paramName, newValue)
-		animPuppeteer:InvalidateBoneCache()
+		-- Set the pose parameter in the floor. The floor will automatically set the pose parameters through there
+		floor["Set" .. paramName](floor, newValue)
 
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
@@ -762,7 +868,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
@@ -819,10 +925,11 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if mutatedSequence.label ~= seqInfo.label then
 			mutatedSequence = seqInfo
 			setSequenceOf(puppeteer, currentIndex)
-			setSequenceOf(basePuppeteer, currentIndex)
 			if isGesture then
 				setSequenceOf(baseGesturer, currentIndex)
 			else
+				setSequenceOf(basePuppeteer, currentIndex)
+				setSequenceOf(viewPuppeteer, currentIndex)
 				baseFPS = row:GetValue(3)
 				panelState.maxFrames = row:GetValue(4) - 1
 			end
@@ -837,7 +944,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				writeSequencePose(
-					animPuppeteer,
+					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
@@ -870,12 +977,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	local sendingFrame = false
-	local function sliderValueChanged(slider, val, sequence, puppeteer, smh)
-		local prevFrame = slider.prevFrame
-		-- Only send when we go frame by frame
-		if math.abs(prevFrame - val) < 1 / baseFPS then
-			return
-		end
+	local function sliderValueChanged(slider, val, sequence, puppeteer, smh, sendNet)
 		local _, option = sourceBox:GetSelected()
 		if option == "sequence" then
 			if not sequence.anims then
@@ -885,51 +987,62 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				return
 			end
 			local numframes = slider:GetMax()
-			slider:SetValue(math.Clamp(val, slider:GetMin(), numframes))
+			slider:SetValue(val)
 			local cycle = val / numframes
 			puppeteer:SetCycle(cycle)
 
-			if sendingFrame then
-				return
-			end
+			if sendNet then
+				if sendingFrame then
+					return
+				end
 
-			sendingFrame = true
-			net.Start("onFrameChange", true)
-			net.WriteBool(true)
-			net.WriteFloat(cycle)
-			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(
-				animPuppeteer,
-				puppet,
-				physicsCount,
-				{ baseGesturer, animGesturer },
-				panelState.defaultBonePose
-			)
-			net.SendToServer()
-			sendingFrame = false
-		else
-			if smh and smhList:GetSelected()[1] then
-				writeSMHPose(
-					"onFrameChange",
-					val,
-					angOffset,
-					smhList:GetSelected()[1]:GetSortValue(3),
-					smhList:GetSelected()[1]:GetSortValue(4),
-					nonPhysCheckbox:GetChecked(),
-					animPuppeteer
+				sendingFrame = true
+				net.Start("onFrameChange", true)
+				net.WriteBool(true)
+				net.WriteFloat(cycle)
+				net.WriteBool(nonPhysCheckbox:GetChecked())
+				writeSequencePose(
+					{ animPuppeteer, basePuppeteer, viewPuppeteer },
+					puppet,
+					physicsCount,
+					{ baseGesturer, animGesturer },
+					panelState.defaultBonePose
 				)
+				net.SendToServer()
+				sendingFrame = false
+			end
+		else
+			if sendNet then
+				if smh and smhList:GetSelected()[1] then
+					writeSMHPose(
+						"onFrameChange",
+						val,
+						smhList:GetSelected()[1]:GetSortValue(3),
+						smhList:GetSelected()[1]:GetSortValue(4),
+						nonPhysCheckbox:GetChecked(),
+						animPuppeteer
+					)
+				end
 			end
 		end
-
 		slider.prevFrame = val
 	end
 
 	function baseSlider:OnValueChanged(val)
-		sliderValueChanged(baseSlider, val, currentSequence, animPuppeteer, true)
+		local prevFrame = self.prevFrame
+		if math.abs(prevFrame - val) < 1 / baseFPS then
+			return
+		end
+		sliderValueChanged(self, val, currentSequence, animPuppeteer, true, true)
+		sliderValueChanged(self, val, currentSequence, viewPuppeteer, true, false)
 	end
 
 	function gestureSlider:OnValueChanged(val)
-		sliderValueChanged(gestureSlider, val, currentGesture, animGesturer, false)
+		local prevFrame = self.prevFrame
+		if math.abs(prevFrame - val) < 1 / baseFPS then
+			return
+		end
+		sliderValueChanged(self, val, currentGesture, animGesturer, false, true)
 	end
 
 	function sourceBox:OnSelect(_, _, option)
@@ -954,7 +1067,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		writeSMHPose(
 			"onSequenceChange",
 			0,
-			angOffset,
 			smhList:GetSelected()[1]:GetSortValue(3),
 			smhList:GetSelected()[1]:GetSortValue(4),
 			nonPhysCheckbox:GetChecked(),
@@ -965,9 +1077,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhBrowser:OnSelect(filePath)
 		UI.ClearList(smhList)
 		smhData = smh.parseSMHFile(filePath, model)
-		populateSMHEntitiesList(smhList, model, smhData, function(_)
-			return true
-		end)
+		populateSMHEntitiesList(smhList, model, smhData, alwaysTrue)
 	end
 end
 

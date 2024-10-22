@@ -12,20 +12,87 @@ ENT.Author = "vlazed"
 ENT.Purpose = "Control the position and rotation of the puppeteer using the floor"
 ENT.Instructions = "Set the list of puppeteers to move"
 ENT.Spawnable = false
+ENT.Editable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
 local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
 local LOCAL_INFRONT = Vector(100, 0, 10)
+local VECTOR_UP = Vector(0, 0, 1)
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
 local PUPPETEER_MATERIAL_IGNOREZ = constants.PUPPETEER_MATERIAL_IGNOREZ
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
+local projectVectorToPlane = helpers.projectVectorToPlane
 local floorCorrect = helpers.floorCorrect
 
 local puppeteerIgnoreZ = GetConVar("ragdollpuppeteer_ignorez")
 local puppeteerShow = GetConVar("ragdollpuppeteer_showpuppeteer")
+local attachToGround = GetConVar("ragdollpuppeteer_attachtoground")
+local anySurface = GetConVar("ragdollpuppeteer_anysurface")
+
+function ENT:SetupDataTables()
+	local scale = math.max(
+		self.puppet and self.puppet.SavedBoneMatrices and self.puppet.SavedBoneMatrices[0]:GetScale():Unpack() or 1
+	) * 100
+
+	-- Wow this looks ugly lmao
+	self:NetworkVar(
+		"Float",
+		0,
+		"Height",
+		{ KeyName = "height", Edit = { order = 1, category = "Offset", min = -scale, max = scale, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		1,
+		"Pitch",
+		{ KeyName = "pitch", Edit = { order = 2, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		2,
+		"Yaw",
+		{ KeyName = "yaw", Edit = { order = 3, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+	self:NetworkVar(
+		"Float",
+		3,
+		"Roll",
+		{ KeyName = "roll", Edit = { order = 4, category = "Offset", min = -180, max = 180, type = "Float" } }
+	)
+
+	self:NetworkVarNotify("Pitch", self.UpdateAngleOffset)
+	self:NetworkVarNotify("Yaw", self.UpdateAngleOffset)
+	self:NetworkVarNotify("Roll", self.UpdateAngleOffset)
+
+	if self.puppeteers and self.puppeteers[#self.puppeteers] then
+		---@type RagdollPuppeteer
+		local puppeteer = self.puppeteers[#self.puppeteers]
+		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+			local min, max = puppeteer:GetPoseParameterRange(i)
+			local name = puppeteer:GetPoseParameterName(i)
+			self:NetworkVar("Float", 4 + i, name, {
+				KeyName = name,
+				Edit = { category = "Pose Parameters", min = min, max = max, type = "Float", order = i },
+			})
+		end
+	end
+end
+
+function ENT:GetPoseParameters()
+	local data = {}
+	if self.puppeteers and self.puppeteers[#self.puppeteers] then
+		---@type RagdollPuppeteer
+		local puppeteer = self.puppeteers[#self.puppeteers]
+		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+			local name = puppeteer:GetPoseParameterName(i)
+			data[name] = puppeteer:GetPoseParameter(name)
+		end
+	end
+	return data
+end
 
 ---Add a table of puppeteers to the floor
 ---@param puppeteerTable Entity[]
@@ -40,6 +107,8 @@ function ENT:AddPuppeteers(puppeteerTable)
 	for _, puppeteer in ipairs(puppeteerTable) do
 		table.insert(self.puppeteers, puppeteer)
 	end
+
+	self:SetupDataTables()
 end
 
 ---Set the floor's puppet
@@ -49,7 +118,7 @@ function ENT:SetPuppet(puppet)
 end
 
 ---Get the floor's puppet
----@return Entity
+---@return Entity | ResizedRagdoll
 function ENT:GetPuppet()
 	return self.puppet
 end
@@ -79,6 +148,17 @@ end
 
 function ENT:SetAngleOffset(angle)
 	self.angleOffset = angle
+	self:SetPitch(angle.p) ---@diagnostic disable-line
+	self:SetYaw(angle.y) ---@diagnostic disable-line
+	self:SetRoll(angle.r) ---@diagnostic disable-line
+end
+
+function ENT:UpdateAngleOffset()
+	self.angleOffset = Angle(self:GetPitch(), self:GetYaw(), self:GetRoll()) ---@diagnostic disable-line
+end
+
+function ENT:GetAngleOffset()
+	return self.angleOffset
 end
 
 local propertyOrToolFilters = {
@@ -102,7 +182,7 @@ local propertyOrToolFilters = {
 function ENT:CanTool(ply, tr, mode, tool, button)
 	if propertyOrToolFilters[mode] then
 		if CLIENT then
-			notification.AddLegacy("This tool is disabled on the puppeteer!", NOTIFY_ERROR, 3)
+			notification.AddLegacy(language.GetPhrase("ui.ragdollpuppeteer.notify.tooldisabled"), NOTIFY_ERROR, 3)
 		end
 		return false
 	end
@@ -122,19 +202,33 @@ function ENT:CanProperty(ply, property)
 	return true
 end
 
+function ENT:GetPuppeteerRootScale()
+	return self.puppeteerRootScale
+end
+
+function ENT:SetPuppeteerRootScale(newScale)
+	self.puppeteerRootScale = newScale
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
 		return true
 	end
 
+	if not self:GetAngleOffset() then
+		self:SetAngleOffset(angle_zero)
+	end
+	attachToGround = attachToGround or GetConVar("ragdollpuppeteer_attachtoground")
+	anySurface = anySurface or GetConVar("ragdollpuppeteer_anysurface")
+
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
-	if puppeteers[1] and IsValid(puppeteers[1]) then
-		local puppeteer = puppeteers[1]
-		if not self.height then
-			self.height = helpers.getRootHeightDifferenceOf(puppeteer)
+	if puppeteers[#puppeteers] and IsValid(puppeteers[#puppeteers]) then
+		local puppeteer = puppeteers[#puppeteers]
+		if not self.puppeteerHeight then
+			self.puppeteerHeight = helpers.getRootHeightDifferenceOf(puppeteer)
 		end
 		if CLIENT then
 			puppeteerShow = puppeteerShow or GetConVar("ragdollpuppeteer_showpuppeteer")
@@ -153,17 +247,58 @@ function ENT:Think()
 	end
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
-			local heightOffset = puppeteer.heightOffset or 0
-			puppeteer:SetPos(self:GetPos() - Vector(0, 0, FLOOR_THICKNESS))
-			puppeteer:SetPos(self:LocalToWorld(Vector(0, 0, heightOffset)))
-			if SERVER then
-				puppeteer:SetAngles(self:GetAngles() + self.angleOffset)
-			else
-				local angleOffset = puppeteer.angleOffset or angle_zero
-				puppeteer:SetAngles(self:GetAngles() + angleOffset)
+			local heightOffset = self:GetHeight() or 0 ---@diagnostic disable-line
+			local puppeteerRootScale = self:GetPuppeteerRootScale() or vector_origin
+			for i = 0, puppeteer:GetNumPoseParameters() - 1 do
+				local poseName = puppeteer:GetPoseParameterName(i)
+				if self["Get" .. poseName] then
+					puppeteer:SetPoseParameter(poseName, self["Get" .. poseName](self))
+					if CLIENT then
+						puppeteer:InvalidateBoneCache()
+					end
+				end
 			end
-			if self.height > RAGDOLL_HEIGHT_DIFFERENCE then
-				floorCorrect(puppeteer, puppeteer, 1, self.height)
+			puppeteer:SetPos(self:GetPos())
+			puppeteer:SetPos(
+				self:LocalToWorld((heightOffset + VECTOR_UP:Dot(puppeteerRootScale) - FLOOR_THICKNESS) * VECTOR_UP)
+			)
+			local angleOffset = self:GetAngleOffset() or angle_zero
+			puppeteer:SetAngles(self:GetAngles() + angleOffset)
+
+			local shouldAttachToGround = attachToGround:GetInt() > 0
+			local shouldAttachToAnySurface = anySurface:GetInt() > 0
+
+			if shouldAttachToGround then
+				local rayDirection = shouldAttachToAnySurface and -self:GetAngles():Up() or -VECTOR_UP
+				---@type TraceResult
+				local tr = util.TraceLine({
+					start = self:GetPos(),
+					endpos = rayDirection * 1e9,
+					filter = {
+						self,
+						puppeteer,
+						self.puppet,
+						self.puppet:GetParent(),
+						unpack(puppeteers),
+						"NPC",
+						"prop_resizedragdoll_physobj",
+					},
+				})
+				if tr.HitPos then
+					puppeteer:SetPos(tr.HitPos + tr.HitNormal * (heightOffset + VECTOR_UP:Dot(puppeteerRootScale)))
+					local projectedForward =
+						projectVectorToPlane(self:GetAngles():Forward(), tr.HitNormal):GetNormalized()
+
+					puppeteer:SetAngles(projectedForward:AngleEx(tr.HitNormal))
+					puppeteer:SetAngles(puppeteer:LocalToWorldAngles(angleOffset))
+					self.hitPos = tr.HitPos
+				end
+			else
+				self.hitPos = nil
+			end
+
+			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
+				floorCorrect(puppeteer, puppeteer, 1, self.puppeteerHeight)
 			end
 		end
 	end
@@ -190,7 +325,9 @@ function ENT:Think()
 		self.shouldRecover = not self:IsInWorld()
 		local distance = self:GetPos():Distance(owner:GetPos())
 		if self.shouldRecover and now - self.lastRecoveryTime > RECOVER_DELAY and distance > RECOVERY_DISTANCE then
-			print("[Ragdoll Puppeteer] Floor is out of bounds and far from player! Recovering floor...")
+			if CLIENT then
+				print("[Ragdoll Puppeteer] " .. language.GetPhrase("ui.ragdollpuppeteer.notify.outofbounds"))
+			end
 			if IsValid(self.puppet) then
 				self:SetPos(self.puppet:GetPos())
 			elseif IsValid(owner) then
@@ -218,8 +355,8 @@ function ENT:SetPhysicsSize(puppeteer)
 	local corner = puppeteer:OBBMins()
 
 	local thickness = FLOOR_THICKNESS
-	local length = corner.x
-	local width = corner.y
+	local length = math.abs(corner.x) + 5
+	local width = math.abs(corner.y) + 5
 	local points = {
 		Vector(length, width, thickness),
 		Vector(length, width, -thickness),
