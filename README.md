@@ -3,13 +3,13 @@
 
 https://github.com/user-attachments/assets/0c9c8957-0ffa-4592-a3ca-d7ae0c6c2880
 
-The [Ragdoll Puppeteer](https://steamcommunity.com/sharedfiles/filedetails/?id=3333911060) is a companion tool for ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like layer sequences or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
+The [Ragdoll Puppeteer](https://steamcommunity.com/sharedfiles/filedetails/?id=3333911060) is a companion tool for prop or ragdoll animations. Unlike the Stand Poser, this tool can set any pose for the prop/ragdoll. Unlike the existing Animated Props tool, the Ragdoll Puppeteer can import custom animations from Stop Motion Helper, but there are no fancy features like layer sequences or bone remapping. Like Ragdoll Mover (RGM) and Stop Motion Helper (SMH), the puppeteer serves as an additional utility to the GMod animator's toolkit to accelerate any animating workflow.
 
 Here are two ways on how you can use this tool:
 
 - "Bake" a sequence onto SMH (in whatever resolution you desire), and use the ragdoll mover and other posing tools for a new animation. For example, you can either use a premade running animation, or animate your own using SMH. With the animation, use SMH to outline a base trajectory for the ragdoll and use RGM to make adjustments to the pose on each frame.
     - If the sequence of SMH animation moves the character root, you can automate the movement of a character in Stop Motion Helper, without using RGM. For instance, one can combine this tool's update position and frame advancement commands to move the origin forward in its walk cycle.
-- Initially puppeteer a ragdoll to an animation frame, and then make additional adjustments using the RGM. For instance, you can first set the Heavy to his primary weapon sequence, and then adjust his hands to hold a different weapon. You can also use a pose saved from a SMH animation.
+- Initially puppeteer a prop/ragdoll to an animation frame, and then make additional adjustments using the RGM. For instance, you can first set the Heavy to his primary weapon sequence, and then adjust his hands to hold a different weapon. You can also use a pose saved from a SMH animation.
 
 ## Disclaimer
 
