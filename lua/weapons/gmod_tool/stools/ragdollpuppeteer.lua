@@ -990,6 +990,10 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
+		if not IsValid(animPuppeteer) or not IsValid(animGesturer) then 
+			return 
+		end
+
 		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer)
 		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer)
 		net.Start("queryNonPhysBonePoseOfPuppet")
