@@ -114,6 +114,9 @@ function TOOL:Cleanup(userId)
 			if IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer) then
 				RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer:Remove()
 			end
+			if IsValid(RAGDOLLPUPPETEER_PLAYERS[userId].floor) then
+				RAGDOLLPUPPETEER_PLAYERS[userId].floor:Remove()
+			end
 			RAGDOLLPUPPETEER_PLAYERS[userId].physicsCount = 0
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
@@ -463,17 +466,22 @@ function TOOL:LeftClick(tr)
 		return true
 	end
 
+	if IsValid(self:GetAnimationPuppet())then
+		-- If we're selecting a different character, cleanup the previous selection
+		if self:GetAnimationPuppet() ~= puppet  then
+			self:Cleanup(userId)
+		else
+			-- We're selecting the same entity. Don't do anything else 
+			return false
+		end
+	end
+
 	local physicsCount = puppet:GetPhysicsObjectCount()
 	local puppetModel = puppet:GetModel()
 
 	---@type Entity
 	local animPuppeteer = createServerPuppeteer(puppet, puppetModel, ply)
 	local puppeteerFloor = createPuppeteerFloor(animPuppeteer, puppet, ply)
-
-	-- If we're selecting a different character, cleanup the previous selection
-	if IsValid(self:GetAnimationPuppet()) and self:GetAnimationPuppet() ~= puppet then
-		self:Cleanup(userId)
-	end
 
 	self:SetPuppetPhysicsCount(physicsCount)
 	self:SetAnimationPuppet(puppet)
