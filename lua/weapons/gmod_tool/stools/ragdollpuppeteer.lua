@@ -121,6 +121,7 @@ function TOOL:Cleanup(userId)
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppet = NULL
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
 			RAGDOLLPUPPETEER_PLAYERS[userId].floor = NULL
+			RAGDOLLPUPPETEER_PLAYERS[userId].playbackEnabled = false
 		end
 	end
 
@@ -505,6 +506,7 @@ function TOOL:LeftClick(tr)
 			lastPose = {},
 			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
 			poseParams = {},
+			playbackEnabled = false
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
@@ -616,6 +618,12 @@ if SERVER then
 		if tool then
 			tool:Cleanup(userId)
 		end
+	end)
+
+	net.Receive("onPuppeteerPlayback", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		playerData.playbackEnabled = net.ReadBool()
 	end)
 
 	net.Receive("onFrameChange", function(_, sender)
