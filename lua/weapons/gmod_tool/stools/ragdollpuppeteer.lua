@@ -955,12 +955,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	floor:SetPuppet(puppet)
 
-	hook.Remove("EmitSound", "PuppeteerEmitSound")
-	hook.Add("EmitSound", "PuppeteerEmitSound", function(data)
-		PrintTable(data)
-		return false
-	end)
-
 	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
