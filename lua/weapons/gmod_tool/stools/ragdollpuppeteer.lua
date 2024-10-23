@@ -491,7 +491,6 @@ function TOOL:LeftClick(tr)
 
 	local userId = ply:UserID()
 	if not RAGDOLLPUPPETEER_PLAYERS[userId] then
-		local animateNonPhys = ply:GetInfo("ragdollpuppeteer_animatenonphys")
 		RAGDOLLPUPPETEER_PLAYERS[userId] = {
 			currentIndex = 0,
 			cycle = 0,
@@ -504,7 +503,6 @@ function TOOL:LeftClick(tr)
 			bonesReset = false,
 			floor = puppeteerFloor,
 			lastPose = {},
-			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
 			poseParams = {},
 			playbackEnabled = false
 		}

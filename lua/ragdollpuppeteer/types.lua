@@ -171,7 +171,6 @@ local types = {}
 ---@field filteredBones integer[] A sparse array of bones that will not be posed
 ---@field floor PuppeteerFloor The platform for offsetting the puppeteer
 ---@field lastPose BonePoseArray An array of BonePose used when the bone position and angles can't be obtained
----@field animateNonPhys boolean Whether to use ManipulateBonePosition/Angles/Scale on the puppet
 ---@field poseParams table<number> An array of pose parameter values, keyed by the pose parameter id
 ---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
 
