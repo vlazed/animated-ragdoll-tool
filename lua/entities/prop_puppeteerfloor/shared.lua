@@ -249,9 +249,14 @@ function ENT:Think()
 		else
 			local ownerId = self:GetPlayerOwner() and self:GetPlayerOwner():UserID()
 
-			if IsValid(puppet) and ownerId and RAGDOLLPUPPETEER_PLAYERS[ownerId] then
+			if
+				IsValid(puppet)
+				and ownerId
+				and RAGDOLLPUPPETEER_PLAYERS[ownerId]
+				and IsValid(puppet:GetPhysicsObject())
+			then
 				local physObj = puppet:GetPhysicsObject()
-				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0))
+				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
 				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled then
 					-- Instead of relying on the latency from the client to send the position, let's
 					-- predict the position using the velocity and the current physics object.
