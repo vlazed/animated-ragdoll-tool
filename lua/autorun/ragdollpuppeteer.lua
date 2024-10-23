@@ -39,7 +39,26 @@ if SERVER then
 			lastPose = {},
 			animateNonPhys = animateNonPhys ~= nil and tonumber(animateNonPhys) > 0,
 			poseParams = {},
+			playbackEnabled = false,
 		}
+	end
+
+	---On player disconnect, remove any floors or puppeteers
+	---@param userId integer
+	local function cleanupPlayerField(userId)
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[userId]
+		if not playerData then
+			return
+		end
+
+		if IsValid(playerData.puppeteer) then
+			playerData.puppeteer:Remove()
+		end
+		if IsValid(playerData.floor) then
+			playerData.floor:Remove()
+		end
+
+		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
 	end
 
 	gameevent.Listen("player_connect")
@@ -51,7 +70,7 @@ if SERVER then
 	gameevent.Listen("player_disconnect")
 	hook.Add("player_disconnect", "ragdollpuppeteer_PlayerDisconnect", function(data)
 		local userId = data.userid
-		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
+		cleanupPlayerField(userId)
 	end)
 
 	---@type Player[]

@@ -414,10 +414,17 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 			end
 		end
 	end)
+
+	net.Start("onPuppeteerPlayback")
+	net.WriteBool(true)
+	net.SendToServer()
 end
 
 local function removePlaybackTimer()
 	timer.Remove("ragdollpuppeteer_playback")
+	net.Start("onPuppeteerPlayback")
+	net.WriteBool(false)
+	net.SendToServer()
 end
 
 ---@param puppeteer Entity

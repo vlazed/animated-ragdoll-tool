@@ -147,12 +147,15 @@ local types = {}
 ---@field posoffset Vector
 ---@field angoffset Angle
 
+---@class PhysBone
+---@field parentid integer
+
 ---@class ResizedRagdoll: Entity Ragdoll Resizer entity (prop_resizedragdoll_physparent)
 ---@field PhysObjScales Vector[] An array of the scales for each physics object
 ---@field SavedBoneMatrices VMatrix[] The bone matrices from the ragdoll's BuildBonePosition function
 ---@field BoneOffsets ResizedBoneOffset[] An array of ResizedBoneOffset containing the position offset and angle offset of each nonphysical bone
 ---@field ClassOverride "prop_resizedragdoll_physparent" The true classname found in the entity's filename
----@field PhysBones integer[] A sparse array indicating which bone index is a physbone
+---@field PhysBones PhysBone[] A sparse array indicating which bone index is a physbone
 ---@field PhysBoneOffsets Vector[] An array of position offsets for the physbones
 ---@field GetStretch fun(self: Entity|ResizedRagdoll): boolean A check for whether the ResizedRagdoll is stretchy
 
@@ -170,6 +173,7 @@ local types = {}
 ---@field lastPose BonePoseArray An array of BonePose used when the bone position and angles can't be obtained
 ---@field animateNonPhys boolean Whether to use ManipulateBonePosition/Angles/Scale on the puppet
 ---@field poseParams table<number> An array of pose parameter values, keyed by the pose parameter id
+---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor

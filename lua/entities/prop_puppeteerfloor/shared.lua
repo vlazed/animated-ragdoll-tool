@@ -1,3 +1,5 @@
+---@module "ragdollpuppeteer.lib.vendor"
+local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
@@ -227,6 +229,7 @@ function ENT:Think()
 
 	if puppeteers[#puppeteers] and IsValid(puppeteers[#puppeteers]) then
 		local puppeteer = puppeteers[#puppeteers]
+		local puppet = self.puppet
 		if not self.puppeteerHeight then
 			self.puppeteerHeight = helpers.getRootHeightDifferenceOf(puppeteer)
 		end
@@ -242,6 +245,26 @@ function ENT:Think()
 			else
 				puppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
 				puppeteer.ragdollpuppeteer_currentMaterial = constants.INVISIBLE_MATERIAL
+			end
+		else
+			local ownerId = self:GetPlayerOwner() and self:GetPlayerOwner():UserID()
+
+			if IsValid(puppet) and ownerId and RAGDOLLPUPPETEER_PLAYERS[ownerId] then
+				local physObj = puppet:GetPhysicsObject()
+				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0))
+				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled then
+					-- Instead of relying on the latency from the client to send the position, let's
+					-- predict the position using the velocity and the current physics object.
+					-- Fixes choppy root movement.
+					physObj:SetPos(
+						vendor.LerpLinearVector(
+							physObj:GetPos() + self:GetVelocity() * FrameTime(),
+							rootPosition,
+							FrameTime()
+						),
+						true
+					)
+				end
 			end
 		end
 	end
