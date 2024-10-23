@@ -17,6 +17,7 @@ ENT.Spawnable = false
 ENT.Editable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
+local LOOKAHEAD = 2.1
 local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
@@ -212,6 +213,25 @@ function ENT:SetPuppeteerRootScale(newScale)
 	self.puppeteerRootScale = newScale
 end
 
+function ENT:PushQueue(pos)
+	table.insert(self.positionQueue, 1, pos)
+	if #self.positionQueue > self.maxPositions then
+		table.remove(self.positionQueue, #self.positionQueue)
+	end
+end
+
+---@param queue Vector[]
+---@return Vector
+local function vectorAverage(queue)
+	local total = #queue
+	local avg = vector_origin
+	for i = 1, total do
+		avg = avg + queue[i]
+	end
+
+	return avg / total
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
@@ -247,7 +267,8 @@ function ENT:Think()
 				puppeteer.ragdollpuppeteer_currentMaterial = constants.INVISIBLE_MATERIAL
 			end
 		else
-			local ownerId = self:GetPlayerOwner() and self:GetPlayerOwner():UserID()
+			local owner = self:GetPlayerOwner()
+			local ownerId = IsValid(owner) and self:GetPlayerOwner():UserID()
 
 			if
 				IsValid(puppet)
@@ -256,17 +277,23 @@ function ENT:Think()
 				and IsValid(puppet:GetPhysicsObject())
 			then
 				local physObj = puppet:GetPhysicsObject()
-				local velocity = self:GetVelocity()
+				local ping = owner:Ping() * 1e-3
 				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
+				local delta = self:GetVelocity() * (FrameTime() + ping)
 				-- Fix jittering by only moving the puppet when the floor moves
-				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and velocity:Length() > 0 then
+				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
 					-- Instead of relying on the latency from the client to send the position, let's
 					-- predict the position using the velocity and the current physics object.
 					-- Fixes choppy root movement.
-					physObj:SetPos(
-						vendor.LerpLinearVector(physObj:GetPos() + velocity * FrameTime(), rootPosition, FrameTime()),
-						true
-					)
+
+					-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
+					local newPos =
+						vendor.LerpLinearVector(physObj:GetPos() + LOOKAHEAD * delta, rootPosition, FrameTime())
+					self:PushQueue(newPos)
+
+					-- Perform a average over the window of positions to filter out jitter
+					local avgPos = vectorAverage(self.positionQueue)
+					physObj:SetPos(avgPos, true)
 				end
 			end
 		end

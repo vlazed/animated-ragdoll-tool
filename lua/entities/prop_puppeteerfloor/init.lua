@@ -12,6 +12,8 @@ function ENT:Initialize()
 	self.puppet = NULL
 	self.playerOwner = NULL
 	self.angleOffset = angle_zero
+	self.positionQueue = {}
+	self.maxPositions = 4
 end
 
 ---@param ply any
