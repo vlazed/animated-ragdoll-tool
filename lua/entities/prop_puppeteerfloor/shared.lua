@@ -256,17 +256,15 @@ function ENT:Think()
 				and IsValid(puppet:GetPhysicsObject())
 			then
 				local physObj = puppet:GetPhysicsObject()
+				local velocity = self:GetVelocity()
 				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
-				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled then
+				-- Fix jittering by only moving the puppet when the floor moves
+				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and velocity:Length() > 0 then
 					-- Instead of relying on the latency from the client to send the position, let's
 					-- predict the position using the velocity and the current physics object.
 					-- Fixes choppy root movement.
 					physObj:SetPos(
-						vendor.LerpLinearVector(
-							physObj:GetPos() + self:GetVelocity() * FrameTime(),
-							rootPosition,
-							FrameTime()
-						),
+						vendor.LerpLinearVector(physObj:GetPos() + velocity * FrameTime(), rootPosition, FrameTime()),
 						true
 					)
 				end
