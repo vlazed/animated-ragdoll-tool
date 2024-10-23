@@ -173,6 +173,7 @@ local types = {}
 ---@field lastPose BonePoseArray An array of BonePose used when the bone position and angles can't be obtained
 ---@field poseParams table<number> An array of pose parameter values, keyed by the pose parameter id
 ---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
+---@field physBones integer[] An array of physbone indices mapped by their bone index
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor

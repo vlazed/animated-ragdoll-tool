@@ -38,6 +38,7 @@ if SERVER then
 			lastPose = {},
 			poseParams = {},
 			playbackEnabled = false,
+			physBones = {},
 		}
 	end
 

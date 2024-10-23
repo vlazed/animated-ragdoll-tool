@@ -122,6 +122,7 @@ function TOOL:Cleanup(userId)
 			RAGDOLLPUPPETEER_PLAYERS[userId].puppeteer = NULL
 			RAGDOLLPUPPETEER_PLAYERS[userId].floor = NULL
 			RAGDOLLPUPPETEER_PLAYERS[userId].playbackEnabled = false
+			RAGDOLLPUPPETEER_PLAYERS[userId].physBones = {}
 		end
 	end
 
@@ -187,16 +188,19 @@ end
 ---@param puppet Entity The puppet to set nonphysical bone poses
 ---@param targetPose SMHFramePose[] The target nonphysical bone pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
-local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones)
+---@param physBones integer[] Bone indices that map to physobj indices
+local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones, physBones)
 	for b = 0, puppet:GetBoneCount() - 1 do
 		if filteredBones[b + 1] then
 			continue
 		end
 
-		puppet:ManipulateBonePosition(b, targetPose[b].Pos)
-		puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
-		if targetPose[b].Scale then
-			puppet:ManipulateBoneScale(b, targetPose[b].Scale)
+		if not physBones[b] then
+			puppet:ManipulateBonePosition(b, targetPose[b].Pos)
+			puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
+			if targetPose[b].Scale then
+				puppet:ManipulateBoneScale(b, targetPose[b].Scale)
+			end
 		end
 	end
 end
@@ -269,6 +273,24 @@ local function queryDefaultBonePoseOfPuppet(model, ply)
 	net.Start("queryDefaultBonePoseOfPuppet", false)
 	net.WriteString(model)
 	net.Send(ply)
+end
+
+
+---Get the physbones of the ragdoll or physics prop puppet, so we don't perform unnecessary BoneManipulations
+---@param puppet Entity
+---@return integer[]
+local function getPhysBonesOfPuppet(puppet)
+	local physbones = {}
+	if puppet:GetClass() == "prop_ragdoll" or puppet:GetClass() == "prop_physics" then
+		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
+			local bone = puppet:TranslatePhysBoneToBone(i)
+			if bone and bone > -1 then
+				physbones[bone] = i
+			end
+		end
+	end
+
+	return physbones
 end
 
 ---Instead of finding the nonphysical bone poses on the server, find them in the client
@@ -361,7 +383,7 @@ local function readSMHPose(puppet, playerData)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys, playerData.filteredBones)
+		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
 		playerData.bonesReset = false
 	elseif not playerData.bonesReset then
 		resetAllNonphysicalBonesOf(puppet)
@@ -504,7 +526,8 @@ function TOOL:LeftClick(tr)
 			floor = puppeteerFloor,
 			lastPose = {},
 			poseParams = {},
-			playbackEnabled = false
+			playbackEnabled = false,
+			physBones = getPhysBonesOfPuppet(puppet)
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
@@ -515,6 +538,7 @@ function TOOL:LeftClick(tr)
 		RAGDOLLPUPPETEER_PLAYERS[userId].filteredBones = {}
 		RAGDOLLPUPPETEER_PLAYERS[userId].floor = puppeteerFloor
 		RAGDOLLPUPPETEER_PLAYERS[userId].lastPose = {}
+		RAGDOLLPUPPETEER_PLAYERS[userId].physBones = getPhysBonesOfPuppet(puppet)
 	end
 
 	queryDefaultBonePoseOfPuppet(puppetModel, ply)
@@ -692,7 +716,7 @@ if SERVER then
 			newPose[b - 1].Pos = net.ReadVector()
 			newPose[b - 1].Ang = net.ReadAngle()
 		end
-		setNonPhysicalBonePoseOf(ragdollPuppet, newPose, playerData.filteredBones)
+		setNonPhysicalBonePoseOf(ragdollPuppet, newPose, playerData.filteredBones, playerData.physBones)
 	end)
 
 	net.Receive("onFPSChange", function(_, sender)
@@ -931,6 +955,12 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	floor:SetPuppet(puppet)
 
+	hook.Remove("EmitSound", "PuppeteerEmitSound")
+	hook.Add("EmitSound", "PuppeteerEmitSound", function(data)
+		PrintTable(data)
+		return false
+	end)
+
 	local panelProps = {
 		model = model,
 		puppeteer = animPuppeteer,
@@ -969,6 +999,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	end)
 
 	local function removePuppeteer()
+		hook.Remove("EmitSound", "PuppeteerEmitSound")
+
 		if IsValid(animPuppeteer) and IsValid(panelState.previousPuppeteer) then
 			viewPuppeteer:RemoveCallback("BuildBonePositions", id)
 
