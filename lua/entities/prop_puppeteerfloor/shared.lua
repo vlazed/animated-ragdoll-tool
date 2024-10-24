@@ -17,7 +17,7 @@ ENT.Spawnable = false
 ENT.Editable = true
 ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
 
-local LOOKAHEAD = 2.1
+local LOOKAHEAD = 2
 local RECOVER_DELAY = 2
 local RECOVERY_DISTANCE = 500
 local FLOOR_THICKNESS = 1
@@ -232,6 +232,20 @@ local function vectorAverage(queue)
 	return avg / total
 end
 
+---@param puppeteer Entity
+---@return Vector puppeteerVelocity
+function ENT:GetPuppeteerVelocity(puppeteer)
+	if not self.previousPosition then
+		self.previousPosition = puppeteer:GetPos()
+		return vector_origin
+	end
+
+	local currentPos = puppeteer:GetPos()
+	local velocity = (currentPos - self.previousPosition) / FrameTime()
+	self.previousPosition = currentPos
+	return velocity
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
@@ -279,10 +293,8 @@ function ENT:Think()
 				local physObj = puppet:GetPhysicsObject()
 				local ping = owner:Ping() * 1e-3
 				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
-				-- If we're attached to the surface, project the velocity vector to the surface.
-				-- This prevents the puppet from hopping around.
-				local velocity = self.hitNormal and helpers.projectVectorToPlane(self:GetVelocity(), self.hitNormal)
-					or self:GetVelocity()
+				-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
+				local velocity = self:GetPuppeteerVelocity(puppeteer)
 				local delta = velocity * (FrameTime() + ping)
 				-- Fix jittering by only moving the puppet when the floor moves
 				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
