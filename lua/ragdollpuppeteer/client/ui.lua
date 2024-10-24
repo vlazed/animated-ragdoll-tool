@@ -198,7 +198,7 @@ local lastGesturePose = {}
 ---@param puppet Entity | ResizedRagdoll
 ---@param physicsCount integer
 ---@param gesturers Entity[]
----@param defaultBonePose DefaultBonePose
+---@param defaultBonePose DefaultBonePoseArray
 local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, defaultBonePose)
 	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 		return

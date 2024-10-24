@@ -171,16 +171,16 @@ local types = {}
 ---@field filteredBones integer[] A sparse array of bones that will not be posed
 ---@field floor PuppeteerFloor The platform for offsetting the puppeteer
 ---@field lastPose BonePoseArray An array of BonePose used when the bone position and angles can't be obtained
----@field poseParams table<number> An array of pose parameter values, keyed by the pose parameter id
+---@field poseParams table<integer, number> An array of pose parameter values, keyed by the pose parameter id
 ---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
 ---@field physBones integer[] An array of physbone indices mapped by their bone index
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor
 
----@alias DefaultBonePose table<Vector, Angle, Vector, Angle>
+---@alias DefaultBonePose {[1]: Vector, [2]: Angle, [3]: Vector, [4]: Angle}
 ---@alias DefaultBonePoseArray DefaultBonePose[]
----@alias BonePose table<Vector, Angle>
+---@alias BonePose {[1]: Vector, [2]: Angle}
 ---@alias BonePoseArray BonePose[]
 
 ---@class PhysicsObject

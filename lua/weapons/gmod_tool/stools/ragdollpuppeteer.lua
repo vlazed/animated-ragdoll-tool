@@ -210,7 +210,7 @@ end
 ---@param puppet Entity The puppet to set physical bone poses
 ---@param puppeteer Entity The puppeteer to use to set poses for the puppet. Only used in multiplayer
 ---@param filteredBones integer[] Bones that will not be set to their target pose
----@param lastPose BonePose The last pose to use if the pose doesn't exist for the current bone
+---@param lastPose BonePoseArray The last pose to use if the pose doesn't exist for the current bone
 local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
 	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
 		local parent = puppet:GetParent()
