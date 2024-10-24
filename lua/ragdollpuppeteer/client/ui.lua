@@ -10,6 +10,8 @@ local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
+---@module "ragdollpuppeteer.lib.bones"
+local bones = include("ragdollpuppeteer/lib/bones.lua")
 
 local COLOR_BLUE = constants.COLOR_BLUE
 
@@ -17,6 +19,11 @@ local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
 local SEQUENCE_CHANGE_DELAY = 0.2
 
 local UI = {}
+
+local requestMessages = {
+	language.GetPhrase("ui.ragdollpuppeteer.chat.ratelimited"),
+	language.GetPhrase("ui.ragdollpuppeteer.chat.invalidmodel"),
+}
 
 local currentSequence = {
 	label = "",
@@ -205,12 +212,16 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 	end
 
 	if game.SinglePlayer() then
+		local isSameModel = puppeteers[1]:GetModel() == puppet:GetModel()
+
 		local baseGesturer = gesturers[1]
 		local animGesturer = gesturers[2]
 		local animPuppeteer = puppeteers[1]
 		local basePuppeteer = puppeteers[2]
 		local viewPuppeteer = puppeteers[3]
+
 		local newPose = {}
+
 		for i = 0, physicsCount - 1 do
 			local b = puppet:TranslatePhysBoneToBone(i)
 
@@ -256,7 +267,14 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 				lastGesturePose[b] = { gesturePos, gestureAng }
 			end
 
-			local pos, ang = puppeteers[3]:GetBonePosition(b)
+			local pos, ang = viewPuppeteer:GetBonePosition(b)
+			if not isSameModel then
+				local boneName = puppet:GetBoneName(b)
+				local b2 = viewPuppeteer:LookupBone(boneName)
+				if b2 then
+					pos, ang = viewPuppeteer:GetBonePosition(b2)
+				end
+			end
 			if puppet:GetClass() == "prop_physics" then
 				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
 			end
@@ -435,12 +453,68 @@ local function setSequenceOf(puppeteer, sequenceIndex)
 	puppeteer:SetPlaybackRate(0)
 end
 
+---@param option string
+---@param text string
+---@param panelProps PanelProps
+---@param panelChildren PanelChildren
+---@param panelState PanelState
+local function populateLists(option, text, panelChildren, panelProps, panelState)
+	local animPuppeteer = panelProps.puppeteer
+	local model = panelState.model
+	local smhData = panelState.smhData
+	local smhList = panelChildren.smhList
+	local sequenceSheet = panelChildren.sequenceSheet
+
+	if option == "sequence" then
+		---@diagnostic disable-next-line
+		local activeList = sequenceSheet:GetActiveTab():GetPanel()
+		---@cast activeList DListView
+		UI.ClearList(activeList)
+		UI.PopulateSequenceList(activeList, animPuppeteer, function(seqInfo)
+			---@cast seqInfo SequenceInfo
+
+			if text:len() > 0 then
+				local result = string.find(seqInfo.label:lower(), text:lower())
+				return result ~= nil
+			else
+				return true
+			end
+		end)
+	else
+		---@cast smhData SMHFile
+		UI.ClearList(smhList)
+		populateSMHEntitiesList(smhList, model, smhData, function(entProp)
+			if text:len() > 0 then
+				local result = entProp.Class:lower():find(text:lower())
+					or entProp.Model:lower():find(text:lower())
+					or entProp.Name:lower():find(text:lower())
+
+				return result ~= nil
+			else
+				return true
+			end
+		end)
+	end
+end
+
+---@param puppeteers Entity[]
+local function changeModelOf(puppeteers, newModel)
+	for i = 1, #puppeteers do
+		puppeteers[i]:SetModel(newModel)
+		setSequenceOf(puppeteers[i], 0)
+	end
+end
+
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
 function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	local baseSlider = panelChildren.baseSlider
 	local gestureSlider = panelChildren.gestureSlider
+	local modelPath = panelChildren.modelPath
+	local sequenceList = panelChildren.sequenceList
+	local smhList = panelChildren.smhList
+	local sourceBox = panelChildren.sourceBox
 
 	-- Network hooks from server
 	net.Receive("onFramePrevious", function()
@@ -450,6 +524,44 @@ function UI.NetHookPanel(panelChildren, panelProps, panelState)
 	net.Receive("onFrameNext", function()
 		local increment = net.ReadFloat()
 		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
+	end)
+	net.Receive("onPuppeteerChangeRequest", function()
+		local result = net.ReadBool()
+		local errorInt = net.ReadUInt(3)
+
+		-- If we can change the model
+		if result then
+			-- Get the valid model from the model path text entry
+			local newModel = modelPath:GetValue()
+			modelPath.currentModel = newModel
+
+			-- Change the serverside puppeteer model
+			net.Start("onPuppeteerChange")
+			net.WriteString(modelPath.currentModel)
+			net.SendToServer()
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
+
+			-- Update the puppeteers' models and use the new model sequences
+			local _, option = sourceBox:GetSelected()
+			changeModelOf({
+				panelProps.puppeteer,
+				panelProps.basePuppeteer,
+				panelProps.gesturer,
+				panelProps.baseGesturer,
+				panelProps.viewPuppeteer,
+			}, newModel)
+			populateLists(option, "", panelChildren, panelProps, panelState)
+			panelState.model = newModel
+		else
+			-- Save the original model path so users can iterate on this
+			SetClipboardText(modelPath:GetValue())
+			-- Reset the model path
+			modelPath:SetValue(modelPath.currentModel)
+			-- Notify the user what happened and changed clipboard state
+			chat.AddText("Ragdoll Puppeteer: " .. requestMessages[errorInt])
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.clipboardmodel"))
+		end
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
 		createPlaybackTimer(panelChildren, panelProps, panelState)
@@ -555,9 +667,10 @@ end
 ---Construct the ragdoll puppeteer control panel and return its components
 ---@param cPanel DForm
 ---@param panelProps PanelProps
+---@param panelState PanelState
 ---@return PanelChildren
-function UI.ConstructPanel(cPanel, panelProps)
-	local model = panelProps.model
+function UI.ConstructPanel(cPanel, panelProps, panelState)
+	local model = panelState.model
 	local puppeteer = panelProps.puppeteer
 
 	local puppetLabel = components.PuppetLabel(cPanel, model)
@@ -660,6 +773,8 @@ function UI.ConstructPanel(cPanel, panelProps)
 
 	local lists = components.Lists(cPanel)
 
+	local modelPath =
+		components.SearchBar(lists, "#ui.ragdollpuppeteer.label.modelpath", "#ui.ragdollpuppeteer.tooltip.modelpath")
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
 	local removeGesture = components.RemoveGesture(lists)
@@ -703,6 +818,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		attachToGround = attachToGround,
 		anySurface = anySurface,
 		incrementGestures = incrementGestures,
+		modelPath = modelPath,
 	}
 end
 
@@ -731,18 +847,19 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local puppeteerIgnoreZ = panelChildren.puppeteerIgnoreZ
 	local attachToGround = panelChildren.attachToGround
 	local anySurface = panelChildren.anySurface
+	local modelPath = panelChildren.modelPath
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
 	local basePuppeteer = panelProps.basePuppeteer
 	local baseGesturer = panelProps.baseGesturer
 	local puppet = panelProps.puppet
-	local model = panelProps.model
+	local model = panelState.model
 	local physicsCount = panelProps.physicsCount
 	local floor = panelProps.floor
 	local viewPuppeteer = panelProps.viewPuppeteer
 
-	local smhData
+	local smhData = panelState.smhData
 
 	-- Set min and max of height slider for Resized Ragdolls
 	---@diagnostic disable-next-line
@@ -892,38 +1009,22 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end
 
-	function searchBar:OnEnter(text)
+	-- We want to save the original model path: if an invalid one was entered in,
+	-- we can revert to the old one
+	local currentModel = animPuppeteer:GetModel()
+	modelPath:SetValue(currentModel)
+	modelPath.currentModel = currentModel
+
+	function modelPath:OnEnter(text)
+		net.Start("onPuppeteerChangeRequest", true)
+		net.WriteString(text)
+		net.SendToServer()
+	end
+
+	function searchBar:OnEnter(searchText)
 		local _, option = sourceBox:GetSelected()
-		---@cast text string
-		if option == "sequence" then
-			---@diagnostic disable-next-line
-			local activeList = sequenceSheet:GetActiveTab():GetPanel()
-			---@cast activeList DListView
-			UI.ClearList(activeList)
-			UI.PopulateSequenceList(activeList, animPuppeteer, function(seqInfo)
-				---@cast seqInfo SequenceInfo
-
-				if text:len() > 0 then
-					local result = string.find(seqInfo.label:lower(), text:lower())
-					return result ~= nil
-				else
-					return true
-				end
-			end)
-		else
-			UI.ClearList(smhList)
-			populateSMHEntitiesList(smhList, model, smhData, function(entProp)
-				if text:len() > 0 then
-					local result = entProp.Class:lower():find(text:lower())
-						or entProp.Model:lower():find(text:lower())
-						or entProp.Name:lower():find(text:lower())
-
-					return result ~= nil
-				else
-					return true
-				end
-			end)
-		end
+		---@cast searchText string
+		populateLists(option, searchText, panelChildren, panelProps, panelState)
 	end
 
 	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet, isGesture)

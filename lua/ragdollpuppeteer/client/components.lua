@@ -14,12 +14,16 @@ function components.PuppetLabel(cPanel, model)
 end
 
 ---@param cPanel DForm
+---@param label string?
+---@param placeholder string?
 ---@return DTextEntry
-function components.SearchBar(cPanel)
+function components.SearchBar(cPanel, label, placeholder)
+	label = label or "#ui.ragdollpuppeteer.label.search"
+	placeholder = placeholder or "#ui.ragdollpuppeteer.tooltip.search"
 	---@diagnostic disable-next-line
-	local panel = cPanel:TextEntry("#ui.ragdollpuppeteer.label.search")
+	local panel = cPanel:TextEntry(label)
 	---@cast panel DTextEntry
-	panel:SetPlaceholderText("#ui.ragdollpuppeteer.tooltip.search")
+	panel:SetPlaceholderText(placeholder)
 
 	return panel
 end

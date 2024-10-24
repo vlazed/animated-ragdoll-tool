@@ -4,6 +4,8 @@ local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
+---@module "ragdollpuppeteer.lib.leakybucket"
+local leakyBucket = include("ragdollpuppeteer/lib/leakybucket.lua")
 
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
@@ -22,6 +24,11 @@ TOOL.ClientConVar["alpha"] = "100"
 TOOL.ClientConVar["ignorez"] = 0
 TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
+
+-- The number of models that the user should not go over 
+local MAX_MODELS = constants.MAX_MODELS
+-- The number of models to leak from the bucket
+local MODEL_DEQUE_RATE = constants.MODEL_DEQUE_RATE
 
 local mode = TOOL:GetMode()
 
@@ -186,20 +193,26 @@ end
 
 ---Directly influence the ragdoll nonphysical bones from SMH data
 ---@param puppet Entity The puppet to set nonphysical bone poses
+---@param puppeteer Entity The puppeteer to compare with the puppet if the model isn't the same
 ---@param targetPose SMHFramePose[] The target nonphysical bone pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 ---@param physBones integer[] Bone indices that map to physobj indices
-local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones, physBones)
-	for b = 0, puppet:GetBoneCount() - 1 do
-		if filteredBones[b + 1] then
+local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredBones, physBones)
+	for b2 = 0, puppeteer:GetBoneCount() - 1 do
+		local b = puppet:LookupBone(targetPose[b2].Name) 
+
+		if b and filteredBones[b + 1] then
 			continue
 		end
 
-		if not physBones[b] then
-			puppet:ManipulateBonePosition(b, targetPose[b].Pos)
-			puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
-			if targetPose[b].Scale then
-				puppet:ManipulateBoneScale(b, targetPose[b].Scale)
+		if b and not physBones[b] then
+			local pos, ang = targetPose[b2].Pos, targetPose[b2].Ang
+			local scale = targetPose[b2].Scale
+
+			puppet:ManipulateBonePosition(b, pos)
+			puppet:ManipulateBoneAngles(b, ang)
+			if scale then
+				puppet:ManipulateBoneScale(b, scale)
 			end
 		end
 	end
@@ -246,8 +259,18 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 					continue
 				end
 	
-				local pos, ang = puppeteer:GetBonePosition(b)
-	
+				local pos, ang = lastPose[i][1] or vector_origin, lastPose[i][2] or angle_zero
+				if puppeteer:GetModel() == puppet:GetModel() then
+					pos, ang = puppeteer:GetBonePosition(b)
+				else
+					local boneName = puppet:GetBoneName(b)
+
+					local b2 = puppeteer:LookupBone(boneName)
+					if b2 then
+						pos, ang = puppeteer:GetBonePosition(b2)
+					end
+				end
+				
 				phys:EnableMotion(true)
 				phys:Wake()
 				phys:SetPos(pos)
@@ -259,6 +282,8 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 					phys:EnableMotion(false)
 					phys:Wake()
 				end
+
+				lastPose[i] = { pos, ang }
 			end
 		end
 	
@@ -383,7 +408,7 @@ local function readSMHPose(puppet, playerData)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
+		setNonPhysicalBonePoseOf(puppet, playerData.puppeteer, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
 		playerData.bonesReset = false
 	elseif not playerData.bonesReset then
 		resetAllNonphysicalBonesOf(puppet)
@@ -527,7 +552,8 @@ function TOOL:LeftClick(tr)
 			lastPose = {},
 			poseParams = {},
 			playbackEnabled = false,
-			physBones = getPhysBonesOfPuppet(puppet)
+			physBones = getPhysBonesOfPuppet(puppet),
+			bucket = leakyBucket(MAX_MODELS, MODEL_DEQUE_RATE),
 		}
 	else
 		RAGDOLLPUPPETEER_PLAYERS[userId].puppet = puppet
@@ -642,6 +668,45 @@ if SERVER then
 		end
 	end)
 
+	net.Receive("onPuppeteerChangeRequest", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local model = net.ReadString()
+		local result = false
+		local errorInt = 0
+
+		-- Create the bucket if it doesn't exist for some reason
+		if not playerData.bucket then
+			playerData.bucket = leakyBucket(MAX_MODELS, MODEL_DEQUE_RATE)
+		end
+
+		-- Add a model to the bucket. Are we overflowing?
+		if playerData.bucket:Add(1) then
+			if util.IsValidModel(model) then
+				result = true
+			else
+				errorInt = 2
+			end
+		else
+			errorInt = 1
+		end
+
+		net.Start("onPuppeteerChangeRequest")
+		net.WriteBool(result)
+		net.WriteUInt(errorInt, 3)
+		net.Send(sender)
+	end)
+
+	net.Receive("onPuppeteerChange", function(_, sender)
+		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
+		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
+		local puppeteer = playerData.puppeteer
+
+		local newModel = net.ReadString()
+		puppeteer:SetModel(newModel)
+		queryDefaultBonePoseOfPuppet(newModel, sender)
+	end)
+
 	net.Receive("onPuppeteerPlayback", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
@@ -715,8 +780,9 @@ if SERVER then
 			newPose[b - 1] = {}
 			newPose[b - 1].Pos = net.ReadVector()
 			newPose[b - 1].Ang = net.ReadAngle()
+			newPose[b - 1].Name = net.ReadString()
 		end
-		setNonPhysicalBonePoseOf(ragdollPuppet, newPose, playerData.filteredBones, playerData.physBones)
+		setNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer, newPose, playerData.filteredBones, playerData.physBones)
 	end)
 
 	net.Receive("onFPSChange", function(_, sender)
@@ -757,6 +823,7 @@ local panelState = {
 	defaultBonePose = {},
 	previousPuppeteer = nil,
 	physicsObjects = {},
+	model = "",
 }
 
 local lastFrame = 0
@@ -787,6 +854,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
+			newPose[b + 1][3] = puppeteer:GetBoneName(b)
 		else
 			local bMatrix = puppeteer:GetBoneMatrix(b)
 			local dPos, dAng = vector_origin, angle_zero
@@ -809,6 +877,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 			newPose[b + 1] = {}
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
+			newPose[b + 1][3] = puppeteer:GetBoneName(b)
 		end
 	end
 
@@ -968,7 +1037,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	}
 
 	-- UI Elements
-	local panelChildren = ui.ConstructPanel(cPanel, panelProps)
+	local panelChildren = ui.ConstructPanel(cPanel, panelProps, panelState)
 
 	ui.Layout(panelChildren, animPuppeteer)
 
@@ -1032,6 +1101,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
 			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])
+			net.WriteString(newBasePose[b][3])
 		end
 		net.SendToServer()
 	end)

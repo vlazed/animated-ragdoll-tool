@@ -47,6 +47,7 @@ local types = {}
 ---@field RootAng Angle?
 ---@field RootPos Vector?
 ---@field Moveable boolean?
+---@field Name string?
 ---@field Scale Vector
 
 ---@class SMHColorPose A struct of the entity's color at an SMH frame
@@ -96,6 +97,9 @@ local types = {}
 ---@class FrameSlider: DNumSlider
 ---@field prevFrame number
 
+---@class ModelPath: DTextEntry
+---@field currentModel string
+
 ---@class PanelChildren An immutable struct of the CPanel's panels. Frontend interface for the user to control the puppeteer
 ---@field angOffset DNumSlider[]
 ---@field puppetLabel DLabel
@@ -123,6 +127,7 @@ local types = {}
 ---@field attachToGround DCheckBoxLabel
 ---@field anySurface DCheckBoxLabel
 ---@field incrementGestures DCheckBoxLabel
+---@field modelPath ModelPath
 
 ---@class PanelProps An immutable struct of the CPanel's properties
 ---@field puppet Entity The prop or ragdoll controlled by the puppeteer
@@ -132,7 +137,6 @@ local types = {}
 ---@field gesturer Entity A puppeteer for additive sequence layering
 ---@field baseGesturer Entity A gesturer at the first frame of animation, to help enable additive sequence layering
 ---@field viewPuppeteer Entity A puppeteer shown to the player. Can be resized
----@field model string The puppet or puppeteer's model path
 ---@field floor PuppeteerFloor The floor to control puppeteer offsetting
 
 ---@class PanelState A mutable struct of the CPanel's values at a specific time, influenced by the environment and player actions
@@ -140,8 +144,12 @@ local types = {}
 ---@field previousPuppeteer Entity? The last puppeteer used before the current one
 ---@field defaultBonePose DefaultBonePoseArray An array of bone poses in the reference pose
 ---@field physicsObjects PhysicsObject[] An array  of physics objects in the puppet
+---@field model string
+---@field smhData SMHFile?
 
 -- Miscellaneous Types
+
+---@alias BoneDefinition table<string, string>
 
 ---@class ResizedBoneOffset
 ---@field posoffset Vector
@@ -174,6 +182,7 @@ local types = {}
 ---@field poseParams table<number> An array of pose parameter values, keyed by the pose parameter id
 ---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
 ---@field physBones integer[] An array of physbone indices mapped by their bone index
+---@field bucket LeakyBucket A rate-limiting class to ensure that each player doesn't spam precache different models
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor
