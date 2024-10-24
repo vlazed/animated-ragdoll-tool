@@ -279,7 +279,11 @@ function ENT:Think()
 				local physObj = puppet:GetPhysicsObject()
 				local ping = owner:Ping() * 1e-3
 				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
-				local delta = self:GetVelocity() * (FrameTime() + ping)
+				-- If we're attached to the surface, project the velocity vector to the surface.
+				-- This prevents the puppet from hopping around.
+				local velocity = self.hitNormal and helpers.projectVectorToPlane(self:GetVelocity(), self.hitNormal)
+					or self:GetVelocity()
+				local delta = velocity * (FrameTime() + ping)
 				-- Fix jittering by only moving the puppet when the floor moves
 				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
 					-- Instead of relying on the latency from the client to send the position, let's
@@ -345,9 +349,11 @@ function ENT:Think()
 					puppeteer:SetAngles(projectedForward:AngleEx(tr.HitNormal))
 					puppeteer:SetAngles(puppeteer:LocalToWorldAngles(angleOffset))
 					self.hitPos = tr.HitPos
+					self.hitNormal = tr.HitNormal
 				end
 			else
 				self.hitPos = nil
+				self.hitNormal = nil
 			end
 
 			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
