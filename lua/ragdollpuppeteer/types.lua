@@ -59,9 +59,9 @@ local types = {}
 
 ---@class SMHFrameData The data shown in the SMH Timeline for the selected entity
 ---@field EntityData SMHModifier
----@field EaseIn number
----@field EaseOut number
----@field Modifier SMHModifiers
+---@field EaseIn number|table<string, number> If stored as a number, then this is a legacy SMH save file, otherwise this is an new SMH save file.
+---@field EaseOut number|table<string, number> If stored as a number, then this is an legacy SMH save file, otherwise this is an new SMH save file.
+---@field Modifier SMHModifiers Legacy SMH save file feature
 ---@field Position number
 
 ---@alias SMHTimelineMods SMHTimelineMod[]
