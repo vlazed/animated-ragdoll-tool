@@ -190,6 +190,7 @@ end
 
 ---Find the closest pair of keyframes (`previousKeyframe` and `nextKeyframe`) to a specified `frame`
 ---Modified to directly work with json translation
+---Supports SMH saves to at most version 4.0 (4.0 introduced save file changes to improve playback performance)
 ---@source https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---@param keyframes SMHFrameData[] SMH Keyframe data
 ---@param frame integer Target keyframe
@@ -205,7 +206,11 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	local prevKeyframe = nil
 	local nextKeyframe = nil
 	for _, keyframe in pairs(keyframes) do
-		if keyframe.Position == frame and keyframe.Modifier == modname and not ignoreCurrentFrame then
+		if
+			keyframe.Position == frame
+			and (keyframe.EntityData[modname] or keyframe.Modifier and keyframe.Modifier == modname)
+			and not ignoreCurrentFrame
+		then
 			prevKeyframe = keyframe
 			nextKeyframe = keyframe
 			break
@@ -214,13 +219,13 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 		if
 			keyframe.Position < frame
 			and (not prevKeyframe or prevKeyframe.Position < keyframe.Position)
-			and keyframe.Modifier == modname
+			and (keyframe.EntityData[modname] or keyframe.Modifier and keyframe.Modifier == modname)
 		then
 			prevKeyframe = keyframe
 		elseif
 			keyframe.Position > frame
 			and (not nextKeyframe or nextKeyframe.Position > keyframe.Position)
-			and keyframe.Modifier == modname
+			and (keyframe.EntityData[modname] or keyframe.Modifier and keyframe.Modifier == modname)
 		then
 			nextKeyframe = keyframe
 		end
@@ -241,7 +246,13 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	local lerpMultiplier = 0
 	if not tweenDisabled and prevKeyframe.Position ~= nextKeyframe.Position then
 		lerpMultiplier = (frame - prevKeyframe.Position) / (nextKeyframe.Position - prevKeyframe.Position)
-		lerpMultiplier = math.EaseInOut(lerpMultiplier, prevKeyframe.EaseOut, nextKeyframe.EaseIn)
+		-- SMH 4.0 save files store easein and easeout values keyed by modifier name,
+		-- while SMH 3.0 stores them per frame position (which is costly for iteration)
+		local easeOut = istable(prevKeyframe.EaseOut) and prevKeyframe.EaseOut[modname] or prevKeyframe.EaseOut
+		local easeIn = istable(prevKeyframe.EaseIn) and prevKeyframe.EaseIn[modname] or prevKeyframe.EaseIn
+		---@cast easeOut number
+		---@cast easeIn number
+		lerpMultiplier = math.EaseInOut(lerpMultiplier, easeIn, easeOut)
 	end
 	return prevKeyframe, nextKeyframe, lerpMultiplier
 end
