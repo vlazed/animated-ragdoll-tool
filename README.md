@@ -1,4 +1,8 @@
 
+# Branch Note
+
+This branch is volatile to changes to [Stop Motion Helper](https://github.com/Winded/StopMotionHelper). I will try to support previous versions of SMH (as published in the Steam Workshop).
+
 # Ragdoll Puppeteer
 
 https://github.com/user-attachments/assets/0c9c8957-0ffa-4592-a3ca-d7ae0c6c2880
