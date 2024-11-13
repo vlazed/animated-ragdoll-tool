@@ -302,14 +302,15 @@ function ENT:Think()
 					-- predict the position using the velocity and the current physics object.
 					-- Fixes choppy root movement.
 
-					-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
-					local newPos =
-						vendor.LerpLinearVector(physObj:GetPos() + LOOKAHEAD * delta, rootPosition, FrameTime())
-					self:PushQueue(newPos)
+					local deltaPos = self.pid:Calculate(rootPosition + delta, physObj:GetPos(), FrameTime())
+					self:PushQueue(deltaPos)
 
-					-- Perform a average over the window of positions to filter out jitter
 					local avgPos = vectorAverage(self.positionQueue)
-					physObj:SetPos(avgPos, true)
+
+					-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
+					local newPos = vendor.LerpLinearVector(physObj:GetPos() + avgPos, rootPosition, FrameTime())
+
+					physObj:SetPos(newPos, true)
 				end
 			end
 		end
