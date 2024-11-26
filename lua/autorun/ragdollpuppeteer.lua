@@ -1,4 +1,15 @@
 if SERVER then
+	-- Some addons (which ones?) override the Player function to a string type.
+	-- This just overrides the function with a slower version if this happens.
+	local Player = isfunction(Player) and Player
+		or function(userId)
+			for _, player in player.Iterator() do
+				if player:UserID() == userId then
+					return player
+				end
+			end
+		end
+
 	resource.AddSingleFile("materials/ragdollpuppeteer/invisible.vtf")
 	resource.AddSingleFile("materials/ragdollpuppeteer/puppeteer_invisible.vmt")
 	resource.AddSingleFile("materials/ragdollpuppeteer/puppeteer_ignorez.vmt")
