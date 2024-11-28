@@ -192,6 +192,17 @@ end
 local lastPose = {}
 local lastGesturePose = {}
 
+-- Camera classes use the entity's position and angles
+local physicsClasses = {
+	["prop_physics"] = true,
+}
+
+-- Camera classes use the entity's bone position and angles
+local cameraClasses = {
+	["hl_camera"] = true,
+	["gmod_cameraprop"] = true,
+}
+
 ---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 ---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 ---@param puppeteers Entity[]
@@ -257,8 +268,11 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 			end
 
 			local pos, ang = puppeteers[3]:GetBonePosition(b)
-			if puppet:GetClass() == "prop_physics" then
+			if physicsClasses[puppet:GetClass()] then
 				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
+			elseif cameraClasses[puppet:GetClass()] then
+				local bMatrix = puppeteers[3]:GetBoneMatrix(0)
+				pos, ang = bMatrix and bMatrix:GetTranslation(), bMatrix and bMatrix:GetAngles()
 			end
 
 			if not pos and lastPose[i] then
