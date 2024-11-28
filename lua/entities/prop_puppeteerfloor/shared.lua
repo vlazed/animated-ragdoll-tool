@@ -246,6 +246,15 @@ function ENT:GetPuppeteerVelocity(puppeteer)
 	return velocity
 end
 
+---@param newScale number
+function ENT:SetPuppeteerScale(newScale)
+	local puppeteers = self.puppeteers
+	---@cast puppeteers RagdollPuppeteer[]
+	for _, puppeteer in ipairs(puppeteers) do
+		puppeteer:SetModelScale(newScale)
+	end
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
