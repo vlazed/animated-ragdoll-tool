@@ -123,6 +123,7 @@ local types = {}
 ---@field attachToGround DCheckBoxLabel
 ---@field anySurface DCheckBoxLabel
 ---@field incrementGestures DCheckBoxLabel
+---@field scaleOffset DNumSlider
 
 ---@class PanelProps An immutable struct of the CPanel's properties
 ---@field puppet Entity The prop or ragdoll controlled by the puppeteer
@@ -200,5 +201,6 @@ local types = {}
 ---@field SetPlayerOwner fun(self: PuppeteerFloor, ply: Player) A setter for the PuppeteerFloor's player owner
 ---@field SetPuppeteerRootScale fun(self: PuppeteerFloor, newScale: Vector) A setter for the root scale, used for Ragdoll Resizer entities
 ---@field GetPuppeteerRootScale fun(self: PuppeteerFloor): puppeteerRootScale: Vector A getter for the root scale, used for Ragdoll Resizer entities
+---@field SetPuppeteerScale fun(self: PuppeteerFloor, newScale: number) A setter for the puppeteer's scale, for scaling puppeteer movement
 
 return types
