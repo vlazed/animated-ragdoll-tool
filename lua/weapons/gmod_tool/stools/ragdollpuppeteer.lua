@@ -151,7 +151,9 @@ end
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppeteer)
 	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
 
-	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
+	local isEffectProp = puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect"
+
+	if isEffectProp then
 		local parent = puppet:GetParent()
 		parent:SetPos(puppeteer:GetPos())
 		parent:SetAngles(puppeteer:GetAngles())
@@ -275,18 +277,24 @@ local function queryDefaultBonePoseOfPuppet(model, ply)
 	net.Send(ply)
 end
 
+local physicsClasses = {
+	["prop_physics"] = true,
+	["prop_ragdoll"] = true,
+	["gmod_cameraprop"] = true,
+	["hl_camera"] = true,
+}
 
 ---Get the physbones of the ragdoll or physics prop puppet, so we don't perform unnecessary BoneManipulations
 ---@param puppet Entity
 ---@return integer[]
 local function getPhysBonesOfPuppet(puppet)
 	local physbones = {}
-	if puppet:GetClass() == "prop_ragdoll" or puppet:GetClass() == "prop_physics" then
+	if physicsClasses[puppet:GetClass()] then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local bone = puppet:TranslatePhysBoneToBone(i)
 			if bone and bone > -1 then
 				physbones[bone] = i
-			end
+			end	
 		end
 	end
 
@@ -462,6 +470,8 @@ local validPuppetClasses = {
 	["prop_effect"] = true,
 	["prop_dynamic"] = true,
 	["prop_resizedragdoll_physparent"] = true,
+	["hl_camera"] = true,
+	["gmod_cameraprop"] = true,
 }
 
 ---Select a ragdoll as a puppet to puppeteer

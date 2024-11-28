@@ -301,7 +301,9 @@ function ENT:Think()
 			then
 				local physObj = puppet:GetPhysicsObject()
 				local ping = owner:Ping() * 1e-3
-				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
+				local rootPosition = puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
+						and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
+					or physObj:GetPos()
 				-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
 				local velocity = self:GetPuppeteerVelocity(puppeteer)
 				local delta = velocity * (FrameTime() + ping)
