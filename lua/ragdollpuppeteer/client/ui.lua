@@ -60,7 +60,6 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 	if not data then
 		return
 	end
-	local maxFrames = 0
 	for _, entity in pairs(data.Entities) do
 		if entity.Properties.Model ~= model then
 			continue
@@ -73,6 +72,8 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 		local pFrames = 0
 		local nFrames = 0
 		local lmax = 0
+		local maxFrames = 0
+
 		for _, fdata in pairs(entity.Frames) do
 			if fdata.EntityData and fdata.EntityData.physbones then
 				table.insert(physFrames, fdata)
