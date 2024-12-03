@@ -326,7 +326,7 @@ local function setPositionOf(puppeteer, target)
 		end,
 	})
 	puppeteer:SetPos(tr.HitPos)
-	floorCorrect(puppeteer)
+	-- floorCorrect(puppeteer)
 end
 
 ---Make some entity face the target
@@ -451,7 +451,7 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	---@cast puppeteerFloor PuppeteerFloor
 	puppeteerFloor:Spawn()
 	puppeteerFloor:SetPos(puppeteer:GetPos() + Vector(0, 0, 10))
-	floorCorrect(puppeteerFloor, puppeteer, -1)
+	floorCorrect(puppeteer, puppeteerFloor, puppeteer:GetPos())
 
 	puppeteerFloor:AddPuppeteers({ puppeteer })
 	puppeteerFloor:SetPhysicsSize(puppeteer)

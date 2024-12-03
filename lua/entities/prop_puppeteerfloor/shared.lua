@@ -379,9 +379,7 @@ function ENT:Think()
 				self.hitNormal = nil
 			end
 
-			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
-				floorCorrect(puppeteer, puppeteer, 1, self.puppeteerHeight)
-			end
+			floorCorrect(puppeteer, self, puppeteer:GetPos(), shouldAttachToGround)
 		end
 	end
 

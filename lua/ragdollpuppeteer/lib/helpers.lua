@@ -3,6 +3,7 @@ local constants = include("ragdollpuppeteer/constants.lua")
 local helpers = {}
 
 local RAGDOLL_HEIGHT_DIFFERENCE = constants.RAGDOLL_HEIGHT_DIFFERENCE
+local TOLERANCE = 5
 
 ---@param color Color Color to stringify
 ---@return string colorString A Color formatted as a string ("# # #" or "#,#,#").
@@ -39,20 +40,49 @@ function helpers.getRootHeightDifferenceOf(entity)
 	return math.abs(height - zMin)
 end
 
+local RED = Color(255, 0, 0)
 ---Big ragdolls such as the hl2 strider may not stand from the ground up. This compensates for that by checking
 ---if the difference between the puppeteer's set position and its lower position from the AABB is significantly
 ---different
 ---@param targetEntity Entity The entity to correctly offset from the floor
----@param referenceEntity Entity? The entity as a basis for offset measurements
----@param sign integer? The direction to offset the entity
----@param difference number? The half-height of the entity's bounding box
-function helpers.floorCorrect(targetEntity, referenceEntity, sign, difference)
-	sign = sign or 1
-	referenceEntity = IsValid(referenceEntity) and referenceEntity or targetEntity
-	difference = difference or helpers.getRootHeightDifferenceOf(referenceEntity)
-	if difference > RAGDOLL_HEIGHT_DIFFERENCE then
-		targetEntity:SetPos(referenceEntity:GetPos() + sign * Vector(0, 0, difference))
+---@param floor Entity The entity as a basis for offset measurements
+function helpers.floorCorrect(targetEntity, floor, floorPos, attachToGround)
+	local min, max = targetEntity:GetRotatedAABB(targetEntity:OBBMins(), targetEntity:OBBMaxs())
+	local startPos = targetEntity:LocalToWorld(vector_up * min.z)
+	local endPos = targetEntity:LocalToWorld(vector_up * max.z)
+	local distance = math.huge
+
+	print(vector_up * min.z)
+	print(vector_up * max.z)
+
+	local count = 0
+	debugoverlay.Line(startPos, endPos, 0, RED, true)
+	debugoverlay.Sphere(floorPos, TOLERANCE, 0, constants.COLOR_BLUE, true)
+	---@type TraceResult
+	local tr = {}
+	while distance > TOLERANCE and count < 5 do
+		count = count + 1
+		util.TraceLine({
+			start = startPos,
+			endPos = endPos,
+			filter = { floor },
+			whitelist = not attachToGround,
+			ignoreworld = not attachToGround,
+			output = tr,
+		})
+		if tr.Hit then
+			local length = tr.HitPos:Distance(startPos)
+			distance = floorPos:DistToSqr(tr.HitPos)
+			debugoverlay.Sphere(tr.HitPos, 10, 0, RED, true)
+			targetEntity:SetPos(targetEntity:LocalToWorld(vector_up * length))
+
+			startPos = targetEntity:LocalToWorld(vector_up * min.z)
+			endPos = targetEntity:LocalToWorld(vector_up * max.z)
+		else
+			break
+		end
 	end
+	-- print(count)
 end
 
 return helpers
