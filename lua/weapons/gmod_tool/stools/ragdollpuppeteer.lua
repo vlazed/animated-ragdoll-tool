@@ -22,6 +22,8 @@ TOOL.ClientConVar["alpha"] = "100"
 TOOL.ClientConVar["ignorez"] = 0
 TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
+TOOL.ClientConVar["disabletween"] = 0
+TOOL.ClientConVar["faceme"] = 1
 
 local mode = TOOL:GetMode()
 
@@ -450,7 +452,9 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	puppeteerFloor:SetPlayerOwner(ply)
 	puppeteerFloor:SetPuppet(puppet)
 
-	setAngleOf(puppeteerFloor, ply)
+	if GetConVar("ragdollpuppeteer_faceme"):GetBool() then
+		setAngleOf(puppeteerFloor, ply)
+	end
 
 	return puppeteerFloor
 end

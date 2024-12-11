@@ -123,6 +123,9 @@ local types = {}
 ---@field attachToGround DCheckBoxLabel
 ---@field anySurface DCheckBoxLabel
 ---@field incrementGestures DCheckBoxLabel
+---@field faceMe DCheckBoxLabel
+---@field disableTween DCheckBoxLabel
+---@field randomPose DButton
 
 ---@class PanelProps An immutable struct of the CPanel's properties
 ---@field puppet Entity The prop or ragdoll controlled by the puppeteer

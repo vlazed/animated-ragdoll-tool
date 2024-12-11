@@ -69,6 +69,16 @@ function components.RemoveGesture(cPanel)
 	return panel
 end
 
+---@param cPanel DForm
+---@return DButton randomPose Sample a nongesture sequence pose from the puppeteer's sequences
+function components.RandomPose(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.randompose", "")
+	---@cast panel DButton
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.randompose")
+	return panel
+end
+
 ---@param cPanel DForm | DScrollPanel
 ---@return DButton recoverPuppeteer Teleport the puppeteer floor to the puppet
 function components.RecoverPuppeteer(cPanel)
