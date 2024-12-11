@@ -122,6 +122,18 @@ function components.HeightSlider(cPanel)
 	return panel
 end
 
+---@param cPanel DForm
+---@return DNumSlider scaleSlider Scale the puppeteer movement
+function components.ScaleSlider(cPanel)
+	local panel = cPanel:NumSlider("#ui.ragdollpuppeteer.label.scale", "", 0, 1000)
+	---@cast panel DNumSlider
+
+	panel:SetValue(1)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.scale")
+
+	return panel
+end
+
 ---@return DNumberWang fpsWang Change the FPS ConVar
 function components.FPSWang()
 	local panel = vgui.Create("DNumberWang")

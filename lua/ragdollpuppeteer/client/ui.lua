@@ -583,6 +583,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"#ui.ragdollpuppeteer.label.angleoffset"
 	)
 	local heightOffset = components.HeightSlider(offsets)
+	local scaleOffset = components.ScaleSlider(offsets)
 
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
@@ -716,6 +717,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		faceMe = faceMe,
 		disableTween = disableTween,
 		randomPose = randomPose,
+		scaleOffset = scaleOffset,
 	}
 end
 
@@ -753,6 +755,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local disableTween = panelChildren.disableTween
 	local faceMe = panelChildren.faceMe
 	local randomPose = panelChildren.randomPose
+	local scaleOffset = panelChildren.scaleOffset
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -874,6 +877,20 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				)
 			end
 		end
+	end
+
+	function scaleOffset:OnValueChanged(newVal)
+		local csModel = ents.CreateClientProp()
+		csModel:SetModel(animPuppeteer:GetModel())
+		csModel:DrawModel()
+		csModel:SetModelScale(newVal)
+		csModel:SetupBones()
+		csModel:InvalidateBoneCache()
+		local defaultBonePose = vendor.getDefaultBonePoseOf(csModel)
+		panelState.defaultBonePose = defaultBonePose
+		csModel:Remove()
+
+		floor:SetPuppeteerScale(newVal)
 	end
 
 	angOffset[1].OnValueChanged = onAngleTrioValueChange
