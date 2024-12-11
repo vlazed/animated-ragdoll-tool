@@ -194,8 +194,9 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	---@cast prevKeyframe SMHFrameData
 	---@cast nextKeyframe SMHFrameData
 
+	local tweenDisabled = GetConVar("ragdollpuppeteer_disabletween"):GetBool()
 	local lerpMultiplier = 0
-	if prevKeyframe.Position ~= nextKeyframe.Position then
+	if not tweenDisabled and prevKeyframe.Position ~= nextKeyframe.Position then
 		lerpMultiplier = (frame - prevKeyframe.Position) / (nextKeyframe.Position - prevKeyframe.Position)
 		-- SMH 4.0 save files store easein and easeout values keyed by modifier name,
 		-- while SMH 3.0 stores them per frame position (which is costly for iteration)
