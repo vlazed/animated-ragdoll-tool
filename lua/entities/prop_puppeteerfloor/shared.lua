@@ -246,6 +246,15 @@ function ENT:GetPuppeteerVelocity(puppeteer)
 	return velocity
 end
 
+---@param newScale number
+function ENT:SetPuppeteerScale(newScale)
+	local puppeteers = self.puppeteers
+	---@cast puppeteers RagdollPuppeteer[]
+	for _, puppeteer in ipairs(puppeteers) do
+		puppeteer:SetModelScale(newScale)
+	end
+end
+
 function ENT:Think()
 	if not self.puppeteers or #self.puppeteers == 0 or not self.boxMax then
 		self:NextThink(CurTime())
@@ -292,7 +301,9 @@ function ENT:Think()
 			then
 				local physObj = puppet:GetPhysicsObject()
 				local ping = owner:Ping() * 1e-3
-				local rootPosition = puppeteer:GetBonePosition(puppeteer:TranslatePhysBoneToBone(0)) or physObj:GetPos()
+				local rootPosition = puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
+						and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
+					or physObj:GetPos()
 				-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
 				local velocity = self:GetPuppeteerVelocity(puppeteer)
 				local delta = velocity * (FrameTime() + ping)

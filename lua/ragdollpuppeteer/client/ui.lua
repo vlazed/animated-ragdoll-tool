@@ -12,17 +12,13 @@ local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
 local COLOR_BLUE = constants.COLOR_BLUE
-
+local PREFIXES = constants.PREFIXES
+local SUFFIXES = constants.SUFFIXES
+local FILTER = constants.POSEFILTER
 local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
 local SEQUENCE_CHANGE_DELAY = 0.2
 
 local UI = {}
-
-local currentSequence = {
-	label = "",
-	numframes = 1,
-	anims = {},
-}
 
 local currentGesture = {
 	label = "",
@@ -193,6 +189,17 @@ end
 local lastPose = {}
 local lastGesturePose = {}
 
+-- Camera classes use the entity's position and angles
+local physicsClasses = {
+	["prop_physics"] = true,
+}
+
+-- Camera classes use the entity's bone position and angles
+local cameraClasses = {
+	["hl_camera"] = true,
+	["gmod_cameraprop"] = true,
+}
+
 ---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
 ---https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 ---@param puppeteers Entity[]
@@ -258,8 +265,11 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 			end
 
 			local pos, ang = puppeteers[3]:GetBonePosition(b)
-			if puppet:GetClass() == "prop_physics" then
+			if physicsClasses[puppet:GetClass()] then
 				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
+			elseif cameraClasses[puppet:GetClass()] then
+				local bMatrix = puppeteers[3]:GetBoneMatrix(0)
+				pos, ang = bMatrix and bMatrix:GetTranslation(), bMatrix and bMatrix:GetAngles()
 			end
 
 			if not pos and lastPose[i] then
@@ -587,6 +597,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"#ui.ragdollpuppeteer.label.angleoffset"
 	)
 	local heightOffset = components.HeightSlider(offsets)
+	local scaleOffset = components.ScaleSlider(offsets)
 
 	local poseParams = components.PoseParameters(cPanel, puppeteer)
 
@@ -635,6 +646,18 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"ragdollpuppeteer_anysurface",
 		"#ui.ragdollpuppeteer.tooltip.anysurface"
 	)
+	local faceMe = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.faceme",
+		"ragdollpuppeteer_faceme",
+		"#ui.ragdollpuppeteer.tooltip.faceme"
+	)
+	local disableTween = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.disabletween",
+		"ragdollpuppeteer_disabletween",
+		"#ui.ragdollpuppeteer.tooltip.disabletween"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
@@ -664,6 +687,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
 	local removeGesture = components.RemoveGesture(lists)
+	local randomPose = components.RandomPose(lists)
 	local sequenceSheet = components.Sheet(lists)
 	local sequenceList = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
 	local sequenceList2 = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
@@ -704,6 +728,10 @@ function UI.ConstructPanel(cPanel, panelProps)
 		attachToGround = attachToGround,
 		anySurface = anySurface,
 		incrementGestures = incrementGestures,
+		faceMe = faceMe,
+		disableTween = disableTween,
+		randomPose = randomPose,
+		scaleOffset = scaleOffset,
 	}
 end
 
@@ -711,6 +739,12 @@ end
 ---@param panelProps PanelProps
 ---@param panelState PanelState
 function UI.HookPanel(panelChildren, panelProps, panelState)
+	local currentSequence = {
+		label = "",
+		numframes = 1,
+		anims = {},
+	}
+
 	local smhList = panelChildren.smhList
 	local sequenceList = panelChildren.sequenceList
 	local sequenceList2 = panelChildren.sequenceList2
@@ -732,6 +766,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local puppeteerIgnoreZ = panelChildren.puppeteerIgnoreZ
 	local attachToGround = panelChildren.attachToGround
 	local anySurface = panelChildren.anySurface
+	local disableTween = panelChildren.disableTween
+	local faceMe = panelChildren.faceMe
+	local randomPose = panelChildren.randomPose
+	local scaleOffset = panelChildren.scaleOffset
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -853,6 +891,20 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				)
 			end
 		end
+	end
+
+	function scaleOffset:OnValueChanged(newVal)
+		local csModel = ents.CreateClientProp()
+		csModel:SetModel(animPuppeteer:GetModel())
+		csModel:DrawModel()
+		csModel:SetModelScale(newVal)
+		csModel:SetupBones()
+		csModel:InvalidateBoneCache()
+		local defaultBonePose = vendor.getDefaultBonePoseOf(csModel)
+		panelState.defaultBonePose = defaultBonePose
+		csModel:Remove()
+
+		floor:SetPuppeteerScale(newVal)
 	end
 
 	angOffset[1].OnValueChanged = onAngleTrioValueChange
@@ -984,6 +1036,62 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		currentGesture = rowSelected(row, gestureSlider, animGesturer, currentGesture, false, true)
 	end
 
+	function randomPose:DoClick()
+		local sequences = sequenceList:GetLines()
+		local nonGestures = {}
+		for _, line in ipairs(sequences) do
+			if line:GetValue(4) == 1 then
+				continue
+			end
+			local filtered = false
+
+			---@type string
+			local name = line:GetValue(2):lower()
+			for _, prefix in ipairs(PREFIXES) do
+				if name:sub(1, 3):find(prefix, 1, true) then
+					filtered = true
+					break
+				end
+			end
+			if filtered then
+				continue
+			end
+
+			for _, suffix in ipairs(SUFFIXES) do
+				if name:sub(-1, -3):find(suffix, 1, true) then
+					filtered = true
+					break
+				end
+			end
+			if filtered then
+				continue
+			end
+
+			for _, filter in ipairs(FILTER) do
+				if name:find(filter) then
+					filtered = true
+					break
+				end
+			end
+			if filtered then
+				continue
+			end
+
+			table.insert(nonGestures, line)
+		end
+
+		local pose = nonGestures[math.random(#nonGestures)]
+		local sequenceId = pose:GetValue(1)
+		sequenceList:ClearSelection()
+		sequenceList:SelectItem(pose)
+		---@diagnostic disable-next-line
+		local scrollBar = sequenceList.VBar
+		---@cast scrollBar DVScrollBar
+		scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
+
+		baseSlider:SetValue(math.random(baseSlider:GetMax()))
+	end
+
 	local sendingFrame = false
 	local function sliderValueChanged(slider, val, sequence, puppeteer, smh, sendNet)
 		local _, option = sourceBox:GetSelected()
@@ -1057,12 +1165,14 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		if option == "sequence" then
 			gestureSlider:SetEnabled(game.SinglePlayer())
 			removeGesture:SetEnabled(game.SinglePlayer())
+			randomPose:SetEnabled(true)
 			smhList:SizeTo(-1, 0, 0.5)
 			smhBrowser:SizeTo(-1, 0, 0.5)
 			sequenceSheet:SizeTo(-1, 500, 0.5)
 		else
 			gestureSlider:SetEnabled(false)
 			removeGesture:SetEnabled(false)
+			randomPose:SetEnabled(false)
 			sequenceSheet:SizeTo(-1, 0, 0.5)
 			smhList:SizeTo(-1, 250, 0.5)
 			smhBrowser:SizeTo(-1, 250, 0.5)
