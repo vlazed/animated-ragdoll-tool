@@ -202,9 +202,9 @@ local function setNonPhysicalBonePoseOf(puppet, targetPose, filteredBones, physB
 		if not physBones[b] then
 			puppet:ManipulateBonePosition(b, targetPose[b].Pos)
 			puppet:ManipulateBoneAngles(b, targetPose[b].Ang)
-			if targetPose[b].Scale then
-				puppet:ManipulateBoneScale(b, targetPose[b].Scale)
-			end
+		end
+		if targetPose[b].Scale then
+			puppet:ManipulateBoneScale(b, targetPose[b].Scale)
 		end
 	end
 end
