@@ -189,8 +189,9 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	---@cast prevKeyframe SMHFrameData
 	---@cast nextKeyframe SMHFrameData
 
+	local tweenDisabled = GetConVar("ragdollpuppeteer_disabletween"):GetBool()
 	local lerpMultiplier = 0
-	if prevKeyframe.Position ~= nextKeyframe.Position then
+	if not tweenDisabled and prevKeyframe.Position ~= nextKeyframe.Position then
 		lerpMultiplier = (frame - prevKeyframe.Position) / (nextKeyframe.Position - prevKeyframe.Position)
 		lerpMultiplier = math.EaseInOut(lerpMultiplier, prevKeyframe.EaseOut, nextKeyframe.EaseIn)
 	end
