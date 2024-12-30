@@ -170,8 +170,9 @@ end
 ---@param pose SMHFramePose[]
 ---@param puppeteer RagdollPuppeteer
 local function encodePose(pose, puppeteer)
-	local b = puppeteer:TranslatePhysBoneToBone(0)
-	local matrix = puppeteer:GetBoneMatrix(b)
+	-- Physics props indices start at 1, not at 0. In case we work with physics props, use that matrix
+	local b1, b2 = puppeteer:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(1)
+	local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
 	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
 
 	net.WriteUInt(#pose, 16)
