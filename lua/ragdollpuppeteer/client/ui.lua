@@ -611,6 +611,12 @@ function UI.ConstructPanel(cPanel, panelProps)
 		"ragdollpuppeteer_animatenonphys",
 		"#ui.ragdollpuppeteer.tooltip.nonphys"
 	)
+	local resetNonPhys = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.resetnonphys",
+		"ragdollpuppeteer_resetnonphys",
+		"#ui.ragdollpuppeteer.tooltip.resetnonphys"
+	)
 	local showPuppeteer = components.CheckBox(
 		generalContainer,
 		"#ui.ragdollpuppeteer.label.showpuppeteer",
@@ -723,6 +729,7 @@ function UI.ConstructPanel(cPanel, panelProps)
 		shouldIncrement = shouldIncrement,
 		playButton = playButton,
 		fpsWang = fpsWang,
+		resetNonPhys = resetNonPhys,
 		heightOffset = heightOffset,
 		puppeteerColor = puppeteerColor,
 		puppeteerIgnoreZ = puppeteerIgnoreZ,

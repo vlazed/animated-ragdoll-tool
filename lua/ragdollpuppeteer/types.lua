@@ -105,6 +105,7 @@ local types = {}
 ---@field sequenceList2 DListView
 ---@field sequenceSheet DPropertySheet
 ---@field nonPhysCheckBox DCheckBoxLabel
+---@field resetNonPhysCheckBox DCheckBoxLabel
 ---@field baseSlider FrameSlider
 ---@field gestureSlider FrameSlider
 ---@field searchBar DTextEntry

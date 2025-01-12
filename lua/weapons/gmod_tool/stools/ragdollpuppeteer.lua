@@ -12,6 +12,7 @@ TOOL.ConfigName = ""
 TOOL.ClientConVar["baseframe"] = 0
 TOOL.ClientConVar["gestureframe"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
+TOOL.ClientConVar["resetnonphys"] = 1
 TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["floor_worldcollisions"] = 1
 TOOL.ClientConVar["playback_shouldincrement"] = 1
@@ -395,7 +396,7 @@ local function readSMHPose(puppet, playerData)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
 		setNonPhysicalBonePoseOf(puppet, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
 		playerData.bonesReset = false
-	elseif not playerData.bonesReset then
+	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
 		playerData.bonesReset = true
 	end
@@ -424,7 +425,7 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	if animatingNonPhys then
 		queryNonPhysBonePoseOfPuppet(player, cycle)
 		playerData.bonesReset = false
-	elseif not playerData.bonesReset then
+	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
 		playerData.bonesReset = true
 	end
