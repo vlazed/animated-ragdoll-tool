@@ -292,9 +292,7 @@ local physicsClasses = {
 local function getPhysBonesOfPuppet(puppet)
 	local physbones = {}
 	if physicsClasses[puppet:GetClass()] then
-		local count = puppet:GetPhysicsObjectCount()
-		local max = Either(count > 1, count - 1, count)
-		for i = 0, max do
+		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local bone = puppet:TranslatePhysBoneToBone(i)
 			if bone and bone > -1 then
 				physbones[bone] = i
