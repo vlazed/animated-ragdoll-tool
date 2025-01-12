@@ -65,10 +65,9 @@ if SERVER then
 		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
 	end
 
-	gameevent.Listen("player_connect")
-	hook.Add("player_connect", "ragdollpuppeteer_PlayerConnect", function(data)
-		local userId = data.userid
-		addPlayerField(userId)
+	gameevent.Listen("player_activate")
+	hook.Add("player_activate", "ragdollpuppeteer_PlayerConnect", function(data)
+		addPlayerField(data.userid)
 	end)
 
 	gameevent.Listen("player_disconnect")

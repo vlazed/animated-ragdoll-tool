@@ -69,6 +69,16 @@ function components.RemoveGesture(cPanel)
 	return panel
 end
 
+---@param cPanel DForm
+---@return DButton randomPose Sample a nongesture sequence pose from the puppeteer's sequences
+function components.RandomPose(cPanel)
+	local panel = cPanel:Button("#ui.ragdollpuppeteer.label.randompose", "")
+	---@cast panel DButton
+
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.randompose")
+	return panel
+end
+
 ---@param cPanel DForm | DScrollPanel
 ---@return DButton recoverPuppeteer Teleport the puppeteer floor to the puppet
 function components.RecoverPuppeteer(cPanel)
@@ -108,6 +118,18 @@ function components.HeightSlider(cPanel)
 
 	panel:SetValue(0)
 	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.height")
+
+	return panel
+end
+
+---@param cPanel DForm
+---@return DNumSlider scaleSlider Scale the puppeteer movement
+function components.ScaleSlider(cPanel)
+	local panel = cPanel:NumSlider("#ui.ragdollpuppeteer.label.scale", "", 0, 1000)
+	---@cast panel DNumSlider
+
+	panel:SetValue(1)
+	panel:SetTooltip("#ui.ragdollpuppeteer.tooltip.scale")
 
 	return panel
 end
