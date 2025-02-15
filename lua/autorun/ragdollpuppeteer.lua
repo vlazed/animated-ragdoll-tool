@@ -1,11 +1,16 @@
 if SERVER then
-	resource.AddSingleFile("materials/ragdollpuppeteer/invisible.vtf")
-	resource.AddSingleFile("materials/ragdollpuppeteer/puppeteer_invisible.vmt")
-	resource.AddSingleFile("materials/ragdollpuppeteer/puppeteer_ignorez.vmt")
-	resource.AddSingleFile("materials/ragdollpuppeteer/puppeteer.vmt")
+	-- Some addons (which ones?) override the Player function to a string type.
+	-- This just overrides the function with a slower version if this happens.
+	local Player = isfunction(Player) and Player
+		or function(userId)
+			for _, player in player.Iterator() do
+				if player:UserID() == userId then
+					return player
+				end
+			end
+		end
 
-	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_tool.properties")
-	resource.AddSingleFile("resource/localization/en/ragdollpuppeteer_ui.properties")
+	resource.AddWorkshop("3333911060")
 
 	include("ragdollpuppeteer/server/net.lua")
 	include("ragdollpuppeteer/server/concommands.lua")
@@ -84,10 +89,9 @@ if SERVER then
 		RAGDOLLPUPPETEER_PLAYERS[userId] = nil
 	end
 
-	gameevent.Listen("player_connect")
-	hook.Add("player_connect", "ragdollpuppeteer_PlayerConnect", function(data)
-		local userId = data.userid
-		addPlayerField(userId)
+	gameevent.Listen("player_activate")
+	hook.Add("player_activate", "ragdollpuppeteer_PlayerConnect", function(data)
+		addPlayerField(data.userid)
 	end)
 
 	gameevent.Listen("player_disconnect")

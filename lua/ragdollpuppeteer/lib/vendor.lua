@@ -27,6 +27,7 @@ end
 ---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity Entity to obtain bone information
 ---@param child integer Child bone index
+---@param defaultBonePose DefaultBonePoseArray Array of position and angles denoting the reference bone pose
 ---@return Vector positionOffset Position of child bone with respect to parent bone
 ---@return Angle angleOffset Angle of child bone with respect to parent bone
 function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
@@ -65,7 +66,7 @@ end
 ---Get the pose of every bone of the entity, for nonphysical bone matching
 ---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
 ---@param ent Entity Entity in reference pose
----@return DefaultBonePose defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
+---@return DefaultBonePoseArray defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
 function Vendor.getDefaultBonePoseOf(ent)
 	local defaultPose = {}
 	local entPos = ent:GetPos()
@@ -188,8 +189,9 @@ function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modnam
 	---@cast prevKeyframe SMHFrameData
 	---@cast nextKeyframe SMHFrameData
 
+	local tweenDisabled = GetConVar("ragdollpuppeteer_disabletween"):GetBool()
 	local lerpMultiplier = 0
-	if prevKeyframe.Position ~= nextKeyframe.Position then
+	if not tweenDisabled and prevKeyframe.Position ~= nextKeyframe.Position then
 		lerpMultiplier = (frame - prevKeyframe.Position) / (nextKeyframe.Position - prevKeyframe.Position)
 		lerpMultiplier = math.EaseInOut(lerpMultiplier, prevKeyframe.EaseOut, nextKeyframe.EaseIn)
 	end

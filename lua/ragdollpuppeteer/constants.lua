@@ -17,5 +17,40 @@ constants.COLOR_BLUE = Color(0, 0, 64, 100)
 constants.MAX_MODELS = 100
 -- The number of models to leak from the bucket
 constants.MODEL_DEQUE_RATE = 10
+constants.PREFIXES = {
+	"g_",
+	"p_",
+}
+constants.SUFFIXES = {}
+constants.POSEFILTER = {
+	"ref",
+	"ragdoll",
+	"user_ref",
+	"r_handposes",
+	"r_armposes",
+	"r_armposes",
+	"_flinch",
+	"_swing",
+	"gesture",
+	"posture",
+	"_end",
+	"_loop",
+	"aimmatrix",
+	"_matrix",
+	"spine",
+	"arms",
+	"delta",
+	"_g_",
+	"_bg_",
+	"turnright",
+	"turnleft",
+	"arml",
+	"armr",
+	"attackstand",
+	"attackcrouch",
+	"blend",
+	"placesapper",
+	"jumpland",
+}
 
 return constants

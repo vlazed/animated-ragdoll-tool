@@ -14,6 +14,7 @@ TOOL.ConfigName = ""
 TOOL.ClientConVar["baseframe"] = 0
 TOOL.ClientConVar["gestureframe"] = 0
 TOOL.ClientConVar["animatenonphys"] = 0
+TOOL.ClientConVar["resetnonphys"] = 1
 TOOL.ClientConVar["showpuppeteer"] = 1
 TOOL.ClientConVar["floor_worldcollisions"] = 1
 TOOL.ClientConVar["playback_shouldincrement"] = 1
@@ -24,6 +25,8 @@ TOOL.ClientConVar["alpha"] = "100"
 TOOL.ClientConVar["ignorez"] = 0
 TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
+TOOL.ClientConVar["disabletween"] = 0
+TOOL.ClientConVar["faceme"] = 1
 
 -- The number of models that the user should not go over 
 local MAX_MODELS = constants.MAX_MODELS
@@ -158,7 +161,9 @@ end
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppeteer)
 	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
 
-	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
+	local isEffectProp = puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect"
+
+	if isEffectProp then
 		local parent = puppet:GetParent()
 		parent:SetPos(puppeteer:GetPos())
 		parent:SetAngles(puppeteer:GetAngles())
@@ -207,13 +212,13 @@ local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredB
 
 		if b and not physBones[b] then
 			local pos, ang = targetPose[b2].Pos, targetPose[b2].Ang
-			local scale = targetPose[b2].Scale
 
 			puppet:ManipulateBonePosition(b, pos)
 			puppet:ManipulateBoneAngles(b, ang)
-			if scale then
-				puppet:ManipulateBoneScale(b, scale)
-			end
+		end
+		local scale = targetPose[b2].Scale
+		if scale then
+			puppet:ManipulateBoneScale(b, scale)
 		end
 	end
 end
@@ -223,7 +228,7 @@ end
 ---@param puppet Entity The puppet to set physical bone poses
 ---@param puppeteer Entity The puppeteer to use to set poses for the puppet. Only used in multiplayer
 ---@param filteredBones integer[] Bones that will not be set to their target pose
----@param lastPose BonePose The last pose to use if the pose doesn't exist for the current bone
+---@param lastPose BonePoseArray The last pose to use if the pose doesn't exist for the current bone
 local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
 	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
 		local parent = puppet:GetParent()
@@ -300,18 +305,24 @@ local function queryDefaultBonePoseOfPuppet(model, ply)
 	net.Send(ply)
 end
 
+local physicsClasses = {
+	["prop_physics"] = true,
+	["prop_ragdoll"] = true,
+	["gmod_cameraprop"] = true,
+	["hl_camera"] = true,
+}
 
 ---Get the physbones of the ragdoll or physics prop puppet, so we don't perform unnecessary BoneManipulations
 ---@param puppet Entity
 ---@return integer[]
 local function getPhysBonesOfPuppet(puppet)
 	local physbones = {}
-	if puppet:GetClass() == "prop_ragdoll" or puppet:GetClass() == "prop_physics" then
+	if physicsClasses[puppet:GetClass()] then
 		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 			local bone = puppet:TranslatePhysBoneToBone(i)
 			if bone and bone > -1 then
 				physbones[bone] = i
-			end
+			end	
 		end
 	end
 
@@ -410,7 +421,7 @@ local function readSMHPose(puppet, playerData)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
 		setNonPhysicalBonePoseOf(puppet, playerData.puppeteer, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
 		playerData.bonesReset = false
-	elseif not playerData.bonesReset then
+	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
 		playerData.bonesReset = true
 	end
@@ -439,7 +450,7 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	if animatingNonPhys then
 		queryNonPhysBonePoseOfPuppet(player, cycle)
 		playerData.bonesReset = false
-	elseif not playerData.bonesReset then
+	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
 		playerData.bonesReset = true
 	end
@@ -475,7 +486,9 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	puppeteerFloor:SetPlayerOwner(ply)
 	puppeteerFloor:SetPuppet(puppet)
 
-	setAngleOf(puppeteerFloor, ply)
+	if GetConVar("ragdollpuppeteer_faceme"):GetBool() then
+		setAngleOf(puppeteerFloor, ply)
+	end
 
 	return puppeteerFloor
 end
@@ -487,6 +500,8 @@ local validPuppetClasses = {
 	["prop_effect"] = true,
 	["prop_dynamic"] = true,
 	["prop_resizedragdoll_physparent"] = true,
+	["hl_camera"] = true,
+	["gmod_cameraprop"] = true,
 }
 
 ---Select a ragdoll as a puppet to puppeteer
