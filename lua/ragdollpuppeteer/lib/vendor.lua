@@ -78,17 +78,23 @@ function Vendor.getDefaultBonePoseOf(ent, identifier)
 		return defaultPoseTrees[identifier]
 	end
 
+	local csModel = ents.CreateClientProp()
+	csModel:SetModel(ent:GetModel())
+	csModel:DrawModel()
+	csModel:SetupBones()
+	csModel:InvalidateBoneCache()
+
 	local defaultPose = {}
-	local entPos = ent:GetPos()
-	local entAngles = ent:GetAngles()
-	for b = 0, ent:GetBoneCount() - 1 do
-		local parent = ent:GetBoneParent(b)
-		local bMatrix = ent:GetBoneMatrix(b)
+	local entPos = csModel:GetPos()
+	local entAngles = csModel:GetAngles()
+	for b = 0, csModel:GetBoneCount() - 1 do
+		local parent = csModel:GetBoneParent(b)
+		local bMatrix = csModel:GetBoneMatrix(b)
 		if bMatrix then
 			local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
 			local pos2, ang2 = pos1 * 1, ang1 * 1
 			if parent > -1 then
-				local pMatrix = ent:GetBoneMatrix(parent)
+				local pMatrix = csModel:GetBoneMatrix(parent)
 				pos2, ang2 = WorldToLocal(
 					bMatrix:GetTranslation(),
 					bMatrix:GetAngles(),
@@ -104,6 +110,7 @@ function Vendor.getDefaultBonePoseOf(ent, identifier)
 	end
 
 	defaultPoseTrees[identifier] = defaultPose
+	csModel:Remove()
 
 	return defaultPose
 end

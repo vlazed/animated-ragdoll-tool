@@ -304,16 +304,6 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 	end
 end
 
----Instead of finding the default bone pose on the server, find them in the client
----We require the model so that we can build the client model with its default bone pose
----@param model string The model for building the default bone pose
----@param ply Player Who queried for the default bone pose
-local function queryDefaultBonePoseOfPuppet(model, ply)
-	net.Start("queryDefaultBonePoseOfPuppet", false)
-	net.WriteString(model)
-	net.Send(ply)
-end
-
 local physicsClasses = {
 	["prop_physics"] = true,
 	["prop_ragdoll"] = true,
@@ -597,8 +587,6 @@ function TOOL:LeftClick(tr)
 		RAGDOLLPUPPETEER_PLAYERS[userId].physBones = getPhysBonesOfPuppet(puppet)
 	end
 
-	queryDefaultBonePoseOfPuppet(puppetModel, ply)
-
 	-- End of lifecycle events
 	puppet:CallOnRemove("RemoveAnimPuppeteer", function()
 		self:Cleanup(userId)
@@ -734,7 +722,6 @@ if SERVER then
 
 		local newModel = net.ReadString()
 		puppeteer:SetModel(newModel)
-		queryDefaultBonePoseOfPuppet(newModel, sender)
 	end)
 
 	net.Receive("onPuppeteerPlayback", function(_, sender)
@@ -1145,17 +1132,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	panelState.previousPuppeteer = animPuppeteer
 end
-
-net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
-	local netModel = net.ReadString()
-	local csModel = ents.CreateClientProp()
-	csModel:SetModel(netModel)
-	csModel:DrawModel()
-	csModel:SetupBones()
-	csModel:InvalidateBoneCache()
-	vendor.getDefaultBonePoseOf(csModel)
-	csModel:Remove()
-end)
 
 local COLOR_WHITE = Color(200, 200, 200)
 local COLOR_WHITE_BRIGHT = Color(255, 255, 255)

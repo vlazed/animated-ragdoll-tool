@@ -1020,15 +1020,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	end
 
 	function scaleOffset:OnValueChanged(newVal)
-		local csModel = ents.CreateClientProp()
-		csModel:SetModel(animPuppeteer:GetModel())
-		csModel:DrawModel()
-		csModel:SetModelScale(newVal)
-		csModel:SetupBones()
-		csModel:InvalidateBoneCache()
 		-- FIXME: We probably don't want to cache multiple versions of the same model
-		vendor.getDefaultBonePoseOf(csModel, csModel:GetModel() .. "_scale_" .. newVal)
-		csModel:Remove()
+		vendor.getDefaultBonePoseOf(animPuppeteer, animPuppeteer:GetModel() .. "_scale_" .. newVal)
 
 		floor:SetPuppeteerScale(newVal)
 	end
