@@ -220,8 +220,7 @@ local cameraClasses = {
 ---@param puppet Entity | ResizedRagdoll
 ---@param physicsCount integer
 ---@param gesturers Entity[]
----@param defaultBonePose DefaultBonePoseArray
-local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, defaultBonePose)
+local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers)
 	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 		return
 	end
@@ -240,20 +239,17 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, de
 		for i = 0, physicsCount - 1 do
 			local b = puppet:TranslatePhysBoneToBone(i)
 
-			if defaultBonePose and currentGesture.anims then
+			if currentGesture.anims then
 				local gesturePos, gestureAng
 				if puppeteers[1]:GetBoneParent(b) > -1 then
-					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b, defaultBonePose)
-					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b, defaultBonePose)
+					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b)
+					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b)
 
-					local oQuat = quaternion()
-					local gQuat = quaternion()
-					oQuat:SetAngle(oAng)
-					gQuat:SetAngle(gAng)
+					local oQuat = quaternion.fromAngle(oAng)
+					local gQuat = quaternion.fromAngle(gAng)
 					local dQuat = gQuat * oQuat:Invert()
 
-					local dPos = gPos - oPos
-					local dAng = dQuat:Angle()
+					local dPos, dAng = gPos - oPos, dQuat:Angle()
 					gesturePos, gestureAng = dPos, dAng
 				else
 					local gPos, gAng = animGesturer:GetBonePosition(b)
@@ -433,8 +429,7 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose
+					{ baseGesturer, animGesturer }
 				)
 				net.SendToServer()
 			else
@@ -1007,8 +1002,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				{ animPuppeteer, basePuppeteer, viewPuppeteer },
 				puppet,
 				physicsCount,
-				{ baseGesturer, animGesturer },
-				panelState.defaultBonePose
+				{ baseGesturer, animGesturer }
 			)
 			net.SendToServer()
 		else
@@ -1032,8 +1026,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		csModel:SetModelScale(newVal)
 		csModel:SetupBones()
 		csModel:InvalidateBoneCache()
-		local defaultBonePose = vendor.getDefaultBonePoseOf(csModel)
-		panelState.defaultBonePose = defaultBonePose
+		-- FIXME: We probably don't want to cache multiple versions of the same model
+		vendor.getDefaultBonePoseOf(csModel, csModel:GetModel() .. "_scale_" .. newVal)
 		csModel:Remove()
 
 		floor:SetPuppeteerScale(newVal)
@@ -1063,8 +1057,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose
+					{ baseGesturer, animGesturer }
 				)
 				net.SendToServer()
 			end
@@ -1123,8 +1116,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose
+					{ baseGesturer, animGesturer }
 				)
 				net.SendToServer()
 			end)
@@ -1237,8 +1229,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer },
-					panelState.defaultBonePose
+					{ baseGesturer, animGesturer }
 				)
 				net.SendToServer()
 				sendingFrame = false

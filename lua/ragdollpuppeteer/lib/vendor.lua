@@ -27,10 +27,11 @@ end
 ---Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity Entity to obtain bone information
 ---@param child integer Child bone index
----@param defaultBonePose DefaultBonePoseArray Array of position and angles denoting the reference bone pose
 ---@return Vector positionOffset Position of child bone with respect to parent bone
 ---@return Angle angleOffset Angle of child bone with respect to parent bone
-function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
+function Vendor.getBoneOffsetsOf(puppeteer, child)
+	local defaultBonePose = Vendor.getDefaultBonePoseOf(puppeteer)
+
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
 	local cMatrix = puppeteer:GetBoneMatrix(child)
@@ -63,11 +64,20 @@ function Vendor.PhysBoneToBone(ent, physBone)
 	return ent:TranslatePhysBoneToBone(physBone)
 end
 
+---@type table<string, DefaultBonePoseArray> Array of position and angles denoting the reference bone pose
+local defaultPoseTrees = {}
+
 ---Get the pose of every bone of the entity, for nonphysical bone matching
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
 ---@param ent Entity Entity in reference pose
+---@param identifier string? Custom name for the pose tree to allow for different versions of the same entity
 ---@return DefaultBonePoseArray defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
-function Vendor.getDefaultBonePoseOf(ent)
+function Vendor.getDefaultBonePoseOf(ent, identifier)
+	identifier = identifier or ent:GetModel()
+	if defaultPoseTrees[identifier] then
+		return defaultPoseTrees[identifier]
+	end
+
 	local defaultPose = {}
 	local entPos = ent:GetPos()
 	local entAngles = ent:GetAngles()
@@ -92,6 +102,9 @@ function Vendor.getDefaultBonePoseOf(ent)
 			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
 		end
 	end
+
+	defaultPoseTrees[identifier] = defaultPose
+
 	return defaultPose
 end
 

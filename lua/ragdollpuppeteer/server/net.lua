@@ -24,7 +24,7 @@ hook.Add("Think", "ragdollpuppeteer_leak_buckets", function()
 	-- Why do we have this? We're guarding against the possibility of the
 	-- client spamming model requests to the server. If these model requests
 	-- consist of valid models, the server will begin to precache all these models
-	-- until the precached models count to 4096, which causes the server to crash.
+	-- until the precached models count to 8192, which causes the server to crash.
 	for _, player in ipairs(player.GetHumans()) do
 		---@cast player Player
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[player:UserID()]

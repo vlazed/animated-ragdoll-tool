@@ -28,7 +28,7 @@ TOOL.ClientConVar["anysurface"] = 0
 TOOL.ClientConVar["disabletween"] = 0
 TOOL.ClientConVar["faceme"] = 1
 
--- The number of models that the user should not go over 
+-- The number of models that the user should not go over
 local MAX_MODELS = constants.MAX_MODELS
 -- The number of models to leak from the bucket
 local MODEL_DEQUE_RATE = constants.MODEL_DEQUE_RATE
@@ -161,7 +161,9 @@ end
 local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppeteer)
 	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
 
-	local isEffectProp = puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect"
+	local isEffectProp = puppet:GetClass() == "prop_dynamic"
+		and puppet:GetParent()
+		and puppet:GetParent():GetClass() == "prop_effect"
 
 	if isEffectProp then
 		local parent = puppet:GetParent()
@@ -183,8 +185,12 @@ local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppetee
 				phys:SetAngles(ang)
 			else
 				-- Then, set target position of puppet with offset
-				local fPos, fAng =
-					LocalToWorld(targetPose[i].Pos * scale, targetPose[i].Ang, targetPose[i].RootPos, targetPose[i].RootAng)
+				local fPos, fAng = LocalToWorld(
+					targetPose[i].Pos * scale,
+					targetPose[i].Ang,
+					targetPose[i].RootPos,
+					targetPose[i].RootAng
+				)
 
 				phys:EnableMotion(false)
 				phys:SetPos(fPos)
@@ -204,7 +210,7 @@ end
 ---@param physBones integer[] Bone indices that map to physobj indices
 local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredBones, physBones)
 	for b2 = 0, puppeteer:GetBoneCount() - 1 do
-		local b = puppet:LookupBone(targetPose[b2].Name) 
+		local b = puppet:LookupBone(targetPose[b2].Name)
 
 		if b and filteredBones[b + 1] then
 			continue
@@ -230,7 +236,11 @@ end
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 ---@param lastPose BonePoseArray The last pose to use if the pose doesn't exist for the current bone
 local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
-	if puppet:GetClass() == "prop_dynamic" and puppet:GetParent() and puppet:GetParent():GetClass() == "prop_effect" then
+	if
+		puppet:GetClass() == "prop_dynamic"
+		and puppet:GetParent()
+		and puppet:GetParent():GetClass() == "prop_effect"
+	then
 		local parent = puppet:GetParent()
 		parent:SetPos(puppeteer:GetPos())
 		parent:SetAngles(puppeteer:GetAngles())
@@ -239,15 +249,15 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 			for i = 0, puppet:GetPhysicsObjectCount() - 1 do
 				local phys = puppet:GetPhysicsObjectNum(i)
 				local b = puppet:TranslatePhysBoneToBone(i)
-	
+
 				local pos, ang = net.ReadVector(), net.ReadAngle()
 				pos = pos and pos or lastPose[i][1] or vector_origin
 				ang = ang and ang or lastPose[i][2] or angle_zero
-	
+
 				if filteredBones[b + 1] then
 					continue
 				end
-	
+
 				phys:EnableMotion(true)
 				phys:Wake()
 				phys:SetPos(pos and pos or lastPose[i][1])
@@ -263,7 +273,7 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 				if filteredBones[b + 1] then
 					continue
 				end
-	
+
 				local pos, ang = lastPose[i][1] or vector_origin, lastPose[i][2] or angle_zero
 				if puppeteer:GetModel() == puppet:GetModel() then
 					pos, ang = puppeteer:GetBonePosition(b)
@@ -275,7 +285,7 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 						pos, ang = puppeteer:GetBonePosition(b2)
 					end
 				end
-				
+
 				phys:EnableMotion(true)
 				phys:Wake()
 				phys:SetPos(pos)
@@ -291,7 +301,6 @@ local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPos
 				lastPose[i] = { pos, ang }
 			end
 		end
-	
 	end
 end
 
@@ -322,7 +331,7 @@ local function getPhysBonesOfPuppet(puppet)
 			local bone = puppet:TranslatePhysBoneToBone(i)
 			if bone and bone > -1 then
 				physbones[bone] = i
-			end	
+			end
 		end
 	end
 
@@ -419,7 +428,13 @@ local function readSMHPose(puppet, playerData)
 	if animatingNonPhys then
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-		setNonPhysicalBonePoseOf(puppet, playerData.puppeteer, targetPoseNonPhys, playerData.filteredBones, playerData.physBones)
+		setNonPhysicalBonePoseOf(
+			puppet,
+			playerData.puppeteer,
+			targetPoseNonPhys,
+			playerData.filteredBones,
+			playerData.physBones
+		)
 		playerData.bonesReset = false
 	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
@@ -515,7 +530,7 @@ function TOOL:LeftClick(tr)
 	local puppet = tr.Entity
 	if puppet:GetClass() == "prop_effect" then
 		-- Get the immediate first model that it finds in there
-		puppet = #tr.Entity:GetChildren()>0 and tr.Entity:GetChildren()[1] or tr.Entity
+		puppet = #tr.Entity:GetChildren() > 0 and tr.Entity:GetChildren()[1] or tr.Entity
 	end
 	do
 		local validPuppet = IsValid(puppet)
@@ -529,12 +544,12 @@ function TOOL:LeftClick(tr)
 		return true
 	end
 
-	if IsValid(self:GetAnimationPuppet())then
+	if IsValid(self:GetAnimationPuppet()) then
 		-- If we're selecting a different character, cleanup the previous selection
-		if self:GetAnimationPuppet() ~= puppet  then
+		if self:GetAnimationPuppet() ~= puppet then
 			self:Cleanup(userId)
 		else
-			-- We're selecting the same entity. Don't do anything else 
+			-- We're selecting the same entity. Don't do anything else
 			return false
 		end
 	end
@@ -861,12 +876,13 @@ end
 ---@return BoneOffsetArray boneOffsets An array of bone offsets from the default bone pose
 local function matchNonPhysicalBonePoseOf(puppeteer)
 	local newPose = {}
+	local defaultBonePose = vendor.getDefaultBonePoseOf(puppeteer)
 
 	for b = 0, puppeteer:GetBoneCount() - 1 do
 		-- Reset bone position and angles
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
-			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b, panelState.defaultBonePose)
+			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b)
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
 			newPose[b + 1][3] = puppeteer:GetBoneName(b)
@@ -883,10 +899,9 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 				)
 
 				-- ManipulateBonePosition delta
-				dPos = lPos - panelState.defaultBonePose[b + 1][1]
+				dPos = lPos - defaultBonePose[b + 1][1]
 				-- ManipulateBoneAngles delta
-				_, dAng =
-					WorldToLocal(lPos, lAng, panelState.defaultBonePose[b + 1][1], panelState.defaultBonePose[b + 1][2])
+				_, dAng = WorldToLocal(lPos, lAng, defaultBonePose[b + 1][1], defaultBonePose[b + 1][2])
 			end
 
 			newPose[b + 1] = {}
@@ -941,7 +956,7 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount)
 				continue
 			end
 
-			-- We have to pass over the puppet's offsets over to the puppeteer, using the offsetting methods from the 
+			-- We have to pass over the puppet's offsets over to the puppeteer, using the offsetting methods from the
 			-- resized ragdoll entities
 			if puppet.PhysBones[i] then
 				local pMatrix = nil
@@ -961,7 +976,7 @@ local function resizePuppeteerToPuppet(puppeteer, puppet, boneCount)
 			else
 				local parentboneid = puppeteer:GetBoneParent(i)
 				local pMatrix = nil
-				if parentboneid and parentboneid != -1 then
+				if parentboneid and parentboneid ~= -1 then
 					pMatrix = puppeteer:GetBoneMatrix(parentboneid)
 				else
 					local matr = Matrix()
@@ -1032,7 +1047,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		animGesturer,
 		basePuppeteer,
 		baseGesturer,
-		viewPuppeteer
+		viewPuppeteer,
 	})
 
 	floor:SetPhysicsSize(viewPuppeteer)
@@ -1069,7 +1084,9 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		-- After a sufficient amount of resizing, the puppeteer should have all its bones resized so that we can finally set the root scale
 		if count >= 25 and IsValid(floor) and not floor:GetPuppeteerRootScale() and puppet.SavedBoneMatrices then
 			local floorPos = floor:GetPos()
-			local pelvisPos = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0)) and ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0)):GetTranslation() or vector_origin
+			local pelvisPos = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0))
+					and ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(0)):GetTranslation()
+				or vector_origin
 			local min = ent:GetRenderBounds()
 
 			floor:SetPuppeteerRootScale((floorPos - pelvisPos) - min)
@@ -1106,8 +1123,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	end)
 
 	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
-		if not IsValid(animPuppeteer) or not IsValid(animGesturer) then 
-			return 
+		if not IsValid(animPuppeteer) or not IsValid(animGesturer) then
+			return
 		end
 
 		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer)
@@ -1136,12 +1153,7 @@ net.Receive("queryDefaultBonePoseOfPuppet", function(_, _)
 	csModel:DrawModel()
 	csModel:SetupBones()
 	csModel:InvalidateBoneCache()
-	local defaultBonePose = vendor.getDefaultBonePoseOf(csModel)
-	panelState.defaultBonePose = defaultBonePose
-
-	if #defaultBonePose == 0 then
-		return
-	end
+	vendor.getDefaultBonePoseOf(csModel)
 	csModel:Remove()
 end)
 

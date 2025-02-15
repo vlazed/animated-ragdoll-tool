@@ -147,7 +147,6 @@ local types = {}
 ---@class PanelState A mutable struct of the CPanel's values at a specific time, influenced by the environment and player actions
 ---@field maxFrames integer The duration of the animation
 ---@field previousPuppeteer Entity? The last puppeteer used before the current one
----@field defaultBonePose DefaultBonePoseArray An array of bone poses in the reference pose
 ---@field physicsObjects PhysicsObject[] An array  of physics objects in the puppet
 ---@field model string
 ---@field smhData SMHFile?
