@@ -283,7 +283,8 @@ end
 ---@param panelProps PanelProps
 ---@param panelChildren PanelChildren
 ---@param panelState PanelState
-local function populateLists(option, text, panelChildren, panelProps, panelState)
+---@param modelChanged boolean
+local function populateLists(option, text, panelChildren, panelProps, panelState, modelChanged)
 	local animPuppeteer = panelProps.puppeteer
 	local model = panelState.model
 	local smhData = panelState.smhData
@@ -291,20 +292,29 @@ local function populateLists(option, text, panelChildren, panelProps, panelState
 	local sequenceSheet = panelChildren.sequenceSheet
 
 	if option == "sequence" then
-		---@diagnostic disable-next-line
-		local activeList = sequenceSheet:GetActiveTab():GetPanel()
-		---@cast activeList DListView
-		UI.ClearList(activeList)
-		UI.PopulateSequenceList(activeList, animPuppeteer, function(seqInfo)
-			---@cast seqInfo SequenceInfo
-
-			if text:len() > 0 then
-				local result = string.find(seqInfo.label:lower(), text:lower())
-				return result ~= nil
-			else
-				return true
+		---@type DListView[]
+		local lists = {}
+		if modelChanged then
+			for _, sheetInfo in ipairs(sequenceSheet:GetItems()) do
+				table.insert(lists, sheetInfo.Panel)
 			end
-		end)
+		else
+			---@diagnostic disable-next-line
+			table.insert(lists, sequenceSheet:GetActiveTab():GetPanel())
+		end
+		for _, list in ipairs(lists) do
+			UI.ClearList(list)
+			UI.PopulateSequenceList(list, animPuppeteer, function(seqInfo)
+				---@cast seqInfo SequenceInfo
+
+				if text:len() > 0 then
+					local result = string.find(seqInfo.label:lower(), text:lower())
+					return result ~= nil
+				else
+					return true
+				end
+			end)
+		end
 	else
 		---@cast smhData SMHFile
 		UI.ClearList(smhList)
@@ -812,7 +822,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function searchBar:OnEnter(searchText)
 		local _, option = sourceBox:GetSelected()
 		---@cast searchText string
-		populateLists(option, searchText, panelChildren, panelProps, panelState)
+		populateLists(option, searchText, panelChildren, panelProps, panelState, false)
 	end
 
 	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet, isGesture)
@@ -1082,7 +1092,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			---@diagnostic disable-next-line: undefined-field
 			floor:SetupDataTables()
 
-			populateLists(option, "", panelChildren, panelProps, panelState)
+			populateLists(option, "", panelChildren, panelProps, panelState, true)
 			panelState.model = newModel
 		else
 			-- Save the original model path so users can iterate on this
