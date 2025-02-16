@@ -837,52 +837,54 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	panelState.previousPuppeteer = animPuppeteer
 end
 
-local COLOR_WHITE = Color(200, 200, 200)
-local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
-local COLOR_GREY = Color(128, 128, 128)
+do
+	local COLOR_WHITE = Color(200, 200, 200)
+	local COLOR_WHITE_BRIGHT = Color(255, 255, 255)
+	local COLOR_GREY = Color(128, 128, 128)
 
--- Relative sizes with respect to the width and height of the tool screen
-local TEXT_WIDTH_MODIFIER = 0.5
-local TEXT_HEIGHT_MODIFIER = 0.428571429
-local BAR_HEIGHT = 0.0555555556
-local BAR_Y_POS = 0.6015625
+	-- Relative sizes with respect to the width and height of the tool screen
+	local TEXT_WIDTH_MODIFIER = 0.5
+	local TEXT_HEIGHT_MODIFIER = 0.428571429
+	local BAR_HEIGHT = 0.0555555556
+	local BAR_Y_POS = 0.6015625
 
-local lastWidth
+	local lastWidth
 
-function TOOL:DrawToolScreen(width, height)
-	local y = height * BAR_Y_POS
-	local ySize = height * BAR_HEIGHT
-	local frame = GetConVar("ragdollpuppeteer_baseframe"):GetFloat()
-	local maxAnimFrames = panelState.maxFrames
+	function TOOL:DrawToolScreen(width, height)
+		local y = height * BAR_Y_POS
+		local ySize = height * BAR_HEIGHT
+		local frame = GetConVar("ragdollpuppeteer_baseframe"):GetFloat()
+		local maxAnimFrames = panelState.maxFrames
 
-	draw.SimpleText(
-		"#tool.ragdollpuppeteer.name",
-		"DermaLarge",
-		width * TEXT_WIDTH_MODIFIER,
-		height * TEXT_HEIGHT_MODIFIER,
-		COLOR_WHITE,
-		TEXT_ALIGN_CENTER,
-		TEXT_ALIGN_BOTTOM
-	)
-	draw.SimpleText(
-		"Current Frame: " .. tostring(frame),
-		"GModToolSubtitle",
-		width * 0.5,
-		height * 0.5,
-		COLOR_WHITE,
-		TEXT_ALIGN_CENTER,
-		TEXT_ALIGN_CENTER
-	)
+		draw.SimpleText(
+			"#tool.ragdollpuppeteer.name",
+			"DermaLarge",
+			width * TEXT_WIDTH_MODIFIER,
+			height * TEXT_HEIGHT_MODIFIER,
+			COLOR_WHITE,
+			TEXT_ALIGN_CENTER,
+			TEXT_ALIGN_BOTTOM
+		)
+		draw.SimpleText(
+			"Current Frame: " .. tostring(frame),
+			"GModToolSubtitle",
+			width * 0.5,
+			height * 0.5,
+			COLOR_WHITE,
+			TEXT_ALIGN_CENTER,
+			TEXT_ALIGN_CENTER
+		)
 
-	-- Don't calculate the bar width if the last frame is the same as the first
-	if lastFrame ~= frame or not lastWidth then
-		lastWidth = width * frame / maxAnimFrames
+		-- Don't calculate the bar width if the last frame is the same as the first
+		if lastFrame ~= frame or not lastWidth then
+			lastWidth = width * frame / maxAnimFrames
+		end
+
+		draw.RoundedBox(0, 0, y, width, ySize, COLOR_GREY)
+		draw.RoundedBox(0, 0, y, lastWidth, ySize, COLOR_WHITE_BRIGHT)
+
+		lastFrame = frame
 	end
-
-	draw.RoundedBox(0, 0, y, width, ySize, COLOR_GREY)
-	draw.RoundedBox(0, 0, y, lastWidth, ySize, COLOR_WHITE_BRIGHT)
-
-	lastFrame = frame
 end
 
 TOOL.Information = {
