@@ -234,6 +234,8 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers)
 		local basePuppeteer = puppeteers[2]
 		local viewPuppeteer = puppeteers[3]
 
+		local boneMap = bones.getMap(puppet:GetBoneName(0), viewPuppeteer:GetBoneName(0))
+
 		local newPose = {}
 
 		for i = 0, physicsCount - 1 do
@@ -280,10 +282,11 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers)
 
 			local pos, ang = viewPuppeteer:GetBonePosition(b)
 			if not isSameModel then
-				local boneName = puppet:GetBoneName(b)
-				local b2 = viewPuppeteer:LookupBone(boneName)
-				if b2 then
-					pos, ang = viewPuppeteer:GetBonePosition(b2)
+				local targetBone = b
+				local boneName = puppet:GetBoneName(targetBone)
+				local sourceBone = viewPuppeteer:LookupBone(boneMap and boneMap[boneName] or boneName)
+				if sourceBone then
+					pos, ang = vendor.retargetPhysical(viewPuppeteer, puppet, sourceBone, targetBone)
 				end
 			end
 

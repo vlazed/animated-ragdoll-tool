@@ -89,8 +89,8 @@ do
 		["bip_spine_1"] = "ValveBiped.Bip01_Spine1",
 		["bip_spine_2"] = "ValveBiped.Bip01_Spine2",
 		["bip_spine_3"] = "ValveBiped.Bip01_Spine4",
-		["bip_neck"] = "ValveBiped.Bip01_Neck",
-		["bip_head"] = "ValveBiped.Bip01_Head",
+		["bip_neck"] = "ValveBiped.Bip01_Neck1",
+		["bip_head"] = "ValveBiped.Bip01_Head1",
 	}
 
 	--[[

@@ -1,3 +1,6 @@
+---@module "ragdollpuppeteer.lib.quaternion"
+local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
+
 --- General vendor functions from Ragdoll Mover and Stop Motion Helper
 
 local Vendor = {}
@@ -24,12 +27,13 @@ function Vendor.GetPhysBoneParent(entity, physBone)
 end
 
 ---Calculate the bone offsets with respect to the parent
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
+---@source https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity Entity to obtain bone information
 ---@param child integer Child bone index
+---@param angleDelta Quaternion?
 ---@return Vector positionOffset Position of child bone with respect to parent bone
 ---@return Angle angleOffset Angle of child bone with respect to parent bone
-function Vendor.getBoneOffsetsOf(puppeteer, child)
+function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta)
 	local defaultBonePose = Vendor.getDefaultBonePoseOf(puppeteer)
 
 	local parent = puppeteer:GetBoneParent(child)
@@ -42,8 +46,12 @@ function Vendor.getBoneOffsetsOf(puppeteer, child)
 		return vector_origin, angle_zero
 	end
 
-	local fPos, fAng =
-		WorldToLocal(cMatrix:GetTranslation(), cMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
+	local cAngles = cMatrix:GetAngles()
+	if angleDelta then
+		cAngles = quaternion.fromAngle(cAngles):Mul(angleDelta):Angle()
+	end
+
+	local fPos, fAng = WorldToLocal(cMatrix:GetTranslation(), cAngles, pMatrix:GetTranslation(), pMatrix:GetAngles())
 	local dPos = fPos - defaultBonePose[child + 1][3]
 
 	local m = Matrix()
@@ -51,8 +59,53 @@ function Vendor.getBoneOffsetsOf(puppeteer, child)
 	m:Rotate(defaultBonePose[parent + 1][2])
 	m:Rotate(fAng)
 
-	local _, dAng =
-		WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultBonePose[child + 1][2])
+	local defaultAngle = defaultBonePose[child + 1][2]
+	if angleDelta then
+		defaultAngle = quaternion.fromAngle(defaultAngle):Mul(angleDelta):Angle()
+	end
+	local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultAngle)
+
+	return dPos, dAng
+end
+
+---Calculate the bone offsets between two entities
+---@param source Entity Entity doing the animation
+---@param target Entity Entity that wants the animation
+---@param sourceBone integer Source child bone index
+---@param targetBone integer Target child bone index
+---@return Vector positionOffset Position of child bone with respect to parent bone
+---@return Angle angleOffset Angle of child bone with respect to parent bone
+function Vendor.retargetPhysical(source, target, sourceBone, targetBone)
+	local sourceReferencePose = Vendor.getDefaultBonePoseOf(source)
+	local targetReferencePose = Vendor.getDefaultBonePoseOf(target)
+
+	local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+	local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+
+	-- Source component rotation
+	local pos, ang = source:GetBonePosition(sourceBone)
+	local qAng = quaternion.fromAngle(ang)
+	qAng = qAng:Mul(sourceAng:Invert():Mul(targetAng))
+
+	return pos, qAng:Angle()
+end
+
+---Calculate the bone offsets between two entities
+---@param source Entity Entity doing the animation
+---@param target Entity Entity that wants the animation
+---@param sourceBone integer Source child bone index
+---@param targetBone integer Target child bone index
+---@return Vector positionOffset Position of child bone with respect to parent bone
+---@return Angle angleOffset Angle of child bone with respect to parent bone
+function Vendor.retargetNonPhysical(source, target, sourceBone, targetBone)
+	local sourceReferencePose = Vendor.getDefaultBonePoseOf(source)
+	local targetReferencePose = Vendor.getDefaultBonePoseOf(target)
+
+	local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+	local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+
+	-- Source component rotation
+	local dPos, dAng = Vendor.getBoneOffsetsOf(source, sourceBone, sourceAng:Invert():Mul(targetAng))
 
 	return dPos, dAng
 end
@@ -68,7 +121,7 @@ end
 local defaultPoseTrees = {}
 
 ---Get the pose of every bone of the entity, for nonphysical bone matching
----@source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@source https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
 ---@param ent Entity Entity in reference pose
 ---@param identifier string? Custom name for the pose tree to allow for different versions of the same entity
 ---@return DefaultBonePoseArray defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
@@ -103,9 +156,9 @@ function Vendor.getDefaultBonePoseOf(ent, identifier)
 				)
 			end
 
-			defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+			defaultPose[b + 1] = { pos1, ang1, pos2, ang2, bMatrix:GetTranslation(), bMatrix:GetAngles() }
 		else
-			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
+			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero, vector_origin, angle_zero }
 		end
 	end
 
@@ -161,8 +214,8 @@ function Vendor.LerpLinearAngle(s, e, p)
 end
 
 ---Find the closest keyframe corresponding to the frame of keyframes
----Source: https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---Modified to directly work with json translation
+---@source https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---@param keyframes SMHFrameData[] SMH Keyframe data
 ---@param frame integer Target keyframe
 ---@param ignoreCurrentFrame boolean Whether to consider the previous and next keyframes

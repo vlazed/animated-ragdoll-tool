@@ -212,17 +212,21 @@ local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredB
 	for b2 = 0, puppeteer:GetBoneCount() - 1 do
 		local b = puppet:LookupBone(targetPose[b2].Name)
 
-		if b and filteredBones[b + 1] then
+		if not b then
 			continue
 		end
 
-		if b and not physBones[b] then
-			local pos, ang = targetPose[b2].Pos, targetPose[b2].Ang
+		if filteredBones[b + 1] then
+			continue
+		end
+
+		if not physBones[b] then
+			local pos, ang = targetPose[b].Pos, targetPose[b].Ang
 
 			puppet:ManipulateBonePosition(b, pos)
 			puppet:ManipulateBoneAngles(b, ang)
 		end
-		local scale = targetPose[b2].Scale
+		local scale = targetPose[b].Scale
 		if scale then
 			puppet:ManipulateBoneScale(b, scale)
 		end
@@ -829,6 +833,8 @@ end)
 
 ---@module "ragdollpuppeteer.ui"
 local ui = include("ragdollpuppeteer/client/ui.lua")
+---@module "ragdollpuppeteer.lib.bones"
+local bones = include("ragdollpuppeteer/lib/bones.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -860,19 +866,29 @@ end
 
 ---Try to manipulate the bone angles of the puppet to match the puppeteer
 ---@param puppeteer Entity The puppeteer to obtain nonphysical bone pose information
+---@param puppet Entity The puppet to compare to if the models are different
 ---@return BoneOffsetArray boneOffsets An array of bone offsets from the default bone pose
-local function matchNonPhysicalBonePoseOf(puppeteer)
+local function matchNonPhysicalBonePoseOf(puppeteer, puppet)
 	local newPose = {}
 	local defaultBonePose = vendor.getDefaultBonePoseOf(puppeteer)
+	local boneMap, name = bones.getMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
 
 	for b = 0, puppeteer:GetBoneCount() - 1 do
 		-- Reset bone position and angles
+		local boneName = puppeteer:GetBoneName(b)
 		if puppeteer:GetBoneParent(b) > -1 then
 			newPose[b + 1] = {}
 			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b)
+			if puppeteer:GetModel() ~= puppet:GetModel() then
+				local sourceBone = b
+				local targetBone = puppet:LookupBone(boneMap and boneMap[boneName] or boneName)
+				if targetBone then
+					dPos, dAng = vendor.retargetNonPhysical(puppeteer, puppet, sourceBone, targetBone)
+				end
+			end
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = puppeteer:GetBoneName(b)
+			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
 		else
 			local bMatrix = puppeteer:GetBoneMatrix(b)
 			local dPos, dAng = vector_origin, angle_zero
@@ -894,7 +910,7 @@ local function matchNonPhysicalBonePoseOf(puppeteer)
 			newPose[b + 1] = {}
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = puppeteer:GetBoneName(b)
+			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
 		end
 	end
 
@@ -1114,8 +1130,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 			return
 		end
 
-		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer)
-		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer)
+		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer, puppet)
+		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer, puppet)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
