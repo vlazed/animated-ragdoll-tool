@@ -53,6 +53,55 @@ local function encodePose(pose, puppeteer)
 	end
 end
 
+---Calculate the nonphysical bone offsets between two entities
+---@param source Entity Entity doing the animation
+---@param target Entity Entity that wants the animation
+---@param sourceBone integer Source child bone index
+---@param targetBone integer Target child bone index
+---@return Vector positionOffset Position of child bone with respect to parent bone
+---@return Angle angleOffset Angle of child bone with respect to parent bone
+local function retargetNonPhysical(source, target, sourceBone, targetBone)
+	local sourceReferencePose = vendor.getDefaultBonePoseOf(source)
+	local targetReferencePose = vendor.getDefaultBonePoseOf(target)
+
+	local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+	local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+	local sourceAng2 = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][2])
+	local targetAng2 = quaternion.fromAngle(targetReferencePose[targetBone + 1][2])
+
+	-- Source component rotation
+	local dPos, dAng = vendor.getBoneOffsetsOf(
+		source,
+		sourceBone,
+		sourceAng:Invert():Mul(targetAng),
+		sourceAng2:Invert():Mul(targetAng2)
+	)
+
+	return dPos, dAng
+end
+
+---Calculate the physical bone offsets between two entities
+---@param source Entity Entity doing the animation
+---@param target Entity Entity that wants the animation
+---@param sourceBone integer Source child bone index
+---@param targetBone integer Target child bone index
+---@return Vector positionOffset Position of child bone with respect to parent bone
+---@return Angle angleOffset Angle of child bone with respect to parent bone
+local function retargetPhysical(source, target, sourceBone, targetBone)
+	local sourceReferencePose = vendor.getDefaultBonePoseOf(source)
+	local targetReferencePose = vendor.getDefaultBonePoseOf(target)
+
+	local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+	local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+
+	-- Source component rotation
+	local pos, ang = source:GetBonePosition(sourceBone)
+	local qAng = quaternion.fromAngle(ang)
+	qAng = qAng:Mul(sourceAng:Invert():Mul(targetAng))
+
+	return pos, qAng:Angle()
+end
+
 ---Try to manipulate the bone angles of the puppet to set the puppeteer
 ---@param puppeteer Entity The puppeteer to obtain nonphysical bone pose information
 ---@param puppet Entity The puppet to compare to if the models are different
@@ -72,7 +121,7 @@ local function getNonPhysicalBonePoseOf(puppeteer, puppet)
 				local sourceBone = b
 				local targetBone = puppet:LookupBone(boneMap and boneMap[boneName] or boneName)
 				if targetBone then
-					dPos, dAng = vendor.retargetNonPhysical(puppeteer, puppet, sourceBone, targetBone)
+					dPos, dAng = retargetNonPhysical(puppeteer, puppet, sourceBone, targetBone)
 				end
 			end
 			newPose[b + 1][1] = dPos
@@ -200,7 +249,7 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 				local boneName = puppet:GetBoneName(targetBone)
 				local sourceBone = viewPuppeteer:LookupBone(boneMap and boneMap[boneName] or boneName)
 				if sourceBone then
-					pos, ang = vendor.retargetPhysical(viewPuppeteer, puppet, sourceBone, targetBone)
+					pos, ang = retargetPhysical(viewPuppeteer, puppet, sourceBone, targetBone)
 				end
 			end
 
