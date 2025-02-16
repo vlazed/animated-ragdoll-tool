@@ -1,11 +1,11 @@
----@module "ragdollpuppeteer.lib.vendor"
-local vendor = include("ragdollpuppeteer/lib/vendor.lua")
 ---@module "ragdollpuppeteer.constants"
 local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 ---@module "ragdollpuppeteer.lib.leakybucket"
 local leakyBucket = include("ragdollpuppeteer/lib/leakybucket.lua")
+---@module "ragdollpuppeteer.lib.pose"
+local pose = include("ragdollpuppeteer/lib/pose.lua")
 
 TOOL.Category = "Poser"
 TOOL.Name = "#tool.ragdollpuppeteer.name"
@@ -35,7 +35,6 @@ local MODEL_DEQUE_RATE = constants.MODEL_DEQUE_RATE
 
 local mode = TOOL:GetMode()
 
-local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
 local FIND_GROUND_VECTOR = Vector(0, 0, -3000)
 
 local ids = {
@@ -51,12 +50,6 @@ local ids = {
 ---@param puppeteer Entity
 local function styleServerPuppeteer(puppeteer)
 	puppeteer:AddEffects(EF_NODRAW)
-end
-
----@param json string
----@return table
-local function decompressJSONToTable(json)
-	return util.JSONToTable(util.Decompress(json))
 end
 
 local lastPuppet = NULL
@@ -153,161 +146,6 @@ function TOOL:Cleanup(userId)
 	self:SetStage(0)
 end
 
----Set the puppet's physical bones to a target pose specified from the puppeteer, while offsetting with an angle
----Source: https://github.com/Winded/StopMotionHelper/blob/master/lua/smh/modifiers/physbones.lua
----@param puppet Entity | ResizedRagdoll The puppet to set the physical bone poses
----@param targetPose SMHFramePose[] The target physical pose for the puppet
----@param filteredBones integer[] Bones that will not be set to their target pose
-local function setPhysicalBonePoseOf(puppet, targetPose, filteredBones, puppeteer)
-	local scale = puppet.PhysObjScales and puppet.PhysObjScales[0] or Vector(1, 1, 1)
-
-	local isEffectProp = puppet:GetClass() == "prop_dynamic"
-		and puppet:GetParent()
-		and puppet:GetParent():GetClass() == "prop_effect"
-
-	if isEffectProp then
-		local parent = puppet:GetParent()
-		parent:SetPos(puppeteer:GetPos())
-		parent:SetAngles(puppeteer:GetAngles())
-	else
-		for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-			local b = puppet:TranslatePhysBoneToBone(i)
-			local phys = puppet:GetPhysicsObjectNum(i)
-			local parent = puppet:GetPhysicsObjectNum(vendor.GetPhysBoneParent(puppet, i))
-			if not targetPose[i] or filteredBones[b + 1] then
-				continue
-			end
-			if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
-				local pos, ang =
-					LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
-				phys:EnableMotion(false)
-				phys:SetPos(pos)
-				phys:SetAngles(ang)
-			else
-				-- Then, set target position of puppet with offset
-				local fPos, fAng = LocalToWorld(
-					targetPose[i].Pos * scale,
-					targetPose[i].Ang,
-					targetPose[i].RootPos,
-					targetPose[i].RootAng
-				)
-
-				phys:EnableMotion(false)
-				phys:SetPos(fPos)
-				-- Finally, set angle of puppet itself
-				phys:SetAngles(fAng)
-			end
-			phys:Wake()
-		end
-	end
-end
-
----Directly influence the ragdoll nonphysical bones from SMH data
----@param puppet Entity The puppet to set nonphysical bone poses
----@param puppeteer Entity The puppeteer to compare with the puppet if the model isn't the same
----@param targetPose SMHFramePose[] The target nonphysical bone pose for the puppet
----@param filteredBones integer[] Bones that will not be set to their target pose
----@param physBones integer[] Bone indices that map to physobj indices
-local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredBones, physBones)
-	for b2 = 0, puppeteer:GetBoneCount() - 1 do
-		local b = puppet:LookupBone(targetPose[b2].Name)
-
-		if not b then
-			continue
-		end
-
-		if filteredBones[b + 1] then
-			continue
-		end
-
-		if not physBones[b] and targetPose[b2] then
-			local pos, ang = targetPose[b2].Pos, targetPose[b2].Ang
-
-			puppet:ManipulateBonePosition(b, pos)
-			puppet:ManipulateBoneAngles(b, ang)
-		end
-		local scale = targetPose[b2].Scale
-		if scale then
-			puppet:ManipulateBoneScale(b, scale)
-		end
-	end
-end
-
----Move and orient each physical bone of the puppet using the poses sent to us from the client
----Source: https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua
----@param puppet Entity The puppet to set physical bone poses
----@param puppeteer Entity The puppeteer to use to set poses for the puppet. Only used in multiplayer
----@param filteredBones integer[] Bones that will not be set to their target pose
----@param lastPose BonePoseArray The last pose to use if the pose doesn't exist for the current bone
-local function matchPhysicalBonePoseOf(puppet, puppeteer, filteredBones, lastPose)
-	if
-		puppet:GetClass() == "prop_dynamic"
-		and puppet:GetParent()
-		and puppet:GetParent():GetClass() == "prop_effect"
-	then
-		local parent = puppet:GetParent()
-		parent:SetPos(puppeteer:GetPos())
-		parent:SetAngles(puppeteer:GetAngles())
-	else
-		if game.SinglePlayer() then
-			for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-				local phys = puppet:GetPhysicsObjectNum(i)
-				local b = puppet:TranslatePhysBoneToBone(i)
-
-				local pos, ang = net.ReadVector(), net.ReadAngle()
-				pos = pos and pos or lastPose[i][1] or vector_origin
-				ang = ang and ang or lastPose[i][2] or angle_zero
-
-				if filteredBones[b + 1] then
-					continue
-				end
-
-				phys:EnableMotion(true)
-				phys:Wake()
-				phys:SetPos(pos and pos or lastPose[i][1])
-				phys:SetAngles(ang and ang or lastPose[i][2])
-				phys:EnableMotion(false)
-				phys:Wake()
-				lastPose[i] = { pos, ang }
-			end
-		else
-			for i = 0, puppet:GetPhysicsObjectCount() - 1 do
-				local phys = puppet:GetPhysicsObjectNum(i)
-				local b = puppet:TranslatePhysBoneToBone(i)
-				if filteredBones[b + 1] then
-					continue
-				end
-
-				local pos, ang = lastPose[i][1] or vector_origin, lastPose[i][2] or angle_zero
-				if puppeteer:GetModel() == puppet:GetModel() then
-					pos, ang = puppeteer:GetBonePosition(b)
-				else
-					local boneName = puppet:GetBoneName(b)
-
-					local b2 = puppeteer:LookupBone(boneName)
-					if b2 then
-						pos, ang = puppeteer:GetBonePosition(b2)
-					end
-				end
-
-				phys:EnableMotion(true)
-				phys:Wake()
-				phys:SetPos(pos)
-				phys:SetAngles(ang)
-				if string.sub(puppet:GetBoneName(b), 1, 4) == "prp_" then
-					phys:EnableMotion(true)
-					phys:Wake()
-				else
-					phys:EnableMotion(false)
-					phys:Wake()
-				end
-
-				lastPose[i] = { pos, ang }
-			end
-		end
-	end
-end
-
 local physicsClasses = {
 	["prop_physics"] = true,
 	["prop_ragdoll"] = true,
@@ -330,16 +168,6 @@ local function getPhysBonesOfPuppet(puppet)
 	end
 
 	return physbones
-end
-
----Instead of finding the nonphysical bone poses on the server, find them in the client
----We don't require the puppeteer as we always work with one puppet
----@param ply Player Who queried for the nonphysical bone pose
----@param cycle number The current frame of the puppeteer's animation
-local function queryNonPhysBonePoseOfPuppet(ply, cycle)
-	net.Start("queryNonPhysBonePoseOfPuppet", false)
-	net.WriteFloat(cycle)
-	net.Send(ply)
 end
 
 local floorCorrect = helpers.floorCorrect
@@ -375,94 +203,6 @@ end
 local function setPlacementOf(puppeteer, puppet, ply)
 	setPositionOf(puppeteer, puppet)
 	setAngleOf(puppeteer, ply)
-end
-
----@param ent Entity The entity to remove all bone manipulations
-local function resetAllNonphysicalBonesOf(ent)
-	for i = 0, ent:GetBoneCount() - 1 do
-		ent:ManipulateBonePosition(i, vector_origin)
-		ent:ManipulateBoneAngles(i, angle_zero)
-	end
-end
-
----Decode the SMH pose from the client
----@return SMHFramePose[]
-local function decodePose()
-	local pose = {}
-	local poseSize = net.ReadUInt(16)
-	for i = 0, poseSize do
-		pose[i] = {
-			Pos = 0,
-			Ang = 0,
-			Scale = 0,
-			LocalPos = 0,
-			LocalAng = 0,
-		}
-
-		pose[i].Pos = net.ReadVector()
-		pose[i].Ang = net.ReadAngle()
-		pose[i].Scale = net.ReadVector()
-		pose[i].LocalPos = net.ReadVector()
-		pose[i].LocalAng = net.ReadAngle()
-		-- FIXME: We don't have to send the root position and root angle for the bones that aren't the root. Send these separately
-		pose[i].RootPos = net.ReadVector()
-		pose[i].RootAng = net.ReadAngle()
-	end
-	return pose
-end
-
----Helper for setting poses for SMH animations
----@param puppet Entity The puppet to set poses
----@param playerData RagdollPuppeteerPlayerField Data to control the puppet's pose
-local function readSMHPose(puppet, playerData)
-	-- Assumes that we are in the networking scope
-	local targetPose = decodePose()
-	local animatingNonPhys = net.ReadBool()
-	setPhysicalBonePoseOf(puppet, targetPose, playerData.filteredBones, playerData.puppeteer)
-	if animatingNonPhys then
-		local tPNPLength = net.ReadUInt(16)
-		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
-		setNonPhysicalBonePoseOf(
-			puppet,
-			playerData.puppeteer,
-			targetPoseNonPhys,
-			playerData.filteredBones,
-			playerData.physBones
-		)
-		playerData.bonesReset = false
-	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
-		resetAllNonphysicalBonesOf(puppet)
-		playerData.bonesReset = true
-	end
-end
-
----Helper for setting poses for sequences
----@param cycle number Current frame of animation
----@param animatingNonPhys boolean Whether to set nonphysical bones or not
----@param playerData RagdollPuppeteerPlayerField Data to control the puppet's pose
-local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
-	local player = playerData.player
-	local puppet = playerData.puppet
-	local puppeteer = playerData.puppeteer
-	local currentIndex = playerData.currentIndex
-
-	if not IsValid(puppet) or not IsValid(puppeteer) then
-		return
-	end
-
-	-- This statement mimics a sequence change event, so it offsets its sequence to force an animation change. Might test without statement.
-	puppeteer:ResetSequence((currentIndex == 0) and (currentIndex + 1) or (currentIndex - 1))
-	puppeteer:ResetSequence(currentIndex)
-	puppeteer:SetCycle(cycle)
-	puppeteer:SetPlaybackRate(0)
-	matchPhysicalBonePoseOf(puppet, puppeteer, playerData.filteredBones, playerData.lastPose)
-	if animatingNonPhys then
-		queryNonPhysBonePoseOfPuppet(player, cycle)
-		playerData.bonesReset = false
-	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
-		resetAllNonphysicalBonesOf(puppet)
-		playerData.bonesReset = true
-	end
 end
 
 ---@param puppet Entity The puppet to create the puppeteer
@@ -729,6 +469,7 @@ if SERVER then
 		puppeteer:SetModel(newModel)
 		-- FIXME: InstallDataTable seems like an unintuitive way of resetting the network vars. What better method exists?
 		floor:InstallDataTable()
+		---@diagnostic disable-next-line: undefined-field
 		floor:SetupDataTables()
 	end)
 
@@ -748,9 +489,9 @@ if SERVER then
 			local cycle = net.ReadFloat()
 			local animatingNonPhys = net.ReadBool()
 			playerData.cycle = cycle
-			setPuppeteerPose(cycle, animatingNonPhys, playerData)
+			pose.readSequence(cycle, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, playerData)
+			pose.readSMH(ragdollPuppet, playerData)
 		end
 	end)
 
@@ -764,9 +505,9 @@ if SERVER then
 			local seqIndex = net.ReadInt(14)
 			local animatingNonPhys = net.ReadBool()
 			playerData.currentIndex = seqIndex
-			setPuppeteerPose(0, animatingNonPhys, playerData)
+			pose.readSequence(0, animatingNonPhys, playerData)
 		else
-			readSMHPose(ragdollPuppet, playerData)
+			pose.readSMH(ragdollPuppet, playerData)
 		end
 	end)
 
@@ -780,7 +521,7 @@ if SERVER then
 		local paramValue = net.ReadFloat()
 		local paramName = net.ReadString()
 		floor["Set" .. paramName](floor, paramValue)
-		setPuppeteerPose(cycle, animatingNonPhys, playerData)
+		pose.readSequence(cycle, animatingNonPhys, playerData)
 	end)
 
 	net.Receive("onBoneFilterChange", function(_, sender)
@@ -807,7 +548,7 @@ if SERVER then
 			newPose[b - 1].Ang = net.ReadAngle()
 			newPose[b - 1].Name = net.ReadString()
 		end
-		setNonPhysicalBonePoseOf(ragdollPuppet, animPuppeteer, newPose, playerData.filteredBones, playerData.physBones)
+		pose.setNonPhysicalPose(ragdollPuppet, animPuppeteer, newPose, playerData.filteredBones, playerData.physBones)
 	end)
 
 	net.Receive("onFPSChange", function(_, sender)
@@ -837,8 +578,6 @@ end)
 
 ---@module "ragdollpuppeteer.ui"
 local ui = include("ragdollpuppeteer/client/ui.lua")
----@module "ragdollpuppeteer.lib.bones"
-local bones = include("ragdollpuppeteer/lib/bones.lua")
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
@@ -867,59 +606,6 @@ end
 
 ---@alias BoneOffset table<Vector, Angle>
 ---@alias BoneOffsetArray BoneOffset[]
-
----Try to manipulate the bone angles of the puppet to match the puppeteer
----@param puppeteer Entity The puppeteer to obtain nonphysical bone pose information
----@param puppet Entity The puppet to compare to if the models are different
----@return BoneOffsetArray boneOffsets An array of bone offsets from the default bone pose
-local function matchNonPhysicalBonePoseOf(puppeteer, puppet)
-	local newPose = {}
-	local defaultBonePose = vendor.getDefaultBonePoseOf(puppeteer)
-	local boneMap = bones.getMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
-
-	for b = 0, puppeteer:GetBoneCount() - 1 do
-		-- Reset bone position and angles
-		local boneName = puppeteer:GetBoneName(b)
-		if puppeteer:GetBoneParent(b) > -1 then
-			newPose[b + 1] = {}
-			local dPos, dAng = vendor.getBoneOffsetsOf(puppeteer, b)
-			if puppeteer:GetModel() ~= puppet:GetModel() then
-				local sourceBone = b
-				local targetBone = puppet:LookupBone(boneMap and boneMap[boneName] or boneName)
-				if targetBone then
-					dPos, dAng = vendor.retargetNonPhysical(puppeteer, puppet, sourceBone, targetBone)
-				end
-			end
-			newPose[b + 1][1] = dPos
-			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
-		else
-			local bMatrix = puppeteer:GetBoneMatrix(b)
-			local dPos, dAng = vector_origin, angle_zero
-			if bMatrix then
-				-- Get the position and angles of the bone with respect to the puppeteer systems
-				local lPos, lAng = WorldToLocal(
-					bMatrix:GetTranslation(),
-					bMatrix:GetAngles(),
-					puppeteer:GetPos(),
-					puppeteer:GetAngles()
-				)
-
-				-- ManipulateBonePosition delta
-				dPos = lPos - defaultBonePose[b + 1][1]
-				-- ManipulateBoneAngles delta
-				_, dAng = WorldToLocal(lPos, lAng, defaultBonePose[b + 1][1], defaultBonePose[b + 1][2])
-			end
-
-			newPose[b + 1] = {}
-			newPose[b + 1][1] = dPos
-			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
-		end
-	end
-
-	return newPose
-end
 
 ---@param puppeteer Entity
 local function disablePuppeteerJiggle(puppeteer)
@@ -1132,8 +818,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 			return
 		end
 
-		local newBasePose = matchNonPhysicalBonePoseOf(animPuppeteer, puppet)
-		local newGesturePose = matchNonPhysicalBonePoseOf(animGesturer, puppet)
+		local newBasePose = pose.getNonPhysicalPose(animPuppeteer, puppet)
+		local newGesturePose = pose.getNonPhysicalPose(animGesturer, puppet)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))

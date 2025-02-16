@@ -6,12 +6,10 @@ local constants = include("ragdollpuppeteer/constants.lua")
 local components = include("components.lua")
 ---@module "ragdollpuppeteer.lib.vendor"
 local vendor = include("ragdollpuppeteer/lib/vendor.lua")
----@module "ragdollpuppeteer.lib.quaternion"
-local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
----@module "ragdollpuppeteer.lib.bones"
-local bones = include("ragdollpuppeteer/lib/bones.lua")
+---@module "ragdollpuppeteer.client.pose"
+local pose = include("ragdollpuppeteer/lib/pose.lua")
 
 local COLOR_BLUE = constants.COLOR_BLUE
 local PREFIXES = constants.PREFIXES
@@ -27,18 +25,8 @@ local requestMessages = {
 	language.GetPhrase("ui.ragdollpuppeteer.chat.invalidmodel"),
 }
 
-local currentGesture = {
-	label = "",
-	numframes = 1,
-	anims = {},
-}
-
 local function alwaysTrue(_)
 	return true
-end
-
-local function compressTableToJSON(tab)
-	return util.Compress(util.TableToJSON(tab))
 end
 
 ---@param trio DNumSlider[]
@@ -174,181 +162,6 @@ function UI.Layout(panelChildren, puppeteer)
 	smhBrowser:SizeTo(-1, 0, 0.5)
 end
 
----@param pose SMHFramePose[]
----@param puppeteer RagdollPuppeteer
-local function encodePose(pose, puppeteer)
-	-- Physics props indices start at 1, not at 0. In case we work with physics props, use that matrix
-	local b1, b2 = puppeteer:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(1)
-	local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
-	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
-
-	net.WriteUInt(#pose, 16)
-	for i = 0, #pose do
-		net.WriteVector(pose[i].Pos or vector_origin)
-		net.WriteAngle(pose[i].Ang or angle_zero)
-		net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-		net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
-		net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
-		net.WriteVector(bPos)
-		net.WriteAngle(bAng)
-	end
-end
-
-local lastPose = {}
-local lastGesturePose = {}
-
--- Camera classes use the entity's position and angles
-local physicsClasses = {
-	["prop_physics"] = true,
-}
-
--- Camera classes use the entity's bone position and angles
-local cameraClasses = {
-	["hl_camera"] = true,
-	["gmod_cameraprop"] = true,
-}
-
----Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
----https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
----@param puppeteers Entity[]
----@param puppet Entity | ResizedRagdoll
----@param physicsCount integer
----@param gesturers Entity[]
-local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers)
-	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
-		return
-	end
-
-	if game.SinglePlayer() then
-		local isSameModel = puppeteers[1]:GetModel() == puppet:GetModel()
-
-		local baseGesturer = gesturers[1]
-		local animGesturer = gesturers[2]
-		local animPuppeteer = puppeteers[1]
-		local basePuppeteer = puppeteers[2]
-		local viewPuppeteer = puppeteers[3]
-
-		local boneMap = bones.getMap(puppet:GetBoneName(0), viewPuppeteer:GetBoneName(0))
-
-		local newPose = {}
-
-		for i = 0, physicsCount - 1 do
-			local b = puppet:TranslatePhysBoneToBone(i)
-
-			if currentGesture.anims then
-				local gesturePos, gestureAng
-				if puppeteers[1]:GetBoneParent(b) > -1 then
-					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b)
-					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b)
-
-					local oQuat = quaternion.fromAngle(oAng)
-					local gQuat = quaternion.fromAngle(gAng)
-					local dQuat = gQuat * oQuat:Invert()
-
-					local dPos, dAng = gPos - oPos, dQuat:Angle()
-					gesturePos, gestureAng = dPos, dAng
-				else
-					local gPos, gAng = animGesturer:GetBonePosition(b)
-					local oPos, oAng = baseGesturer:GetBonePosition(b)
-					if gPos and gAng and oPos and oAng then
-						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
-						local dPos = gPos - oPos
-						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteers[1]:GetAngles())
-
-						gesturePos, gestureAng = dPos, dAng
-					elseif lastGesturePose[b] then
-						gesturePos, gestureAng = lastGesturePose[b][1], lastGesturePose[b][2]
-					end
-				end
-
-				if gesturePos then
-					animPuppeteer:ManipulateBonePosition(b, gesturePos)
-					basePuppeteer:ManipulateBonePosition(b, gesturePos)
-					viewPuppeteer:ManipulateBonePosition(b, gesturePos)
-				end
-				if gestureAng then
-					animPuppeteer:ManipulateBoneAngles(b, gestureAng)
-					basePuppeteer:ManipulateBoneAngles(b, gestureAng)
-					viewPuppeteer:ManipulateBoneAngles(b, gestureAng)
-				end
-				lastGesturePose[b] = { gesturePos, gestureAng }
-			end
-
-			local pos, ang = viewPuppeteer:GetBonePosition(b)
-			if not isSameModel then
-				local targetBone = b
-				local boneName = puppet:GetBoneName(targetBone)
-				local sourceBone = viewPuppeteer:LookupBone(boneMap and boneMap[boneName] or boneName)
-				if sourceBone then
-					pos, ang = vendor.retargetPhysical(viewPuppeteer, puppet, sourceBone, targetBone)
-				end
-			end
-
-			if physicsClasses[puppet:GetClass()] then
-				pos, ang = puppeteers[1]:GetPos(), puppeteers[1]:GetAngles()
-			elseif cameraClasses[puppet:GetClass()] then
-				local bMatrix = puppeteers[3]:GetBoneMatrix(0)
-				pos, ang = bMatrix and bMatrix:GetTranslation(), bMatrix and bMatrix:GetAngles()
-			end
-
-			if not pos and lastPose[i] then
-				pos = lastPose[i][1]
-			end
-
-			if not ang and lastPose[i] then
-				ang = lastPose[i][2]
-			end
-
-			if pos == animPuppeteer:GetPos() then
-				local matrix = animPuppeteer:GetBoneMatrix(b)
-				if matrix then
-					pos = matrix:GetTranslation()
-					ang = matrix:GetAngles()
-				end
-			end
-
-			if i == 0 then
-				local baseMatrix = basePuppeteer:GetBoneMatrix(b)
-				local animMatrix = animPuppeteer:GetBoneMatrix(b)
-				if baseMatrix and animMatrix and puppet.SavedBoneMatrices and puppet.SavedBoneMatrices[b] then
-					local scale = puppet.SavedBoneMatrices[b]:GetScale()
-					local offsetPos = (animMatrix:GetTranslation() - baseMatrix:GetTranslation()) * scale
-					pos = baseMatrix:GetTranslation() + offsetPos
-				end
-			end
-
-			-- Save the current bone pose, so later iterations can use it if the bone matrix doesn't exist for some reason
-			newPose[i] = { pos, ang }
-
-			net.WriteVector(pos)
-			net.WriteAngle(ang)
-		end
-
-		lastPose = newPose
-	end
-end
-
----@param netString string
----@param frame integer
----@param physFrames SMHFrameData[]
----@param nonPhysFrames SMHFrameData[]
----@param nonPhys boolean
-local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer)
-	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
-	net.Start(netString, true)
-	net.WriteBool(false)
-	encodePose(physBonePose, puppeteer)
-	net.WriteBool(nonPhys)
-	if nonPhys then
-		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
-		local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
-		net.WriteUInt(#compressedNonPhysPose, 16)
-		net.WriteData(compressedNonPhysPose)
-	end
-
-	net.SendToServer()
-end
-
 local baseFPS = 30
 
 ---@param baseSlider DNumSlider
@@ -367,8 +180,8 @@ end
 
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
----@param panelState PanelState
-local function createPlaybackTimer(panelChildren, panelProps, panelState)
+---@param currentGesture SequenceInfo
+local function createPlaybackTimer(panelChildren, panelProps, currentGesture)
 	local baseSlider = panelChildren.baseSlider
 	local gestureSlider = panelChildren.gestureSlider
 	local sourceBox = panelChildren.sourceBox
@@ -422,16 +235,17 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState)
 				net.WriteBool(true)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(
+				pose.writeSequence(
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer }
+					{ baseGesturer, animGesturer },
+					currentGesture
 				)
 				net.SendToServer()
 			else
 				if smhList:GetSelected()[1] then
-					writeSMHPose(
+					pose.writeSMH(
 						"onFrameChange",
 						baseSlider:GetValue(),
 						smhList:GetSelected()[1]:GetSortValue(3),
@@ -516,21 +330,40 @@ local function changeModelOf(puppeteers, newModel)
 	end
 end
 
-local boneIcons = {
+local boneTypes = {
 	"icon16/brick.png",
 	"icon16/connect.png",
+	"icon16/error.png",
 	"icon16/lock.png",
 }
 
--- FIXME: Obtain the nonphysical bones
+---@param parentNode DTree|BoneTreeNode
+---@param childName string
+---@param boneType integer
+---@return BoneTreeNode
+local function addBoneNode(parentNode, childName, boneType)
+	local child = parentNode:AddNode(childName)
+	---@cast child BoneTreeNode
+	child.boneIcon = boneTypes[boneType]
+	child:SetIcon(child.boneIcon)
+	child:SetExpanded(true, false)
+	return child
+end
 
----@param bone integer
----@param puppet Entity
----@return string
-local function boneIcon(bone, puppet)
-	local physOrNonPhys = puppet:TranslateBoneToPhysBone(bone) > -1 and 1 or 2
+---@param entity Entity
+---@param boneIndex integer
+---@return integer
+local function getBoneType(entity, boneIndex)
+	local boneType = 2
+	local isPhysicalBone = entity:TranslatePhysBoneToBone(entity:TranslateBoneToPhysBone(boneIndex)) == boneIndex
 
-	return boneIcons[physOrNonPhys]
+	if entity:BoneHasFlag(boneIndex, 4) then
+		boneType = 3
+	elseif isPhysicalBone then
+		boneType = 1
+	end
+
+	return boneType
 end
 
 ---Add the bone nodes for the boneTree from the puppet
@@ -538,33 +371,21 @@ end
 ---@param boneTree DTree
 local function setupBoneNodesOf(puppet, boneTree)
 	---@type BoneTreeNode[]
-	local nodes = {}
-
+	local parentSet = {}
 	for b = 0, puppet:GetBoneCount() - 1 do
-		local boneIcon = boneIcon(b, puppet)
-		local boneName = puppet:GetBoneName(b)
-		if boneName == "__INVALIDBONE__" then
+		if puppet:GetBoneName(b) == "__INVALIDBONE__" then
 			continue
 		end
 
-		local boneParent = puppet:GetBoneParent(b)
+		local boneType = getBoneType(puppet, b)
 
-		if boneParent == -1 then
-			---@diagnostic disable-next-line
-			nodes[b + 1] = boneTree:AddNode(boneName, boneIcon)
-			nodes[b + 1].boneIcon = boneIcon
-			nodes[b + 1].boneId = b
+		local parent = puppet:GetBoneParent(b)
+		if parent > -1 and parentSet[parent] then
+			parentSet[b] = addBoneNode(parentSet[parent], puppet:GetBoneName(b), boneType)
+			parentSet[b].boneId = b
 		else
-			local boneParentName = puppet:GetBoneName(boneParent)
-			for c = 0, puppet:GetBoneCount() - 1 do
-				if nodes[c + 1] and nodes[c + 1]:GetText() == boneParentName then
-					---@diagnostic disable-next-line
-					nodes[b + 1] = nodes[c + 1]:AddNode(boneName, boneIcon)
-					nodes[b + 1].boneIcon = boneIcon
-					nodes[b + 1].boneId = b
-					break
-				end
-			end
+			parentSet[b] = addBoneNode(boneTree, puppet:GetBoneName(b), boneType)
+			parentSet[b].boneId = b
 		end
 	end
 end
@@ -770,6 +591,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		anims = {},
 	}
 
+	local currentGesture = {
+		label = "",
+		numframes = 1,
+		anims = {},
+	}
+
 	local smhList = panelChildren.smhList
 	local sequenceList = panelChildren.sequenceList
 	local sequenceList2 = panelChildren.sequenceList2
@@ -864,7 +691,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	function playButton:OnToggled(on)
 		if on then
-			createPlaybackTimer(panelChildren, panelProps, panelState)
+			createPlaybackTimer(panelChildren, panelProps, currentGesture)
 			playButton:SetText("#ui.ragdollpuppeteer.label.stop")
 		else
 			removePlaybackTimer()
@@ -875,7 +702,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	---@param node BoneTreeNode
 	function boneTree:DoClick(node)
 		node.locked = not node.locked
-		node:SetIcon(node.locked and boneIcons[#boneIcons] or node.boneIcon)
+		node:SetIcon(node.locked and boneTypes[#boneTypes] or node.boneIcon)
 		filteredBones[node.boneId + 1] = node.locked
 		net.Start("onBoneFilterChange")
 		net.WriteTable(filteredBones, true)
@@ -899,16 +726,17 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
-			writeSequencePose(
+			pose.writeSequence(
 				{ animPuppeteer, basePuppeteer, viewPuppeteer },
 				puppet,
 				physicsCount,
-				{ baseGesturer, animGesturer }
+				{ baseGesturer, animGesturer },
+				currentGesture
 			)
 			net.SendToServer()
 		else
 			if smhList:GetSelected()[1] then
-				writeSMHPose(
+				pose.writeSMH(
 					"onFrameChange",
 					baseSlider:GetValue(),
 					smhList:GetSelected()[1]:GetSortValue(3),
@@ -947,11 +775,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
-				writeSequencePose(
+				pose.writeSequence(
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer }
+					{ baseGesturer, animGesturer },
+					currentGesture
 				)
 				net.SendToServer()
 			end
@@ -1010,11 +839,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(
+				pose.writeSequence(
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer }
+					{ baseGesturer, animGesturer },
+					currentGesture
 				)
 				net.SendToServer()
 			end)
@@ -1123,11 +953,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				net.WriteBool(true)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
-				writeSequencePose(
+				pose.writeSequence(
 					{ animPuppeteer, basePuppeteer, viewPuppeteer },
 					puppet,
 					physicsCount,
-					{ baseGesturer, animGesturer }
+					{ baseGesturer, animGesturer },
+					currentGesture
 				)
 				net.SendToServer()
 				sendingFrame = false
@@ -1135,7 +966,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		else
 			if sendNet then
 				if smh and smhList:GetSelected()[1] then
-					writeSMHPose(
+					pose.writeSMH(
 						"onFrameChange",
 						val,
 						smhList:GetSelected()[1]:GetSortValue(3),
@@ -1187,7 +1018,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	function smhList:OnRowSelected(_, row)
 		baseSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
-		writeSMHPose(
+		pose.writeSMH(
 			"onSequenceChange",
 			0,
 			smhList:GetSelected()[1]:GetSortValue(3),
@@ -1248,6 +1079,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 			hookPoseParams()
 			-- FIXME: InstallDataTable seems like an unintuitive way of resetting the network vars. What better method exists?
 			floor:InstallDataTable()
+			---@diagnostic disable-next-line: undefined-field
 			floor:SetupDataTables()
 
 			populateLists(option, "", panelChildren, panelProps, panelState)
@@ -1263,7 +1095,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		createPlaybackTimer(panelChildren, panelProps, panelState)
+		createPlaybackTimer(panelChildren, panelProps, currentGesture)
 	end)
 
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)

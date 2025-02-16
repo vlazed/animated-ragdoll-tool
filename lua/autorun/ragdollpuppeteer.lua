@@ -21,6 +21,7 @@ if SERVER then
 	AddCSLuaFile("ragdollpuppeteer/lib/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/helpers.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/pose.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/components.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 
