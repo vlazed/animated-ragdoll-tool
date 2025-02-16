@@ -220,13 +220,13 @@ local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredB
 			continue
 		end
 
-		if not physBones[b] then
-			local pos, ang = targetPose[b].Pos, targetPose[b].Ang
+		if not physBones[b] and targetPose[b2] then
+			local pos, ang = targetPose[b2].Pos, targetPose[b2].Ang
 
 			puppet:ManipulateBonePosition(b, pos)
 			puppet:ManipulateBoneAngles(b, ang)
 		end
-		local scale = targetPose[b].Scale
+		local scale = targetPose[b2].Scale
 		if scale then
 			puppet:ManipulateBoneScale(b, scale)
 		end
@@ -723,9 +723,13 @@ if SERVER then
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local puppeteer = playerData.puppeteer
+		local floor = playerData.floor
 
 		local newModel = net.ReadString()
 		puppeteer:SetModel(newModel)
+		-- FIXME: InstallDataTable seems like an unintuitive way of resetting the network vars. What better method exists?
+		floor:InstallDataTable()
+		floor:SetupDataTables()
 	end)
 
 	net.Receive("onPuppeteerPlayback", function(_, sender)
@@ -871,7 +875,7 @@ end
 local function matchNonPhysicalBonePoseOf(puppeteer, puppet)
 	local newPose = {}
 	local defaultBonePose = vendor.getDefaultBonePoseOf(puppeteer)
-	local boneMap, name = bones.getMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
+	local boneMap = bones.getMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
 
 	for b = 0, puppeteer:GetBoneCount() - 1 do
 		-- Reset bone position and angles
@@ -1076,8 +1080,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 
 	-- UI Hooks
 	ui.HookPanel(panelChildren, panelProps, panelState)
-
-	ui.NetHookPanel(panelChildren, panelProps, panelState)
 
 	local count = 0
 	local id = viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)

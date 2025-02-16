@@ -27,12 +27,6 @@ local requestMessages = {
 	language.GetPhrase("ui.ragdollpuppeteer.chat.invalidmodel"),
 }
 
-local currentSequence = {
-	label = "",
-	numframes = 1,
-	anims = {},
-}
-
 local currentGesture = {
 	label = "",
 	numframes = 1,
@@ -522,112 +516,6 @@ local function changeModelOf(puppeteers, newModel)
 	end
 end
 
----@param panelChildren PanelChildren
----@param panelProps PanelProps
----@param panelState PanelState
-function UI.NetHookPanel(panelChildren, panelProps, panelState)
-	local baseSlider = panelChildren.baseSlider
-	local gestureSlider = panelChildren.gestureSlider
-	local modelPath = panelChildren.modelPath
-	local sequenceList = panelChildren.sequenceList
-	local smhList = panelChildren.smhList
-	local sourceBox = panelChildren.sourceBox
-
-	-- Network hooks from server
-	net.Receive("onFramePrevious", function()
-		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, -increment, panelChildren.incrementGestures:GetChecked())
-	end)
-	net.Receive("onFrameNext", function()
-		local increment = net.ReadFloat()
-		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
-	end)
-	net.Receive("onPuppeteerChangeRequest", function()
-		local result = net.ReadBool()
-		local errorInt = net.ReadUInt(3)
-
-		-- If we can change the model
-		if result then
-			-- Get the valid model from the model path text entry
-			local newModel = modelPath:GetValue()
-			modelPath.currentModel = newModel
-
-			-- Change the serverside puppeteer model
-			net.Start("onPuppeteerChange")
-			net.WriteString(modelPath.currentModel)
-			net.SendToServer()
-			UI.ClearList(sequenceList)
-			UI.ClearList(smhList)
-
-			-- Update the puppeteers' models and use the new model sequences
-			local _, option = sourceBox:GetSelected()
-			changeModelOf({
-				panelProps.puppeteer,
-				panelProps.basePuppeteer,
-				panelProps.gesturer,
-				panelProps.baseGesturer,
-				panelProps.viewPuppeteer,
-			}, newModel)
-			populateLists(option, "", panelChildren, panelProps, panelState)
-			panelState.model = newModel
-		else
-			-- Save the original model path so users can iterate on this
-			SetClipboardText(modelPath:GetValue())
-			-- Reset the model path
-			modelPath:SetValue(modelPath.currentModel)
-			-- Notify the user what happened and changed clipboard state
-			chat.AddText("Ragdoll Puppeteer: " .. requestMessages[errorInt])
-			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.clipboardmodel"))
-		end
-	end)
-	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		createPlaybackTimer(panelChildren, panelProps, panelState)
-	end)
-	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
-	net.Receive("onSequenceChange", function()
-		-- Handle pasting of NPC sequences onto the puppet
-		local sequence = net.ReadString()
-		local cycle = net.ReadFloat()
-		local poseParamValues = {}
-		for i = 1, panelProps.puppeteer:GetNumPoseParameters() do
-			local val = net.ReadFloat()
-			if val then
-				poseParamValues[i] = val
-			end
-		end
-
-		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
-		if sequenceId > 0 then
-			setSequenceOf(panelProps.viewPuppeteer, sequenceId)
-			setSequenceOf(panelProps.puppeteer, sequenceId)
-			setSequenceOf(panelProps.basePuppeteer, sequenceId)
-
-			local poseParams = panelChildren.poseParams
-			local sequenceList = panelChildren.sequenceList
-			---@diagnostic disable-next-line
-			local scrollBar = sequenceList.VBar
-			---@cast scrollBar DVScrollBar
-			local baseSlider = panelChildren.baseSlider
-			local row = sequenceList:GetLine(sequenceId + 1)
-			---@cast row DListView_Line
-			sequenceList:SelectItem(row)
-			-- Move the scrollbar to the location of the highlighted sequence item in the sequence list
-			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
-			-- Send all frame and pose parameter updates to the server
-			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
-			for i, poseParamValue in ipairs(poseParamValues) do
-				poseParams[i].slider:SetValue(poseParamValue)
-			end
-		else
-			notification.AddLegacy(
-				language.GetPhrase("ui.ragdollpuppeteer.notify.pastefailed"):format(sequence),
-				NOTIFY_ERROR,
-				5
-			)
-		end
-	end)
-end
-
 local boneIcons = {
 	"icon16/brick.png",
 	"icon16/connect.png",
@@ -718,7 +606,13 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 	local heightOffset = components.HeightSlider(offsets)
 	local scaleOffset = components.ScaleSlider(offsets)
 
-	local poseParams = components.PoseParameters(cPanel, puppeteer)
+	---@type DForm
+	local poseParamsCategory = vgui.Create("DForm")
+	poseParamsCategory:SetLabel("#ui.ragdollpuppeteer.label.poseparams")
+
+	cPanel:AddItem(poseParamsCategory)
+	local poseParams = components.PoseParameters(poseParamsCategory, puppeteer)
+	local resetParams = components.ResetPoseParameters(poseParamsCategory, poseParams, puppeteer)
 
 	local settings = components.Settings(cPanel)
 	local settingsSheet = components.Sheet(settings)
@@ -841,6 +735,8 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		smhBrowser = smhBrowser,
 		smhList = smhList,
 		poseParams = poseParams,
+		resetParams = resetParams,
+		poseParamsCategory = poseParamsCategory,
 		boneTree = boneTree,
 		showPuppeteer = showPuppeteer,
 		removeGesture = removeGesture,
@@ -885,6 +781,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 	local nonPhysCheckbox = panelChildren.nonPhysCheckBox
 	local searchBar = panelChildren.searchBar
 	local poseParams = panelChildren.poseParams
+	local resetParams = panelChildren.resetParams
+	local poseParamsCategory = panelChildren.poseParamsCategory
 	local boneTree = panelChildren.boneTree
 	local showPuppeteer = panelChildren.showPuppeteer
 	local removeGesture = panelChildren.removeGesture
@@ -1060,11 +958,15 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end)
 	end
 
-	for i = 1, #poseParams do
-		poseParams[i].slider.OnValueChanged = function(_, newValue)
-			onPoseParamChange(newValue, poseParams[i].name, poseParams[i].slider)
+	local function hookPoseParams()
+		for i = 1, #poseParams do
+			poseParams[i].slider.OnValueChanged = function(_, newValue)
+				onPoseParamChange(newValue, poseParams[i].name, poseParams[i].slider)
+			end
 		end
 	end
+
+	hookPoseParams()
 
 	-- We want to save the original model path: if an invalid one was entered in,
 	-- we can revert to the old one
@@ -1300,6 +1202,109 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		smhData = smh.parseSMHFile(filePath, model)
 		populateSMHEntitiesList(smhList, model, smhData, alwaysTrue)
 	end
+
+	-- Network hooks from server
+	net.Receive("onFramePrevious", function()
+		local increment = net.ReadFloat()
+		moveSliderBy(baseSlider, gestureSlider, -increment, panelChildren.incrementGestures:GetChecked())
+	end)
+	net.Receive("onFrameNext", function()
+		local increment = net.ReadFloat()
+		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
+	end)
+	net.Receive("onPuppeteerChangeRequest", function()
+		local result = net.ReadBool()
+		local errorInt = net.ReadUInt(3)
+
+		-- If we can change the model
+		if result then
+			-- Get the valid model from the model path text entry
+			local newModel = modelPath:GetValue()
+			modelPath.currentModel = newModel
+
+			-- Change the serverside puppeteer model
+			net.Start("onPuppeteerChange")
+			net.WriteString(modelPath.currentModel)
+			net.SendToServer()
+			UI.ClearList(sequenceList)
+			UI.ClearList(smhList)
+
+			-- Update the puppeteers' models and use the new model sequences
+			local _, option = sourceBox:GetSelected()
+			changeModelOf({
+				animPuppeteer,
+				basePuppeteer,
+				animGesturer,
+				baseGesturer,
+				viewPuppeteer,
+			}, newModel)
+
+			for i = 1, #poseParams do
+				poseParams[i].slider:Remove()
+			end
+			resetParams:Remove()
+			poseParams = components.PoseParameters(poseParamsCategory, animPuppeteer)
+			resetParams = components.ResetPoseParameters(poseParamsCategory, poseParams, animPuppeteer)
+			hookPoseParams()
+			-- FIXME: InstallDataTable seems like an unintuitive way of resetting the network vars. What better method exists?
+			floor:InstallDataTable()
+			floor:SetupDataTables()
+
+			populateLists(option, "", panelChildren, panelProps, panelState)
+			panelState.model = newModel
+		else
+			-- Save the original model path so users can iterate on this
+			SetClipboardText(modelPath:GetValue())
+			-- Reset the model path
+			modelPath:SetValue(modelPath.currentModel)
+			-- Notify the user what happened and changed clipboard state
+			chat.AddText("Ragdoll Puppeteer: " .. requestMessages[errorInt])
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.clipboardmodel"))
+		end
+	end)
+	net.Receive("enablePuppeteerPlayback", function(len, ply)
+		createPlaybackTimer(panelChildren, panelProps, panelState)
+	end)
+
+	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
+	net.Receive("onSequenceChange", function()
+		-- Handle pasting of NPC sequences onto the puppet
+		local sequence = net.ReadString()
+		local cycle = net.ReadFloat()
+		local poseParamValues = {}
+		for i = 1, panelProps.puppeteer:GetNumPoseParameters() do
+			local val = net.ReadFloat()
+			if val then
+				poseParamValues[i] = val
+			end
+		end
+
+		local sequenceId = panelProps.puppeteer:LookupSequence(sequence)
+		if sequenceId > 0 then
+			setSequenceOf(viewPuppeteer, sequenceId)
+			setSequenceOf(animPuppeteer, sequenceId)
+			setSequenceOf(basePuppeteer, sequenceId)
+
+			---@diagnostic disable-next-line
+			local scrollBar = sequenceList.VBar
+			local row = sequenceList:GetLine(sequenceId + 1)
+			---@cast row DListView_Line
+			sequenceList:SelectItem(row)
+			-- Move the scrollbar to the location of the highlighted sequence item in the sequence list
+			scrollBar:AnimateTo(sequenceId * sequenceList:GetDataHeight(), 0.5)
+			-- Send all frame and pose parameter updates to the server
+			baseSlider:SetValue(cycle * (row:GetValue(4) - 1))
+			for i, poseParamValue in ipairs(poseParamValues) do
+				poseParams[i].slider:SetValue(poseParamValue)
+			end
+		else
+			notification.AddLegacy(
+				language.GetPhrase("ui.ragdollpuppeteer.notify.pastefailed"):format(sequence),
+				NOTIFY_ERROR,
+				5
+			)
+		end
+	end)
 end
 
 return UI

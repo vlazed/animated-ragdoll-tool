@@ -31,9 +31,10 @@ end
 ---@param puppeteer Entity Entity to obtain bone information
 ---@param child integer Child bone index
 ---@param angleDelta Quaternion?
+---@param angleDelta2 Quaternion?
 ---@return Vector positionOffset Position of child bone with respect to parent bone
 ---@return Angle angleOffset Angle of child bone with respect to parent bone
-function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta)
+function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta, angleDelta2)
 	local defaultBonePose = Vendor.getDefaultBonePoseOf(puppeteer)
 
 	local parent = puppeteer:GetBoneParent(child)
@@ -60,15 +61,15 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta)
 	m:Rotate(fAng)
 
 	local defaultAngle = defaultBonePose[child + 1][2]
-	if angleDelta then
-		defaultAngle = quaternion.fromAngle(defaultAngle):Mul(angleDelta):Angle()
+	if angleDelta2 then
+		defaultAngle = quaternion.fromAngle(defaultAngle):Mul(angleDelta2):Angle()
 	end
 	local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultAngle)
 
 	return dPos, dAng
 end
 
----Calculate the bone offsets between two entities
+---Calculate the physical bone offsets between two entities
 ---@param source Entity Entity doing the animation
 ---@param target Entity Entity that wants the animation
 ---@param sourceBone integer Source child bone index
@@ -90,7 +91,7 @@ function Vendor.retargetPhysical(source, target, sourceBone, targetBone)
 	return pos, qAng:Angle()
 end
 
----Calculate the bone offsets between two entities
+---Calculate the nonphysical bone offsets between two entities
 ---@param source Entity Entity doing the animation
 ---@param target Entity Entity that wants the animation
 ---@param sourceBone integer Source child bone index
@@ -103,9 +104,16 @@ function Vendor.retargetNonPhysical(source, target, sourceBone, targetBone)
 
 	local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
 	local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+	local sourceAng2 = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][2])
+	local targetAng2 = quaternion.fromAngle(targetReferencePose[targetBone + 1][2])
 
 	-- Source component rotation
-	local dPos, dAng = Vendor.getBoneOffsetsOf(source, sourceBone, sourceAng:Invert():Mul(targetAng))
+	local dPos, dAng = Vendor.getBoneOffsetsOf(
+		source,
+		sourceBone,
+		sourceAng:Invert():Mul(targetAng),
+		sourceAng2:Invert():Mul(targetAng2)
+	)
 
 	return dPos, dAng
 end

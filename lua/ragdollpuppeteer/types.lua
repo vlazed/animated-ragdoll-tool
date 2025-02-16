@@ -115,6 +115,8 @@ local types = {}
 ---@field searchBar DTextEntry
 ---@field sourceBox DComboBox
 ---@field poseParams PoseParameterSlider[]
+---@field resetParams DButton
+---@field poseParamsCategory DForm The category holding the `poseParams` sliders. Used to change pose params when the entity changes
 ---@field boneTree DTree
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton
