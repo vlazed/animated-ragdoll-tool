@@ -209,6 +209,9 @@ end
 function PANEL:RefreshBoneList()
 	self.BoneOffset.Selector:Clear()
 	for i = 0, self.Entity:GetBoneCount() - 1 do
+		if self.Entity:GetBoneName(i) == "__INVALIDBONE__" then
+			continue
+		end
 		if self.Entity:BoneHasFlag(i, 4) then
 			continue
 		end
