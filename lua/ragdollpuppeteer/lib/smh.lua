@@ -51,7 +51,6 @@ local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier, puppeteer)
 		lerpPose[i] = {}
 		lerpPose[i].Pos = vendor.LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
 		lerpPose[i].Ang = vendor.LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
-		lerpPose[i].Name = puppeteer:GetBoneName(i)
 		if i > 0 then
 			if prevFrame[i].LocalPos then
 				lerpPose[i].LocalPos =
@@ -80,7 +79,6 @@ local function deltaPose(poseData, originPose, puppeteer)
 	local pos, ang = LocalToWorld(wpos, wang, vector_origin, angle_zero)
 	newPose[0].Pos = pos
 	newPose[0].Ang = ang
-	newPose[0].Name = puppeteer:GetBoneName(0)
 	return newPose
 end
 

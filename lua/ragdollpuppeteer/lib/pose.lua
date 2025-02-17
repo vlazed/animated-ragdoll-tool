@@ -10,8 +10,6 @@ local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 ---@module "ragdollpuppeteer.lib.bones"
 local bones = include("ragdollpuppeteer/lib/bones.lua")
 
-local MINIMUM_VECTOR = Vector(-16384, -16384, -16384)
-
 local lastPose = {}
 local lastGesturePose = {}
 
@@ -46,13 +44,19 @@ local function encodePose(pose, puppeteer)
 
 	net.WriteUInt(#pose, 16)
 	for i = 0, #pose do
+		local hasLocal = (pose[i].LocalPos and true) or false
 		net.WriteVector(pose[i].Pos or vector_origin)
 		net.WriteAngle(pose[i].Ang or angle_zero)
 		net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-		net.WriteVector(pose[i].LocalPos or Vector(-16384, -16384, -16384))
-		net.WriteAngle(pose[i].LocalAng or Angle(0, 0, 0))
-		net.WriteVector(bPos)
-		net.WriteAngle(bAng)
+		net.WriteBool(hasLocal)
+		if hasLocal then
+			net.WriteVector(pose[i].LocalPos)
+			net.WriteAngle(pose[i].LocalAng)
+		end
+		if i == 0 then
+			net.WriteVector(bPos)
+			net.WriteAngle(bAng)
+		end
 	end
 end
 
@@ -129,7 +133,6 @@ local function getNonPhysicalBonePoseOf(puppeteer, puppet)
 			end
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
 		else
 			local bMatrix = puppeteer:GetBoneMatrix(b)
 			local dPos, dAng = vector_origin, angle_zero
@@ -151,7 +154,6 @@ local function getNonPhysicalBonePoseOf(puppeteer, puppet)
 			newPose[b + 1] = {}
 			newPose[b + 1][1] = dPos
 			newPose[b + 1][2] = dAng
-			newPose[b + 1][3] = boneMap and boneMap[boneName] or boneName
 		end
 	end
 
@@ -346,7 +348,7 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer)
 			if not targetPose[i] or filteredBones[b + 1] then
 				continue
 			end
-			if targetPose[i].LocalPos and targetPose[i].LocalPos ~= MINIMUM_VECTOR then
+			if targetPose[i].LocalPos then
 				local pos, ang =
 					LocalToWorld(targetPose[i].LocalPos, targetPose[i].LocalAng, parent:GetPos(), parent:GetAngles())
 				phys:EnableMotion(false)
@@ -354,17 +356,19 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer)
 				phys:SetAngles(ang)
 			else
 				-- Then, set target position of puppet with offset
-				local fPos, fAng = LocalToWorld(
-					targetPose[i].Pos * scale,
-					targetPose[i].Ang,
-					targetPose[i].RootPos,
-					targetPose[i].RootAng
-				)
+				if i == 0 then
+					local fPos, fAng = LocalToWorld(
+						targetPose[i].Pos * scale,
+						targetPose[i].Ang,
+						targetPose[i].RootPos,
+						targetPose[i].RootAng
+					)
 
-				phys:EnableMotion(false)
-				phys:SetPos(fPos)
-				-- Finally, set angle of puppet itself
-				phys:SetAngles(fAng)
+					phys:EnableMotion(false)
+					phys:SetPos(fPos)
+					-- Finally, set angle of puppet itself
+					phys:SetAngles(fAng)
+				end
 			end
 			phys:Wake()
 		end
@@ -452,9 +456,11 @@ end
 ---@param targetPose SMHFramePose[] The target nonphysical bone pose for the puppet
 ---@param filteredBones integer[] Bones that will not be set to their target pose
 ---@param physBones integer[] Bone indices that map to physobj indices
-local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredBones, physBones)
+---@param boneMap BoneDefinition? Mapping from the puppeteer's skeleton to the puppet's skeleton
+local function setNonPhysicalBonePoseOf(puppet, puppeteer, targetPose, filteredBones, physBones, boneMap)
 	for b2 = 0, puppeteer:GetBoneCount() - 1 do
-		local b = puppet:LookupBone(targetPose[b2].Name)
+		local boneName = puppeteer:GetBoneName(b2)
+		local b = puppet:LookupBone(boneMap and boneMap[boneName] or boneName)
 
 		if not b then
 			continue
@@ -495,18 +501,20 @@ local function decodePose()
 			Pos = 0,
 			Ang = 0,
 			Scale = 0,
-			LocalPos = 0,
-			LocalAng = 0,
 		}
 
 		pose[i].Pos = net.ReadVector()
 		pose[i].Ang = net.ReadAngle()
 		pose[i].Scale = net.ReadVector()
-		pose[i].LocalPos = net.ReadVector()
-		pose[i].LocalAng = net.ReadAngle()
-		-- FIXME: We don't have to send the root position and root angle for the bones that aren't the root. Send these separately
-		pose[i].RootPos = net.ReadVector()
-		pose[i].RootAng = net.ReadAngle()
+		local hasLocal = net.ReadBool()
+		if hasLocal then
+			pose[i].LocalPos = net.ReadVector()
+			pose[i].LocalAng = net.ReadAngle()
+		end
+		if i == 0 then
+			pose[i].RootPos = net.ReadVector()
+			pose[i].RootAng = net.ReadAngle()
+		end
 	end
 	return pose
 end
@@ -527,7 +535,8 @@ local function readSMHPose(puppet, playerData)
 			playerData.puppeteer,
 			targetPoseNonPhys,
 			playerData.filteredBones,
-			playerData.physBones
+			playerData.physBones,
+			playerData.boneMap
 		)
 		playerData.bonesReset = false
 	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
@@ -575,12 +584,21 @@ local function setPuppeteerPose(cycle, animatingNonPhys, playerData)
 	end
 end
 
+---@param from string
+---@param to string
+---@return BoneDefinition?
+---@return string?
+local function getBoneMap(from, to)
+	return bones.getMap(from, to)
+end
+
 return {
 	writeSequence = writeSequencePose,
 	writeSMH = writeSMHPose,
 	readSMH = readSMHPose,
 	readSequence = setPuppeteerPose,
 	getNonPhysicalPose = getNonPhysicalBonePoseOf,
+	getBoneMap = getBoneMap,
 	resetNonPhysicalPose = resetAllNonphysicalBonesOf,
 	setSMH = setSMHPoseOf,
 	setSequence = setSequencePoseOf,

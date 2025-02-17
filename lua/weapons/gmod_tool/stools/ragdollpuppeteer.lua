@@ -463,10 +463,16 @@ if SERVER then
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local puppeteer = playerData.puppeteer
+		local puppet = playerData.puppet
 		local floor = playerData.floor
 
 		local newModel = net.ReadString()
 		puppeteer:SetModel(newModel)
+		if puppet:GetModel() ~= newModel then
+			timer.Simple(0, function()
+				playerData.boneMap = pose.getBoneMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
+			end)
+		end
 		-- FIXME: InstallDataTable seems like an unintuitive way of resetting the network vars. What better method exists?
 		floor:InstallDataTable()
 		---@diagnostic disable-next-line: undefined-field
@@ -546,9 +552,15 @@ if SERVER then
 			newPose[b - 1] = {}
 			newPose[b - 1].Pos = net.ReadVector()
 			newPose[b - 1].Ang = net.ReadAngle()
-			newPose[b - 1].Name = net.ReadString()
 		end
-		pose.setNonPhysicalPose(ragdollPuppet, animPuppeteer, newPose, playerData.filteredBones, playerData.physBones)
+		pose.setNonPhysicalPose(
+			ragdollPuppet,
+			animPuppeteer,
+			newPose,
+			playerData.filteredBones,
+			playerData.physBones,
+			playerData.boneMap
+		)
 	end)
 
 	net.Receive("onFPSChange", function(_, sender)
@@ -598,7 +610,9 @@ local function refreshPoseOffsetter(entity, panelChildren, panelState)
 	poseOffsetter:SetVisible(lastVisible)
 	poseOffsetter:SetDirectory("ragdollpuppeteer/presets")
 	poseOffsetter:RefreshDirectory()
-	poseOffsetter:SetEntity(entity)
+	timer.Simple(0.1, function()
+		poseOffsetter:SetEntity(entity)
+	end)
 end
 
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
@@ -875,7 +889,6 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
 			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])
-			net.WriteString(newBasePose[b][3])
 		end
 		net.SendToServer()
 	end)
