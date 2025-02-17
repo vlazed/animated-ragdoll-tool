@@ -205,14 +205,17 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 
 		local newPose = {}
 
+		-- FIXME: Clean up and reorganize functionality
 		for i = 0, physicsCount - 1 do
 			local b = puppet:TranslatePhysBoneToBone(i)
+			local boneName = puppet:GetBoneName(b)
+			local b2 = viewPuppeteer:LookupBone(boneMap and boneMap[boneName] or boneName)
 
-			if gesture.anims then
+			if gesture.anims and b2 then
 				local gesturePos, gestureAng
-				if puppeteers[1]:GetBoneParent(b) > -1 then
-					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b)
-					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b)
+				if animPuppeteer:GetBoneParent(b2) > -1 then
+					local gPos, gAng = vendor.getBoneOffsetsOf(animGesturer, b2)
+					local oPos, oAng = vendor.getBoneOffsetsOf(baseGesturer, b2)
 
 					local oQuat = quaternion.fromAngle(oAng)
 					local gQuat = quaternion.fromAngle(gAng)
@@ -221,44 +224,58 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 					local dPos, dAng = gPos - oPos, dQuat:Angle()
 					gesturePos, gestureAng = dPos, dAng
 				else
-					local gPos, gAng = animGesturer:GetBonePosition(b)
-					local oPos, oAng = baseGesturer:GetBonePosition(b)
+					local gPos, gAng = animGesturer:GetBonePosition(b2)
+					local oPos, oAng = baseGesturer:GetBonePosition(b2)
 					if gPos and gAng and oPos and oAng then
 						local _, dAng = WorldToLocal(gPos, gAng, oPos, oAng)
 						local dPos = gPos - oPos
 						dPos, _ = LocalToWorld(dPos, angle_zero, vector_origin, puppeteers[1]:GetAngles())
 
 						gesturePos, gestureAng = dPos, dAng
-					elseif lastGesturePose[b] then
-						gesturePos, gestureAng = lastGesturePose[b][1], lastGesturePose[b][2]
+					elseif lastGesturePose[b2] then
+						gesturePos, gestureAng = lastGesturePose[b2][1], lastGesturePose[b2][2]
 					end
 				end
 
-				if poseOffset[b] then
-					gesturePos, gestureAng = gesturePos + poseOffset[b].pos, gestureAng + poseOffset[b].ang
+				if b2 and poseOffset[b2] then
+					gesturePos, gestureAng = gesturePos + poseOffset[b2].pos, gestureAng + poseOffset[b2].ang
 				end
 
-				if gesturePos then
-					animPuppeteer:ManipulateBonePosition(b, gesturePos)
-					basePuppeteer:ManipulateBonePosition(b, gesturePos)
-					viewPuppeteer:ManipulateBonePosition(b, gesturePos)
+				-- Only manipulate bone positions if the bone exists on the puppeteer
+				if gesturePos and b2 then
+					animPuppeteer:ManipulateBonePosition(b2, gesturePos)
+					basePuppeteer:ManipulateBonePosition(b2, gesturePos)
+					viewPuppeteer:ManipulateBonePosition(b2, gesturePos)
 				end
-				if gestureAng then
-					animPuppeteer:ManipulateBoneAngles(b, gestureAng)
-					basePuppeteer:ManipulateBoneAngles(b, gestureAng)
-					viewPuppeteer:ManipulateBoneAngles(b, gestureAng)
+				if gestureAng and b2 then
+					animPuppeteer:ManipulateBoneAngles(b2, gestureAng)
+					basePuppeteer:ManipulateBoneAngles(b2, gestureAng)
+					viewPuppeteer:ManipulateBoneAngles(b2, gestureAng)
 				end
-				lastGesturePose[b] = { gesturePos, gestureAng }
+				lastGesturePose[b2] = { gesturePos, gestureAng }
 			end
 
-			local pos, ang = viewPuppeteer:GetBonePosition(b)
+			-- Let's get the phys obj transform
+			---@type Vector, Angle
+			local pos, ang
 			if not isSameModel then
 				local targetBone = b
-				local boneName = puppet:GetBoneName(targetBone)
-				local sourceBone = viewPuppeteer:LookupBone(boneMap and boneMap[boneName] or boneName)
+				local sourceBone = b2
 				if sourceBone then
 					pos, ang = retargetPhysical(viewPuppeteer, puppet, sourceBone, targetBone)
+				else
+					-- If we're different models, but b2 doesn't exist for specific phys obj i for the
+					-- puppeteer, let's just get the puppet's original phys obj transform
+					local bMatrix = puppet:GetBoneMatrix(b)
+					if bMatrix then
+						pos, ang = bMatrix:GetTranslation(), bMatrix:GetAngles()
+					else
+						-- Somehow the bone hasn't been built yet, so we'll just return this for safety
+						pos, ang = vector_origin, angle_zero
+					end
 				end
+			else
+				pos, ang = viewPuppeteer:GetBonePosition(b)
 			end
 
 			if physicsClasses[puppet:GetClass()] then
@@ -277,7 +294,7 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 			end
 
 			if pos == animPuppeteer:GetPos() then
-				local matrix = animPuppeteer:GetBoneMatrix(b)
+				local matrix = animPuppeteer:GetBoneMatrix(isSameModel and b2 or b)
 				if matrix then
 					pos = matrix:GetTranslation()
 					ang = matrix:GetAngles()
@@ -285,8 +302,8 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 			end
 
 			if i == 0 then
-				local baseMatrix = basePuppeteer:GetBoneMatrix(b)
-				local animMatrix = animPuppeteer:GetBoneMatrix(b)
+				local baseMatrix = basePuppeteer:GetBoneMatrix(isSameModel and b2 or b)
+				local animMatrix = animPuppeteer:GetBoneMatrix(isSameModel and b2 or b)
 				if baseMatrix and animMatrix and puppet.SavedBoneMatrices and puppet.SavedBoneMatrices[b] then
 					local scale = puppet.SavedBoneMatrices[b]:GetScale()
 					local offsetPos = (animMatrix:GetTranslation() - baseMatrix:GetTranslation()) * scale
