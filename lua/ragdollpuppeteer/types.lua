@@ -47,7 +47,6 @@ local types = {}
 ---@field RootAng Angle?
 ---@field RootPos Vector?
 ---@field Moveable boolean?
----@field Name string?
 ---@field Scale Vector
 
 ---@class SMHColorPose A struct of the entity's color at an SMH frame
@@ -202,6 +201,7 @@ local types = {}
 ---@field playbackEnabled boolean Whether the player is animating the puppeteer. Tracked for moving the puppet accurately
 ---@field physBones integer[] An array of physbone indices mapped by their bone index
 ---@field bucket LeakyBucket A rate-limiting class to ensure that each player doesn't spam precache different models
+---@field boneMap BoneDefinition? A mapping from the puppeteer's skeleton to the puppet's skeleton
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor
