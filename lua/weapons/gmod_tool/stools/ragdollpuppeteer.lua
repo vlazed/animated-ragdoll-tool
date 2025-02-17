@@ -742,6 +742,7 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	end
 
 	local model = puppet:GetModel()
+	panelState.model = model
 
 	-- This gets set behind the scenes.
 	local animPuppeteer = createClientPuppeteer(model, puppet, ply)
