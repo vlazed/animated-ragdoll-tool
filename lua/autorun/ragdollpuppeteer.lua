@@ -24,6 +24,8 @@ if SERVER then
 	AddCSLuaFile("ragdollpuppeteer/lib/pose.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/components.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/derma/poseoffsetter.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/derma/presetsaver.lua")
 
 	do
 		local directory = "ragdollpuppeteer/lib/bone_definitions"

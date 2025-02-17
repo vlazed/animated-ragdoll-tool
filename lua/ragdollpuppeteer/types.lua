@@ -152,6 +152,9 @@ local types = {}
 ---@field physicsObjects PhysicsObject[] An array  of physics objects in the puppet
 ---@field model string
 ---@field smhData SMHFile?
+---@field selectedBone integer
+---@field puppet Entity
+---@field offsets PoseOffset
 
 -- Miscellaneous Types
 
@@ -160,6 +163,16 @@ local types = {}
 ---@class ResizedBoneOffset
 ---@field posoffset Vector
 ---@field angoffset Angle
+
+---@class BonePoseOffset
+---@field pos Vector
+---@field ang Angle
+
+---@alias PoseOffset BonePoseOffset[]
+
+---@class PoseOffsetPreset
+---@field offsets PoseOffset
+---@field model string
 
 ---@class PhysBone
 ---@field parentid integer

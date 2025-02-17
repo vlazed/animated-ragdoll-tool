@@ -579,6 +579,28 @@ end)
 ---@module "ragdollpuppeteer.ui"
 local ui = include("ragdollpuppeteer/client/ui.lua")
 
+include("ragdollpuppeteer/client/derma/poseoffsetter.lua")
+
+---@type ragdollpuppeteer_poseoffsetter
+local poseOffsetter
+
+---@param entity Entity
+---@param panelChildren PanelChildren
+---@param panelState PanelState
+local function refreshPoseOffsetter(entity, panelChildren, panelState)
+	local lastVisible = false
+	if IsValid(poseOffsetter) then
+		lastVisible = poseOffsetter:IsVisible()
+		poseOffsetter:Remove()
+	end
+
+	poseOffsetter = vgui.Create("ragdollpuppeteer_poseoffsetter")
+	poseOffsetter:SetVisible(lastVisible)
+	poseOffsetter:SetDirectory("ragdollpuppeteer/presets")
+	poseOffsetter:RefreshDirectory()
+	poseOffsetter:SetEntity(entity)
+end
+
 local PUPPETEER_MATERIAL = constants.PUPPETEER_MATERIAL
 local INVISIBLE_MATERIAL = constants.INVISIBLE_MATERIAL
 local COLOR_BLUE = constants.COLOR_BLUE
@@ -586,10 +608,12 @@ local COLOR_BLUE = constants.COLOR_BLUE
 ---@type PanelState
 local panelState = {
 	maxFrames = 0,
-	defaultBonePose = {},
 	previousPuppeteer = nil,
 	physicsObjects = {},
 	model = "",
+	selectedBone = -1,
+	puppet = NULL,
+	offsets = {},
 }
 
 local lastFrame = 0
@@ -603,9 +627,6 @@ local function styleClientPuppeteer(puppeteer)
 	puppeteer:SetMaterial(PUPPETEER_MATERIAL:GetName())
 	puppeteer.ragdollpuppeteer_currentMaterial = PUPPETEER_MATERIAL
 end
-
----@alias BoneOffset table<Vector, Angle>
----@alias BoneOffsetArray BoneOffset[]
 
 ---@param puppeteer Entity
 local function disablePuppeteerJiggle(puppeteer)
@@ -701,6 +722,13 @@ end
 function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	if not puppet or not IsValid(puppet) then
 		cPanel:Help("#ui.ragdollpuppeteer.label.none")
+
+		if IsValid(poseOffsetter) then
+			hook.Remove("OnContextMenuOpen", "ragdollpuppeteer_hookcontext")
+			hook.Remove("OnContextMenuClose", "ragdollpuppeteer_hookcontext")
+
+			poseOffsetter:Remove()
+		end
 		return
 	end
 
@@ -762,10 +790,32 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 	-- UI Elements
 	local panelChildren = ui.ConstructPanel(cPanel, panelProps, panelState)
 
+	refreshPoseOffsetter(animPuppeteer, panelChildren, panelState)
+
 	ui.Layout(panelChildren, animPuppeteer)
 
 	-- UI Hooks
-	ui.HookPanel(panelChildren, panelProps, panelState)
+	ui.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
+
+	hook.Remove("OnContextMenuOpen", "ragdollpuppeteer_hookcontext")
+	if IsValid(poseOffsetter) then
+		hook.Add("OnContextMenuOpen", "ragdollpuppeteer_hookcontext", function()
+			local tool = LocalPlayer():GetTool()
+			if tool and tool.Mode == "ragdollpuppeteer" then
+				poseOffsetter:SetVisible(true)
+				poseOffsetter:MakePopup()
+			end
+		end)
+	end
+
+	hook.Remove("OnContextMenuClose", "ragdollpuppeteer_hookcontext")
+	if IsValid(poseOffsetter) then
+		hook.Add("OnContextMenuClose", "ragdollpuppeteer_hookcontext", function()
+			poseOffsetter:SetVisible(false)
+			poseOffsetter:SetMouseInputEnabled(false)
+			poseOffsetter:SetKeyboardInputEnabled(false)
+		end)
+	end
 
 	local count = 0
 	local id = viewPuppeteer:AddCallback("BuildBonePositions", function(ent, boneCount)
@@ -884,6 +934,47 @@ do
 		draw.RoundedBox(0, 0, y, lastWidth, ySize, COLOR_WHITE_BRIGHT)
 
 		lastFrame = frame
+	end
+end
+
+do
+	local CIRCLE = {
+
+		-- Circle
+		{ x = -3, y = -3 },
+
+		{ x = 0, y = -4 },
+		{ x = 3, y = -3 },
+		{ x = 4, y = 0 },
+		{ x = 3, y = 3 },
+		{ x = 0, y = 4 },
+		{ x = -3, y = 3 },
+		{ x = -4, y = 0 },
+	}
+
+	local COLOR_GREEN = Color(0, 255, 0, 255)
+
+	function TOOL:DrawHUD()
+		local puppet = panelState.puppet
+		if panelState.selectedBone > 0 and IsValid(puppet) then
+			local matrix = puppet:GetBoneMatrix(panelState.selectedBone)
+			if not matrix then
+				return
+			end
+			local pos = matrix:GetTranslation()
+			pos = pos:ToScreen()
+			local x, y = pos.x, pos.y
+
+			local shape = table.Copy(CIRCLE)
+			for _, v in ipairs(shape) do
+				v.x = v.x + x
+				v.y = v.y + y
+			end
+
+			draw.NoTexture()
+			surface.SetDrawColor(COLOR_GREEN:Unpack())
+			surface.DrawPoly(shape)
+		end
 	end
 end
 

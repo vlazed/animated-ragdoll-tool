@@ -180,8 +180,9 @@ end
 
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
+---@param panelState PanelState
 ---@param currentGesture SequenceInfo
-local function createPlaybackTimer(panelChildren, panelProps, currentGesture)
+local function createPlaybackTimer(panelChildren, panelProps, panelState, currentGesture)
 	local baseSlider = panelChildren.baseSlider
 	local gestureSlider = panelChildren.gestureSlider
 	local sourceBox = panelChildren.sourceBox
@@ -240,7 +241,8 @@ local function createPlaybackTimer(panelChildren, panelProps, currentGesture)
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					currentGesture
+					currentGesture,
+					panelState.offsets
 				)
 				net.SendToServer()
 			else
@@ -594,7 +596,8 @@ end
 ---@param panelChildren PanelChildren
 ---@param panelProps PanelProps
 ---@param panelState PanelState
-function UI.HookPanel(panelChildren, panelProps, panelState)
+---@param poseOffsetter ragdollpuppeteer_poseoffsetter
+function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local currentSequence = {
 		label = "",
 		numframes = 1,
@@ -701,7 +704,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 
 	function playButton:OnToggled(on)
 		if on then
-			createPlaybackTimer(panelChildren, panelProps, currentGesture)
+			createPlaybackTimer(panelChildren, panelProps, panelState, currentGesture)
 			playButton:SetText("#ui.ragdollpuppeteer.label.stop")
 		else
 			removePlaybackTimer()
@@ -741,7 +744,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				puppet,
 				physicsCount,
 				{ baseGesturer, animGesturer },
-				currentGesture
+				currentGesture,
+				panelState.offsets
 			)
 			net.SendToServer()
 		else
@@ -756,6 +760,49 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				)
 			end
 		end
+	end
+
+	---@param entity Entity
+	local function setPoseOffsetterEntity(entity)
+		-- We set this on the next frame because if we do it on the same frame, the bones may have not initialized yet,
+		-- resulting in __INVALIDBONE__'s
+		timer.Simple(0, function()
+			poseOffsetter:SetEntity(entity)
+		end)
+	end
+
+	setPoseOffsetterEntity(animPuppeteer)
+
+	panelState.selectedBone = -1
+	panelState.offsets = {}
+	function poseOffsetter:OnBoneSelect(bone)
+		panelState.puppet = panelProps.viewPuppeteer
+		panelState.selectedBone = bone
+
+		self:SetTransform(panelState.offsets[bone])
+	end
+
+	function poseOffsetter:OnTransformChange(bone, pos, ang)
+		panelState.offsets[bone] = {
+			pos = pos,
+			ang = ang,
+		}
+		onAngleTrioValueChange()
+	end
+
+	function poseOffsetter:OnSavePreset()
+		return {
+			model = panelState.puppet:GetModel(),
+			offsets = panelState.offsets,
+		}
+	end
+
+	function poseOffsetter:OnSaveSuccess()
+		notification.AddLegacy("Offsets saved", NOTIFY_GENERIC, 5)
+	end
+
+	function poseOffsetter:OnSaveFailure(msg)
+		notification.AddLegacy("Failed to save offsets: " .. msg, NOTIFY_ERROR, 5)
 	end
 
 	function scaleOffset:OnValueChanged(newVal)
@@ -790,7 +837,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					currentGesture
+					currentGesture,
+					panelState.offsets
 				)
 				net.SendToServer()
 			end
@@ -854,7 +902,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					currentGesture
+					currentGesture,
+					panelState.offsets
 				)
 				net.SendToServer()
 			end)
@@ -968,7 +1017,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 					puppet,
 					physicsCount,
 					{ baseGesturer, animGesturer },
-					currentGesture
+					currentGesture,
+					panelState.offsets
 				)
 				net.SendToServer()
 				sendingFrame = false
@@ -1079,6 +1129,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 				baseGesturer,
 				viewPuppeteer,
 			}, newModel)
+			setPoseOffsetterEntity(animPuppeteer)
 
 			for i = 1, #poseParams do
 				poseParams[i].slider:Remove()
@@ -1105,7 +1156,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState)
 		end
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
-		createPlaybackTimer(panelChildren, panelProps, currentGesture)
+		createPlaybackTimer(panelChildren, panelProps, panelState, currentGesture)
 	end)
 
 	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)

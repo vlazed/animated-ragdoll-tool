@@ -1,3 +1,6 @@
+---@alias BoneOffset table<Vector, Angle>
+---@alias BoneOffsetArray BoneOffset[]
+
 ---@module "ragdollpuppeteer.lib.smh"
 local smh = include("ragdollpuppeteer/lib/smh.lua")
 ---@module "ragdollpuppeteer.lib.vendor"
@@ -183,7 +186,8 @@ end
 ---@param physicsCount integer
 ---@param gesturers Entity[]
 ---@param gesture SequenceInfo
-local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, gesture)
+---@param poseOffset PoseOffset
+local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, gesture, poseOffset)
 	if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 		return
 	end
@@ -228,6 +232,10 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 					elseif lastGesturePose[b] then
 						gesturePos, gestureAng = lastGesturePose[b][1], lastGesturePose[b][2]
 					end
+				end
+
+				if poseOffset[b] then
+					gesturePos, gestureAng = gesturePos + poseOffset[b].pos, gestureAng + poseOffset[b].ang
 				end
 
 				if gesturePos then
