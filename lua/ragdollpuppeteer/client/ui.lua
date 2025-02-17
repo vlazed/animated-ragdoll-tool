@@ -766,7 +766,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local function setPoseOffsetterEntity(entity)
 		-- We set this on the next frame because if we do it on the same frame, the bones may have not initialized yet,
 		-- resulting in __INVALIDBONE__'s
-		timer.Simple(0, function()
+		timer.Simple(0.1, function()
 			poseOffsetter:SetEntity(entity)
 		end)
 	end
