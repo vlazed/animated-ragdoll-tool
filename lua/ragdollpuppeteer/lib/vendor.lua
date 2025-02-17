@@ -1,3 +1,6 @@
+---@module "ragdollpuppeteer.lib.quaternion"
+local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
+
 --- General vendor functions from Ragdoll Mover and Stop Motion Helper
 
 local Vendor = {}
@@ -24,13 +27,16 @@ function Vendor.GetPhysBoneParent(entity, physBone)
 end
 
 ---Calculate the bone offsets with respect to the parent
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
+---@source https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L1889
 ---@param puppeteer Entity Entity to obtain bone information
 ---@param child integer Child bone index
----@param defaultBonePose DefaultBonePoseArray Array of position and angles denoting the reference bone pose
+---@param angleDelta Quaternion?
+---@param angleDelta2 Quaternion?
 ---@return Vector positionOffset Position of child bone with respect to parent bone
 ---@return Angle angleOffset Angle of child bone with respect to parent bone
-function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
+function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta, angleDelta2)
+	local defaultBonePose = Vendor.getDefaultBonePoseOf(puppeteer)
+
 	local parent = puppeteer:GetBoneParent(child)
 	---@type VMatrix
 	local cMatrix = puppeteer:GetBoneMatrix(child)
@@ -41,8 +47,12 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
 		return vector_origin, angle_zero
 	end
 
-	local fPos, fAng =
-		WorldToLocal(cMatrix:GetTranslation(), cMatrix:GetAngles(), pMatrix:GetTranslation(), pMatrix:GetAngles())
+	local cAngles = cMatrix:GetAngles()
+	if angleDelta then
+		cAngles = quaternion.fromAngle(cAngles):Mul(angleDelta):Angle()
+	end
+
+	local fPos, fAng = WorldToLocal(cMatrix:GetTranslation(), cAngles, pMatrix:GetTranslation(), pMatrix:GetAngles())
 	local dPos = fPos - defaultBonePose[child + 1][3]
 
 	local m = Matrix()
@@ -50,8 +60,11 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, defaultBonePose)
 	m:Rotate(defaultBonePose[parent + 1][2])
 	m:Rotate(fAng)
 
-	local _, dAng =
-		WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultBonePose[child + 1][2])
+	local defaultAngle = defaultBonePose[child + 1][2]
+	if angleDelta2 then
+		defaultAngle = quaternion.fromAngle(defaultAngle):Mul(angleDelta2):Angle()
+	end
+	local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultAngle)
 
 	return dPos, dAng
 end
@@ -63,22 +76,37 @@ function Vendor.PhysBoneToBone(ent, physBone)
 	return ent:TranslatePhysBoneToBone(physBone)
 end
 
+---@type table<string, DefaultBonePoseArray> Array of position and angles denoting the reference bone pose
+local defaultPoseTrees = {}
+
 ---Get the pose of every bone of the entity, for nonphysical bone matching
----Source: https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
+---@source https://github.com/NO-LOAFING/AnimpropOverhaul/blob/a3a6268a5d57655611a8b8ed43dcf43051ecd93a/lua/entities/prop_animated.lua#L3550
 ---@param ent Entity Entity in reference pose
+---@param identifier string? Custom name for the pose tree to allow for different versions of the same entity
 ---@return DefaultBonePoseArray defaultPose Array consisting of a bones offsets from the entity, and offsets from its parent bones
-function Vendor.getDefaultBonePoseOf(ent)
+function Vendor.getDefaultBonePoseOf(ent, identifier)
+	identifier = identifier or ent:GetModel()
+	if defaultPoseTrees[identifier] then
+		return defaultPoseTrees[identifier]
+	end
+
+	local csModel = ents.CreateClientProp()
+	csModel:SetModel(ent:GetModel())
+	csModel:DrawModel()
+	csModel:SetupBones()
+	csModel:InvalidateBoneCache()
+
 	local defaultPose = {}
-	local entPos = ent:GetPos()
-	local entAngles = ent:GetAngles()
-	for b = 0, ent:GetBoneCount() - 1 do
-		local parent = ent:GetBoneParent(b)
-		local bMatrix = ent:GetBoneMatrix(b)
+	local entPos = csModel:GetPos()
+	local entAngles = csModel:GetAngles()
+	for b = 0, csModel:GetBoneCount() - 1 do
+		local parent = csModel:GetBoneParent(b)
+		local bMatrix = csModel:GetBoneMatrix(b)
 		if bMatrix then
 			local pos1, ang1 = WorldToLocal(bMatrix:GetTranslation(), bMatrix:GetAngles(), entPos, entAngles)
 			local pos2, ang2 = pos1 * 1, ang1 * 1
 			if parent > -1 then
-				local pMatrix = ent:GetBoneMatrix(parent)
+				local pMatrix = csModel:GetBoneMatrix(parent)
 				pos2, ang2 = WorldToLocal(
 					bMatrix:GetTranslation(),
 					bMatrix:GetAngles(),
@@ -87,11 +115,15 @@ function Vendor.getDefaultBonePoseOf(ent)
 				)
 			end
 
-			defaultPose[b + 1] = { pos1, ang1, pos2, ang2 }
+			defaultPose[b + 1] = { pos1, ang1, pos2, ang2, bMatrix:GetTranslation(), bMatrix:GetAngles() }
 		else
-			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero }
+			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero, vector_origin, angle_zero }
 		end
 	end
+
+	defaultPoseTrees[identifier] = defaultPose
+	csModel:Remove()
+
 	return defaultPose
 end
 
@@ -141,9 +173,8 @@ function Vendor.LerpLinearAngle(s, e, p)
 end
 
 ---Find the closest keyframe corresponding to the frame of keyframes
----Source: https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---Modified to directly work with json translation
----Supports SMH saves to at most version 4.0 (4.0 introduced save file changes to improve playback performance)
+---@source https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---@param keyframes SMHFrameData[] SMH Keyframe data
 ---@param frame integer Target keyframe
 ---@param ignoreCurrentFrame boolean Whether to consider the previous and next keyframes

@@ -17,11 +17,37 @@ if SERVER then
 
 	AddCSLuaFile("ragdollpuppeteer/constants.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/vendor.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/bones.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/helpers.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/pose.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/components.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/derma/poseoffsetter.lua")
+	AddCSLuaFile("ragdollpuppeteer/client/derma/presetsaver.lua")
+
+	do
+		local directory = "ragdollpuppeteer/lib/bone_definitions"
+		local subdirectory = "bone_definitions/"
+
+		if file.IsDir(directory, "LUA") then
+			local definitions = file.Find("*.lua", directory)
+			if definitions then
+				for _, definitionFile in pairs(definitions) do
+					AddCSLuaFile(subdirectory .. definitionFile)
+				end
+			end
+		end
+	end
+
+	---@module "ragdollpuppeteer.lib.leakybucket"
+	local leakyBucket = include("ragdollpuppeteer/lib/leakybucket.lua")
+	---@module "ragdollpuppeteer.constants"
+	local constants = include("ragdollpuppeteer/constants.lua")
+
+	local MAX_MODELS = constants.MAX_MODELS
+	local MODEL_DEQUE_RATE = constants.MODEL_DEQUE_RATE
 
 	---@type RagdollPuppeteerPlayerField[]
 	RAGDOLLPUPPETEER_PLAYERS = RAGDOLLPUPPETEER_PLAYERS or {}
@@ -44,6 +70,7 @@ if SERVER then
 			poseParams = {},
 			playbackEnabled = false,
 			physBones = {},
+			bucket = leakyBucket(MAX_MODELS, MODEL_DEQUE_RATE),
 		}
 	end
 

@@ -14,12 +14,16 @@ function components.PuppetLabel(cPanel, model)
 end
 
 ---@param cPanel DForm
+---@param label string?
+---@param placeholder string?
 ---@return DTextEntry
-function components.SearchBar(cPanel)
+function components.SearchBar(cPanel, label, placeholder)
+	label = label or "#ui.ragdollpuppeteer.label.search"
+	placeholder = placeholder or "#ui.ragdollpuppeteer.tooltip.search"
 	---@diagnostic disable-next-line
-	local panel = cPanel:TextEntry("#ui.ragdollpuppeteer.label.search")
+	local panel = cPanel:TextEntry(label)
 	---@cast panel DTextEntry
-	panel:SetPlaceholderText("#ui.ragdollpuppeteer.tooltip.search")
+	panel:SetPlaceholderText(placeholder)
 
 	return panel
 end
@@ -321,24 +325,33 @@ local function poseParameterSlider(index, entity, dForm)
 	return { slider = paramSlider, name = poseParameterName }
 end
 
----@param cPanel DForm
+---@param dForm DForm
 ---@param puppeteer Entity
 ---@return PoseParameterSlider[] poseParamSliders Change the pose parameters of the puppeteer
-function components.PoseParameters(cPanel, puppeteer)
+function components.PoseParameters(dForm, puppeteer)
 	---@type PoseParameterSlider[]
 	local poseParams = {}
 
-	---@type DForm
-	local dForm = vgui.Create("DForm")
-	dForm:SetLabel("#ui.ragdollpuppeteer.label.poseparams")
 	local numParameters = puppeteer:GetNumPoseParameters()
 
 	for i = 1, numParameters do
 		poseParams[i] = poseParameterSlider(i, puppeteer, dForm)
 	end
 
-	---@diagnostic disable-next-line
-	local resetParams = dForm:Button("#ui.ragdollpuppeteer.label.resetparams")
+	dForm:DoExpansion(false)
+
+	return poseParams
+end
+
+---@param dForm DForm
+---@param poseParams PoseParameterSlider[]
+---@param puppeteer Entity
+---@return DButton
+function components.ResetPoseParameters(dForm, poseParams, puppeteer)
+	local resetParams = dForm:Button("#ui.ragdollpuppeteer.label.resetparams", "")
+	---@cast resetParams DButton
+
+	local numParameters = #poseParams
 	function resetParams:DoClick()
 		for i = 1, numParameters do
 			poseParams[i].slider:ResetToDefaultValue()
@@ -346,10 +359,7 @@ function components.PoseParameters(cPanel, puppeteer)
 		puppeteer:ClearPoseParameters()
 	end
 
-	cPanel:AddItem(dForm)
-	dForm:DoExpansion(false)
-
-	return poseParams
+	return resetParams
 end
 
 ---Container for ConVar settings
