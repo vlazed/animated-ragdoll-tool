@@ -164,13 +164,13 @@ end
 ---@param nonPhysFrames SMHFrameData[]
 ---@param nonPhys boolean
 local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer)
-	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
+	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones", puppeteer)
 	net.Start(netString, true)
 	net.WriteBool(false)
 	encodePose(physBonePose, puppeteer)
 	net.WriteBool(nonPhys)
 	if nonPhys then
-		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
+		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones", puppeteer)
 		local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
 		net.WriteUInt(#compressedNonPhysPose, 16)
 		net.WriteData(compressedNonPhysPose)

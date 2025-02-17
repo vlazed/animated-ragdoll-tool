@@ -34,8 +34,9 @@ end
 ---@param prevFrame SMHFramePose[]? Previous frame pose
 ---@param nextFrame SMHFramePose[]? Next frame pose
 ---@param lerpMultiplier number Percentage between previous frame and next frame
+---@param puppeteer Entity Entity for assigning bone names
 ---@return SMHFramePose[] interpolatedFrame Interpolated frame pose between previous frame and next frame
-local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
+local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier, puppeteer)
 	prevFrame = prevFrame or nextFrame
 	nextFrame = nextFrame or prevFrame
 	if not nextFrame or not prevFrame then
@@ -50,6 +51,7 @@ local function generateLerpPose(prevFrame, nextFrame, lerpMultiplier)
 		lerpPose[i] = {}
 		lerpPose[i].Pos = vendor.LerpLinearVector(prevFrame[i].Pos, nextFrame[i].Pos, lerpMultiplier)
 		lerpPose[i].Ang = vendor.LerpLinearAngle(prevFrame[i].Ang, nextFrame[i].Ang, lerpMultiplier)
+		lerpPose[i].Name = puppeteer:GetBoneName(i)
 		if i > 0 then
 			if prevFrame[i].LocalPos then
 				lerpPose[i].LocalPos =
@@ -69,14 +71,16 @@ end
 ---Generate a displacement vector from the origin position to the current position
 ---@param poseData SMHFramePose Current pose at some frame of the animation
 ---@param originPose SMHFramePose Origin pose at the start of the animation
+---@param puppeteer Entity Entity for assigning bone names
 ---@return SMHFramePose deltaPose The delta between the current pose and origin pose
-local function deltaPose(poseData, originPose)
+local function deltaPose(poseData, originPose, puppeteer)
 	local targetPose = poseData[0]
 	local newPose = poseData
 	local wpos, wang = WorldToLocal(targetPose.Pos, targetPose.Ang, originPose.Pos, originPose.Ang)
 	local pos, ang = LocalToWorld(wpos, wang, vector_origin, angle_zero)
 	newPose[0].Pos = pos
 	newPose[0].Ang = ang
+	newPose[0].Name = puppeteer:GetBoneName(0)
 	return newPose
 end
 
@@ -102,8 +106,9 @@ end
 ---@param poseFrame integer Target frame to obtain pose
 ---@param smhFrames SMHFrameData[] Collection of pose data to search for target
 ---@param modifier SMHModifiers Modifier to consider when finding target pose
+---@param puppeteer Entity Entity for assigning bone names
 ---@return SMHFramePose[] targetPose The closest, interpolated keyframe pose to our target frame
-function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
+function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier, puppeteer)
 	local originPose = getOriginPose(smhFrames, modifier)
 	for _, frameData in ipairs(smhFrames) do
 		-- If no pose data exists, continue to the next frame
@@ -115,8 +120,9 @@ function SMH.getPoseFromSMHFrames(poseFrame, smhFrames, modifier)
 		---@cast nextFrame SMHFrameData
 
 		return deltaPose(
-			generateLerpPose(prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier),
-			originPose
+			generateLerpPose(prevFrame.EntityData[modifier], nextFrame.EntityData[modifier], lerpMultiplier, puppeteer),
+			originPose,
+			puppeteer
 		)
 	end
 end
