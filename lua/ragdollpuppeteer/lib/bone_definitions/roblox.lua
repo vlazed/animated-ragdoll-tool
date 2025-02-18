@@ -1,5 +1,5 @@
 -- Bone names are all case-sensitive!
--- There should always be an even number of bone definitions. If there's an odd number, something went wrong!
+-- Each bone definition must consist of a mapping pair (e.g. ["bip_pelvis"] = "ValveBiped.Biped01_Pelvis").
 
 local bones = {}
 do

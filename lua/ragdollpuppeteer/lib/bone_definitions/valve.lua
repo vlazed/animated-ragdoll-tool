@@ -1,6 +1,6 @@
 --[[
     Bone names are all case-sensitive!
-    There should always be an even number of bone definitions. If there's an odd number, something went wrong!
+	Each bone definition must consist of a mapping pair (e.g. ["bip_pelvis"] = "ValveBiped.Biped01_Pelvis").
     If you have any questions regarding the format of a bone definition, post it in the discussion board:
     
     Discussion Board: https://steamcommunity.com/sharedfiles/filedetails/discussions/3333911060
