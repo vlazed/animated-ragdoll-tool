@@ -654,7 +654,7 @@ end
 ---@param ply Player For whom to create the puppeteer
 ---@return Entity clientPuppeteer The clientside puppeteer
 local function createClientPuppeteer(model, puppet, ply)
-	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+	local puppeteer = ents.CreateClientside("prop_puppeteer")
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end

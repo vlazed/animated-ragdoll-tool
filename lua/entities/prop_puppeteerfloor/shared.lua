@@ -140,7 +140,9 @@ function ENT:RemovePuppeteers()
 		return
 	end
 	for i, puppeteer in ipairs(self.puppeteers) do
-		puppeteer:Remove()
+		if IsValid(puppeteer) then
+			puppeteer:Remove()
+		end
 		self.puppeteers[i] = nil
 	end
 end
