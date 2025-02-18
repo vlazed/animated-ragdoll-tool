@@ -120,22 +120,49 @@ end
 ---@param predicate fun(seqInfo: SequenceInfo): boolean
 function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	local defaultFPS = 30
-	for i = 0, puppeteer:GetSequenceCount() - 1 do
-		local seqInfo = puppeteer:GetSequenceInfo(i)
-		if not predicate(seqInfo) then
-			continue
-		end
-		local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
-		local fps = defaultFPS
-		local maxFrame = DEFAULT_MAX_FRAME
-		-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
-		if longestAnim.numframes > -1 then
-			maxFrame = longestAnim.numframes
-			fps = longestAnim.fps
-		end
+	local done = false
+	local co = coroutine.wrap(function()
+		for i = 0, puppeteer:GetSequenceCount() - 1 do
+			if not IsValid(puppeteer) then
+				break
+			end
+			local seqInfo = puppeteer:GetSequenceInfo(i)
+			if not seqInfo then
+				break
+			end
 
-		seqList:AddLine(i, seqInfo.label, fps, maxFrame)
-	end
+			if not predicate(seqInfo) then
+				continue
+			end
+			local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
+			local fps = defaultFPS
+			local maxFrame = DEFAULT_MAX_FRAME
+			-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
+			if longestAnim.numframes > -1 then
+				maxFrame = longestAnim.numframes
+				fps = longestAnim.fps
+			end
+
+			if IsValid(seqList) then
+				seqList:AddLine(i, seqInfo.label, fps, maxFrame)
+			else
+				break
+			end
+
+			coroutine.yield()
+		end
+		done = true
+	end)
+
+	local timerId = "ragdollpuppeteer_populatesequence_" .. seqList:GetName()
+	timer.Remove(timerId)
+	timer.Create(timerId, 0, -1, function()
+		if done then
+			timer.Stop(timerId)
+		else
+			co()
+		end
+	end)
 end
 
 ---@param panelChildren PanelChildren
@@ -544,7 +571,9 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 	local randomPose = components.RandomPose(lists)
 	local sequenceSheet = components.Sheet(lists)
 	local sequenceList = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
+	sequenceList:SetName("base")
 	local sequenceList2 = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
+	sequenceList:SetName("gesture")
 	local smhBrowser = components.SMHFileBrowser(lists)
 	local smhList = components.SMHEntityList(lists)
 
