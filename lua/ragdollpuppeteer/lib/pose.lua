@@ -42,7 +42,7 @@ local function encodePose(pose, puppeteer)
 	local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
 	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
 
-	net.WriteUInt(#pose, 16)
+	net.WriteUInt(#pose, 5)
 	for i = 0, #pose do
 		local hasLocal = (pose[i].LocalPos and true) or false
 		net.WriteVector(pose[i].Pos or vector_origin)
@@ -495,7 +495,7 @@ end
 ---@return SMHFramePose[]
 local function decodePose()
 	local pose = {}
-	local poseSize = net.ReadUInt(16)
+	local poseSize = net.ReadUInt(5)
 	for i = 0, poseSize do
 		pose[i] = {
 			Pos = 0,
@@ -528,6 +528,9 @@ local function readSMHPose(puppet, playerData)
 	local animatingNonPhys = net.ReadBool()
 	setSMHPoseOf(puppet, targetPose, playerData.filteredBones, playerData.puppeteer)
 	if animatingNonPhys then
+		-- Instead of decoding the pose as we did with physical bones, we decompress some nonphysical data
+		-- This apparently reduces the outgoing rate compared to encoding/decoding together or
+		-- compressing/decompressing together
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
 		setNonPhysicalBonePoseOf(
