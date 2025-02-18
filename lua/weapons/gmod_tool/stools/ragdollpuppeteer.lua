@@ -27,6 +27,7 @@ TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
 TOOL.ClientConVar["disabletween"] = 0
 TOOL.ClientConVar["faceme"] = 1
+TOOL.ClientConVar["smhrequiresmodel"] = 1
 
 -- The number of models that the user should not go over
 local MAX_MODELS = constants.MAX_MODELS

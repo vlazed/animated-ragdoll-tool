@@ -51,8 +51,10 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 	if not data then
 		return
 	end
+	local requireSameModel = GetConVar("ragdollpuppeteer_smhrequiresmodel"):GetBool()
+
 	for _, entity in pairs(data.Entities) do
-		if entity.Properties.Model ~= model then
+		if requireSameModel and entity.Properties.Model ~= model then
 			continue
 		end
 		if not predicate(entity.Properties) then
@@ -531,15 +533,23 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		"ragdollpuppeteer_faceme",
 		"#ui.ragdollpuppeteer.tooltip.faceme"
 	)
+	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
+
+	local smhContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.smh")
 	local disableTween = components.CheckBox(
-		generalContainer,
+		smhContainer,
 		"#ui.ragdollpuppeteer.label.disabletween",
 		"ragdollpuppeteer_disabletween",
 		"#ui.ragdollpuppeteer.tooltip.disabletween"
 	)
-	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
+	local requireSMHModel = components.CheckBox(
+		smhContainer,
+		"#ui.ragdollpuppeteer.label.smhrequiresmodel",
+		"ragdollpuppeteer_smhrequiresmodel",
+		"#ui.ragdollpuppeteer.tooltip.smhrequiresmodel"
+	)
 
-	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
+	local puppeteerContainer, puppeteerTab = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
 	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
 	local puppeteerIgnoreZ = components.CheckBox(
 		puppeteerContainer,
@@ -549,7 +559,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 	)
 
 	-- Hack: Switch the active tab to set the size based on the contents of the puppeteer tab
-	settingsSheet:SetActiveTab(tab2.Tab)
+	settingsSheet:SetActiveTab(puppeteerTab.Tab)
 	settingsSheet:NoClipping(true)
 	settingsSheet:InvalidateChildren(true)
 	generalContainer:InvalidateChildren(true)
@@ -619,6 +629,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		disableTween = disableTween,
 		randomPose = randomPose,
 		scaleOffset = scaleOffset,
+		requireSMHModel = requireSMHModel,
 	}
 end
 
@@ -667,6 +678,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local faceMe = panelChildren.faceMe
 	local randomPose = panelChildren.randomPose
 	local scaleOffset = panelChildren.scaleOffset
+	local disableSMHModelCheck = panelChildren.disableSMHModelCheck
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer

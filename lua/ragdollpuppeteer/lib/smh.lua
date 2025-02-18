@@ -11,13 +11,15 @@ local SMH = {}
 ---@param model string The model in the SMH file to consider
 ---@return SMHFile? smhFile A table consisting of the contents of the SMH .txt file
 function SMH.parseSMHFile(filePath, model)
+	local requireSameModel = GetConVar("ragdollpuppeteer_smhrequiresmodel"):GetBool()
+
 	-- Check if the file has the model somewhere in there
 	if not file.Exists(filePath, "DATA") then
 		return
 	end
 	local json = file.Read(filePath)
 	-- If the entity doesn't exist, don't bother loading other entities
-	if not string.find(json, model) then
+	if requireSameModel and not string.find(json, model) then
 		return
 	end
 	local smhData = util.JSONToTable(json)
