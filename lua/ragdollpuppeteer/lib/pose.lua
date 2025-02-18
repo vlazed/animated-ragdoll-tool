@@ -203,7 +203,8 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 		local basePuppeteer = puppeteers[2]
 		local viewPuppeteer = puppeteers[3]
 
-		local boneMap = bones.getMap(puppet:GetBoneName(0), viewPuppeteer:GetBoneName(0))
+		local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), viewPuppeteer:TranslatePhysBoneToBone(0)
+		local boneMap = bones.getMap(puppet:GetBoneName(puppetRoot), viewPuppeteer:GetBoneName(puppeteerRoot))
 
 		local newPose = {}
 
