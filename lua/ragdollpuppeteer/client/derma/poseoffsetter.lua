@@ -390,7 +390,6 @@ function PANEL:RefreshBoneList()
 		for i = 0, self.Entity:GetModelPhysBoneCount() - 1 do
 			local b = self.Entity:TranslatePhysBoneToBone(i)
 			local name = self.Entity:GetBoneName(b)
-			print(b, name)
 			if name == "__INVALIDBONE__" then
 				continue
 			end
