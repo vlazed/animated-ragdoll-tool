@@ -120,6 +120,7 @@ local types = {}
 ---@field showPuppeteer DCheckBoxLabel
 ---@field removeGesture DButton
 ---@field floorCollisions DCheckBoxLabel
+---@field disableSMHModelCheck DCheckBoxLabel
 ---@field recoverPuppeteer DButton
 ---@field playButton DButton
 ---@field fpsWang DNumberWang

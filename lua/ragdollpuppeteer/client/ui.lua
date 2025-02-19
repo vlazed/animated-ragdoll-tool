@@ -51,8 +51,10 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 	if not data then
 		return
 	end
+	local requireSameModel = GetConVar("ragdollpuppeteer_smhrequiresmodel"):GetBool()
+
 	for _, entity in pairs(data.Entities) do
-		if entity.Properties.Model ~= model then
+		if requireSameModel and entity.Properties.Model ~= model then
 			continue
 		end
 		if not predicate(entity.Properties) then
@@ -87,6 +89,7 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 
 		line:SetSortValue(3, physFrames)
 		line:SetSortValue(4, nonPhysFrames)
+		line:SetSortValue(5, entity.Properties.Model)
 	end
 end
 
@@ -120,22 +123,49 @@ end
 ---@param predicate fun(seqInfo: SequenceInfo): boolean
 function UI.PopulateSequenceList(seqList, puppeteer, predicate)
 	local defaultFPS = 30
-	for i = 0, puppeteer:GetSequenceCount() - 1 do
-		local seqInfo = puppeteer:GetSequenceInfo(i)
-		if not predicate(seqInfo) then
-			continue
-		end
-		local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
-		local fps = defaultFPS
-		local maxFrame = DEFAULT_MAX_FRAME
-		-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
-		if longestAnim.numframes > -1 then
-			maxFrame = longestAnim.numframes
-			fps = longestAnim.fps
-		end
+	local done = false
+	local co = coroutine.wrap(function()
+		for i = 0, puppeteer:GetSequenceCount() - 1 do
+			if not IsValid(puppeteer) then
+				break
+			end
+			local seqInfo = puppeteer:GetSequenceInfo(i)
+			if not seqInfo then
+				break
+			end
 
-		seqList:AddLine(i, seqInfo.label, fps, maxFrame)
-	end
+			if not predicate(seqInfo) then
+				continue
+			end
+			local longestAnim = findLongestAnimationIn(seqInfo, puppeteer)
+			local fps = defaultFPS
+			local maxFrame = DEFAULT_MAX_FRAME
+			-- Assume the first animation is the "base", which may have the maximum number of frames compared to other animations in the sequence
+			if longestAnim.numframes > -1 then
+				maxFrame = longestAnim.numframes
+				fps = longestAnim.fps
+			end
+
+			if IsValid(seqList) then
+				seqList:AddLine(i, seqInfo.label, fps, maxFrame)
+			else
+				break
+			end
+
+			coroutine.yield()
+		end
+		done = true
+	end)
+
+	local timerId = "ragdollpuppeteer_populatesequence_" .. seqList:GetName()
+	timer.Remove(timerId)
+	timer.Create(timerId, 0, -1, function()
+		if done then
+			timer.Stop(timerId)
+		else
+			co()
+		end
+	end)
 end
 
 ---@param panelChildren PanelChildren
@@ -253,7 +283,9 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
-						animPuppeteer
+						animPuppeteer,
+						puppet,
+						smhList:GetSelected()[1]:GetSortValue(5)
 					)
 				end
 			end
@@ -504,15 +536,23 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		"ragdollpuppeteer_faceme",
 		"#ui.ragdollpuppeteer.tooltip.faceme"
 	)
+	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
+
+	local smhContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.smh")
 	local disableTween = components.CheckBox(
-		generalContainer,
+		smhContainer,
 		"#ui.ragdollpuppeteer.label.disabletween",
 		"ragdollpuppeteer_disabletween",
 		"#ui.ragdollpuppeteer.tooltip.disabletween"
 	)
-	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
+	local requireSMHModel = components.CheckBox(
+		smhContainer,
+		"#ui.ragdollpuppeteer.label.smhrequiresmodel",
+		"ragdollpuppeteer_smhrequiresmodel",
+		"#ui.ragdollpuppeteer.tooltip.smhrequiresmodel"
+	)
 
-	local puppeteerContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
+	local puppeteerContainer, puppeteerTab = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.puppeteer")
 	local puppeteerColor = components.PuppeteerColors(puppeteerContainer)
 	local puppeteerIgnoreZ = components.CheckBox(
 		puppeteerContainer,
@@ -522,7 +562,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 	)
 
 	-- Hack: Switch the active tab to set the size based on the contents of the puppeteer tab
-	settingsSheet:SetActiveTab(tab2.Tab)
+	settingsSheet:SetActiveTab(puppeteerTab.Tab)
 	settingsSheet:NoClipping(true)
 	settingsSheet:InvalidateChildren(true)
 	generalContainer:InvalidateChildren(true)
@@ -538,13 +578,16 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 
 	local modelPath =
 		components.SearchBar(lists, "#ui.ragdollpuppeteer.label.modelpath", "#ui.ragdollpuppeteer.tooltip.modelpath")
+	modelPath:SetHistoryEnabled(true)
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
 	local removeGesture = components.RemoveGesture(lists)
 	local randomPose = components.RandomPose(lists)
 	local sequenceSheet = components.Sheet(lists)
 	local sequenceList = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.base")
+	sequenceList:SetName("base")
 	local sequenceList2 = components.SequenceList(sequenceSheet, "#ui.ragdollpuppeteer.label.gesture")
+	sequenceList:SetName("gesture")
 	local smhBrowser = components.SMHFileBrowser(lists)
 	local smhList = components.SMHEntityList(lists)
 
@@ -590,6 +633,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		disableTween = disableTween,
 		randomPose = randomPose,
 		scaleOffset = scaleOffset,
+		requireSMHModel = requireSMHModel,
 	}
 end
 
@@ -638,6 +682,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local faceMe = panelChildren.faceMe
 	local randomPose = panelChildren.randomPose
 	local scaleOffset = panelChildren.scaleOffset
+	local disableSMHModelCheck = panelChildren.disableSMHModelCheck
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -650,6 +695,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local viewPuppeteer = panelProps.viewPuppeteer
 
 	local smhData = panelState.smhData
+
+	modelPath:AddHistory(model)
 
 	-- Set min and max of height slider for Resized Ragdolls
 	---@diagnostic disable-next-line
@@ -756,7 +803,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
 					nonPhysCheckbox:GetChecked(),
-					animPuppeteer
+					animPuppeteer,
+					puppet,
+					smhList:GetSelected()[1]:GetSortValue(5)
 				)
 			end
 		end
@@ -1032,7 +1081,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
-						animPuppeteer
+						animPuppeteer,
+						puppet,
+						smhList:GetSelected()[1]:GetSortValue(5)
 					)
 				end
 			end
@@ -1084,7 +1135,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			smhList:GetSelected()[1]:GetSortValue(3),
 			smhList:GetSelected()[1]:GetSortValue(4),
 			nonPhysCheckbox:GetChecked(),
-			animPuppeteer
+			animPuppeteer,
+			puppet,
+			smhList:GetSelected()[1]:GetSortValue(5)
 		)
 	end
 
@@ -1145,14 +1198,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 			populateLists(option, "", panelChildren, panelProps, panelState, true)
 			panelState.model = newModel
+
+			modelPath:AddHistory(newModel)
 		else
-			-- Save the original model path so users can iterate on this
-			SetClipboardText(modelPath:GetValue())
+			-- Save the original model path to the history so users can iterate on this
+			modelPath:AddHistory(modelPath:GetValue())
 			-- Reset the model path
-			modelPath:SetValue(modelPath.currentModel)
+			modelPath:SetText(modelPath.currentModel)
 			-- Notify the user what happened and changed clipboard state
 			chat.AddText("Ragdoll Puppeteer: " .. requestMessages[errorInt])
-			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.clipboardmodel"))
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.history"))
 		end
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)

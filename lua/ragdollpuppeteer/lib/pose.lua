@@ -10,6 +10,10 @@ local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 ---@module "ragdollpuppeteer.lib.bones"
 local bones = include("ragdollpuppeteer/lib/bones.lua")
 
+-- Aliases to indices of DefaultBonePoseArray type
+local LOCAL_ANGLES = 2
+local WORLD_ANGLES = 4
+
 local lastPose = {}
 local lastGesturePose = {}
 
@@ -32,32 +36,6 @@ end
 
 local function compressTableToJSON(tab)
 	return util.Compress(util.TableToJSON(tab))
-end
-
----@param pose SMHFramePose[]
----@param puppeteer RagdollPuppeteer
-local function encodePose(pose, puppeteer)
-	-- Physics props indices start at 1, not at 0. In case we work with physics props, use that matrix
-	local b1, b2 = puppeteer:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(1)
-	local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
-	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
-
-	net.WriteUInt(#pose, 16)
-	for i = 0, #pose do
-		local hasLocal = (pose[i].LocalPos and true) or false
-		net.WriteVector(pose[i].Pos or vector_origin)
-		net.WriteAngle(pose[i].Ang or angle_zero)
-		net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
-		net.WriteBool(hasLocal)
-		if hasLocal then
-			net.WriteVector(pose[i].LocalPos)
-			net.WriteAngle(pose[i].LocalAng)
-		end
-		if i == 0 then
-			net.WriteVector(bPos)
-			net.WriteAngle(bAng)
-		end
-	end
 end
 
 ---Calculate the nonphysical bone offsets between two entities
@@ -103,10 +81,158 @@ local function retargetPhysical(source, target, sourceBone, targetBone)
 
 	-- Source component rotation
 	local pos, ang = source:GetBonePosition(sourceBone)
-	local qAng = quaternion.fromAngle(ang)
-	qAng = qAng:Mul(sourceAng:Invert():Mul(targetAng))
+	local oldSourceAng = quaternion.fromAngle(ang)
+	oldSourceAng = oldSourceAng:Mul(sourceAng:Invert():Mul(targetAng))
 
-	return pos, qAng:Angle()
+	return pos, oldSourceAng:Angle()
+end
+
+---@param puppeteer RagdollPuppeteer|Entity
+---@param puppet Entity
+---@param smhModel string?
+---@return Entity
+---@return Entity
+---@return BoneDefinition?
+---@return DefaultBonePoseArray
+---@return DefaultBonePoseArray
+local function setupSMHRetargeting(puppeteer, puppet, smhModel)
+	local source, target = puppeteer, puppet
+	if smhModel then
+		source = ents.CreateClientProp()
+		source:SetModel(smhModel)
+		source:DrawModel()
+		source:SetupBones()
+		source:InvalidateBoneCache()
+		source:Spawn()
+	end
+	local sourceRoot, targetRoot = source:TranslatePhysBoneToBone(0), target:TranslatePhysBoneToBone(0)
+	local boneMap, name = bones.getMap(source:GetBoneName(sourceRoot), target:GetBoneName(targetRoot))
+
+	local sourceReferencePose = vendor.getDefaultBonePoseOf(source)
+	local targetReferencePose = vendor.getDefaultBonePoseOf(target)
+
+	return source, target, boneMap, sourceReferencePose, targetReferencePose
+end
+
+---@param pose SMHFramePose[]
+---@param source Entity
+---@param target Entity
+---@param boneMap BoneDefinition?
+---@param sourceReferencePose DefaultBonePoseArray
+---@param targetReferencePose DefaultBonePoseArray
+---@param index integer
+local function retargetSMHPose(pose, source, target, boneMap, sourceReferencePose, targetReferencePose, index)
+	for i = 0, #pose do
+		local bone = i
+		if index == WORLD_ANGLES then
+			bone = source:TranslatePhysBoneToBone(i)
+		end
+		local sourceBoneName = source:GetBoneName(bone)
+		local sourceBone, targetBone = bone, target:LookupBone(boneMap and boneMap[sourceBoneName] or sourceBoneName)
+
+		if targetBone then
+			if pose[i].LocalAng then
+				---@diagnostic disable-next-line: param-type-mismatch
+				local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][index])
+				---@diagnostic disable-next-line: param-type-mismatch
+				local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][index])
+
+				local oldSourceAng = quaternion.fromAngle(pose[i].LocalAng)
+				pose[i].LocalAng = oldSourceAng:Mul(sourceAng:Invert()):Mul(targetAng):Angle()
+			end
+
+			if pose[i].RootAng and index == WORLD_ANGLES then
+				---@diagnostic disable-next-line: param-type-mismatch
+				local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+				---@diagnostic disable-next-line: param-type-mismatch
+				local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+
+				local oldSourceAng = quaternion.fromAngle(pose[i].RootAng)
+				pose[i].RootAng = oldSourceAng:Mul(sourceAng:Invert()):Mul(targetAng):Angle()
+			end
+			if pose[i].Ang and index == WORLD_ANGLES then
+				---@diagnostic disable-next-line: param-type-mismatch
+				local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
+				---@diagnostic disable-next-line: param-type-mismatch
+				local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
+
+				local oldSourceAng = quaternion.fromAngle(pose[i].Ang)
+				pose[i].Ang = oldSourceAng:Mul(sourceAng:Invert()):Mul(targetAng):Angle()
+			end
+		end
+	end
+end
+
+---@param pose SMHFramePose[]
+---@param puppeteer RagdollPuppeteer
+---@param puppet Entity
+---@param smhModel string?
+---@return SMHFramePose[]
+local function retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel)
+	local source, target, boneMap, sourceReferencePose, targetReferencePose =
+		setupSMHRetargeting(puppeteer, puppet, smhModel)
+	retargetSMHPose(pose, source, target, boneMap, sourceReferencePose, targetReferencePose, WORLD_ANGLES)
+
+	-- FIXME: It's messy to add and remove these props for retargeting. What else works better?
+	if source:GetClass() == "class C_PhysPropClientside" then
+		source:Remove()
+	end
+
+	return pose
+end
+
+---@param pose SMHFramePose[]
+---@param puppeteer RagdollPuppeteer|Entity
+---@param puppet Entity
+---@param smhModel string?
+---@return SMHFramePose[]
+local function retargetSMHNonPhysicalPose(pose, puppeteer, puppet, smhModel)
+	local source, target, boneMap, sourceReferencePose, targetReferencePose =
+		setupSMHRetargeting(puppeteer, puppet, smhModel)
+	retargetSMHPose(pose, source, target, boneMap, sourceReferencePose, targetReferencePose, LOCAL_ANGLES)
+
+	-- FIXME: It's messy to add and remove these props for retargeting. What else works better?
+	if source:GetClass() == "class C_PhysPropClientside" then
+		source:Remove()
+	end
+
+	return pose
+end
+
+---@param pose SMHFramePose[]
+---@param puppeteer RagdollPuppeteer
+---@param puppet Entity
+---@param smhModel string?
+local function encodePose(pose, puppeteer, puppet, smhModel)
+	-- Physics props indices start at 1, not at 0. In case we work with physics props, use that matrix
+	local b1, b2 = puppeteer:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(1)
+	local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
+	local bPos, bAng = matrix:GetTranslation(), matrix:GetAngles()
+
+	pose[0].RootPos = bPos
+	pose[0].RootAng = bAng
+
+	local puppetModel = puppet:GetModel()
+	if puppeteer:GetModel() ~= puppetModel or smhModel ~= puppetModel then
+		pose = retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel)
+	end
+
+	net.WriteUInt(#pose, 5)
+	for i = 0, #pose do
+		local hasLocal = (pose[i].LocalPos and true) or false
+		net.WriteVector(pose[i].Pos or vector_origin)
+		net.WriteAngle(pose[i].Ang or angle_zero)
+		net.WriteVector(pose[i].Scale or Vector(-1, -1, -1))
+		net.WriteBool(hasLocal)
+		if hasLocal then
+			net.WriteVector(pose[i].LocalPos)
+			net.WriteAngle(pose[i].LocalAng)
+		end
+		if i == 0 then
+			net.WriteVector(pose[i].RootPos)
+			net.WriteAngle(pose[i].RootAng)
+		end
+	end
 end
 
 ---Try to manipulate the bone angles of the puppet to set the puppeteer
@@ -165,17 +291,25 @@ end
 ---@param physFrames SMHFrameData[]
 ---@param nonPhysFrames SMHFrameData[]
 ---@param nonPhys boolean
-local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer)
-	local physBonePose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones", puppeteer)
+---@param puppeteer RagdollPuppeteer
+---@param puppet Entity
+---@param smhModel string
+local function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer, puppet, smhModel)
+	local physPose = smh.getPoseFromSMHFrames(frame, physFrames, "physbones")
 	net.Start(netString, true)
 	net.WriteBool(false)
-	encodePose(physBonePose, puppeteer)
+	encodePose(physPose, puppeteer, puppet, smhModel)
 	net.WriteBool(nonPhys)
 	if nonPhys then
-		local nonPhysBoneData = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones", puppeteer)
-		local compressedNonPhysPose = compressTableToJSON(nonPhysBoneData)
+		local nonPhysPose = smh.getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
+		local puppetModel = puppet:GetModel()
+		if puppeteer:GetModel() ~= puppetModel or puppetModel ~= smhModel then
+			nonPhysPose = retargetSMHNonPhysicalPose(nonPhysPose, puppeteer, puppet, smhModel)
+		end
+		local compressedNonPhysPose = compressTableToJSON(nonPhysPose)
 		net.WriteUInt(#compressedNonPhysPose, 16)
 		net.WriteData(compressedNonPhysPose)
+		net.WriteString(smhModel)
 	end
 
 	net.SendToServer()
@@ -203,7 +337,8 @@ local function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, ge
 		local basePuppeteer = puppeteers[2]
 		local viewPuppeteer = puppeteers[3]
 
-		local boneMap = bones.getMap(puppet:GetBoneName(0), viewPuppeteer:GetBoneName(0))
+		local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), viewPuppeteer:TranslatePhysBoneToBone(0)
+		local boneMap = bones.getMap(puppet:GetBoneName(puppetRoot), viewPuppeteer:GetBoneName(puppeteerRoot))
 
 		local newPose = {}
 
@@ -495,7 +630,7 @@ end
 ---@return SMHFramePose[]
 local function decodePose()
 	local pose = {}
-	local poseSize = net.ReadUInt(16)
+	local poseSize = net.ReadUInt(5)
 	for i = 0, poseSize do
 		pose[i] = {
 			Pos = 0,
@@ -528,8 +663,21 @@ local function readSMHPose(puppet, playerData)
 	local animatingNonPhys = net.ReadBool()
 	setSMHPoseOf(puppet, targetPose, playerData.filteredBones, playerData.puppeteer)
 	if animatingNonPhys then
+		-- Instead of decoding the pose as we did with physical bones, we decompress some nonphysical data
+		-- This apparently reduces the outgoing rate compared to encoding/decoding together or
+		-- compressing/decompressing together
 		local tPNPLength = net.ReadUInt(16)
 		local targetPoseNonPhys = decompressJSONToTable(net.ReadData(tPNPLength))
+		local smhModel = net.ReadString()
+		local puppeteer = playerData.puppeteer
+		local oldModel = puppeteer:GetModel()
+		if smhModel ~= oldModel then
+			puppeteer:SetModel(smhModel)
+			local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(0)
+			local map, name = bones.getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
+			playerData.boneMap = map
+		end
+
 		setNonPhysicalBonePoseOf(
 			puppet,
 			playerData.puppeteer,
@@ -539,6 +687,12 @@ local function readSMHPose(puppet, playerData)
 			playerData.boneMap
 		)
 		playerData.bonesReset = false
+		if smhModel ~= oldModel then
+			puppeteer:SetModel(oldModel)
+			local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(0)
+			local map, name = bones.getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
+			playerData.boneMap = map
+		end
 	elseif not playerData.bonesReset and tonumber(playerData.player:GetInfo("ragdollpuppeteer_resetnonphys")) > 0 then
 		resetAllNonphysicalBonesOf(puppet)
 		playerData.bonesReset = true

@@ -1,5 +1,5 @@
 -- Bone names are all case-sensitive!
--- There should always be an even number of bone definitions. If there's an odd number, something went wrong!
+-- Each bone definition must consist of a mapping pair (e.g. ["bip_pelvis"] = "ValveBiped.Biped01_Pelvis").
 
 local bones = {}
 do
@@ -12,23 +12,41 @@ do
 	end
 
 	bones.HL2ToR6 = {
-		["ValveBiped.Bip01_R_UpperArm"] = "Right Arm",
-		["ValveBiped.Bip01_L_UpperArm"] = "Left Arm",
-		["ValveBiped.Bip01_R_Thigh"] = "Right Leg",
-		["ValveBiped.Bip01_L_Thigh"] = "Left Leg",
+		["ValveBiped.Bip01_R_Forearm"] = "Right Arm",
+		["ValveBiped.Bip01_L_Forearm"] = "Left Arm",
+		["ValveBiped.Bip01_R_Calf"] = "Right Leg",
+		["ValveBiped.Bip01_L_Calf"] = "Left Leg",
 		["ValveBiped.Bip01_Pelvis"] = "Torso",
-		["ValveBiped.Bip01_Head"] = "Head",
+		["ValveBiped.Bip01_Head1"] = "Head",
 	}
 	bones.TF2ToR6 = {
-		["bip_upperArm_R"] = "Right Arm",
-		["bip_upperArm_L"] = "Left Arm",
-		["bip_hip_R"] = "Right Leg",
-		["bip_hip_L"] = "Left Leg",
+		["bip_lowerArm_R"] = "Right Arm",
+		["bip_lowerArm_L"] = "Left Arm",
+		["bip_knee_R"] = "Right Leg",
+		["bip_knee_L"] = "Left Leg",
 		["bip_pelvis"] = "Torso",
 		["bip_head"] = "Head",
 	}
+	bones.HL2ToR6_Old = {
+		["ValveBiped.Bip01_R_Forearm"] = "Right Shoulder",
+		["ValveBiped.Bip01_L_Forearm"] = "Left Shoulder",
+		["ValveBiped.Bip01_R_Calf"] = "Right Hip",
+		["ValveBiped.Bip01_L_Calf"] = "Left Hip",
+		["ValveBiped.Bip01_Pelvis"] = "Torso",
+		["ValveBiped.Bip01_Head1"] = "Neck",
+	}
+	bones.TF2ToR6_Old = {
+		["bip_lowerArm_R"] = "Right Shoulder",
+		["bip_lowerArm_L"] = "Left Shoulder",
+		["bip_knee_R"] = "Right Hip",
+		["bip_knee_L"] = "Left Hip",
+		["bip_pelvis"] = "Torso",
+		["bip_head"] = "Neck",
+	}
 	bones.R6ToTF2 = switchKeysWithValues(bones.TF2ToR6)
 	bones.R6ToHL2 = switchKeysWithValues(bones.HL2ToR6)
+	bones.R6ToTF2_Old = switchKeysWithValues(bones.TF2ToR6_Old)
+	bones.R6ToHL2_Old = switchKeysWithValues(bones.HL2ToR6_Old)
 
 	bones.HL2ToR15 = {
 		["ValveBiped.Bip01_R_UpperArm"] = "RightUpperArm",

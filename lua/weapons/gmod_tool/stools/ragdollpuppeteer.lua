@@ -27,6 +27,7 @@ TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
 TOOL.ClientConVar["disabletween"] = 0
 TOOL.ClientConVar["faceme"] = 1
+TOOL.ClientConVar["smhrequiresmodel"] = 1
 
 -- The number of models that the user should not go over
 local MAX_MODELS = constants.MAX_MODELS
@@ -654,7 +655,7 @@ end
 ---@param ply Player For whom to create the puppeteer
 ---@return Entity clientPuppeteer The clientside puppeteer
 local function createClientPuppeteer(model, puppet, ply)
-	local puppeteer = ClientsideModel(model, RENDERGROUP_TRANSLUCENT)
+	local puppeteer = ents.CreateClientside("prop_puppeteer")
 	if panelState.previousPuppeteer and IsValid(panelState.previousPuppeteer) then
 		panelState.previousPuppeteer:Remove()
 	end

@@ -25,6 +25,34 @@ function components.SearchBar(cPanel, label, placeholder)
 	---@cast panel DTextEntry
 	panel:SetPlaceholderText(placeholder)
 
+	-- Override to not remove text if beyond position bounds
+	function panel:UpdateFromHistory()
+
+		---@diagnostic disable-next-line: undefined-field
+		local history = self.History
+
+		---@diagnostic disable-next-line: undefined-field
+		if ( IsValid( self.Menu ) ) then
+			return self:UpdateFromMenu()
+		end
+	
+		local pos = self.HistoryPos
+		-- Is the Pos within bounds?
+		if ( pos < 0 ) then pos = #history end
+		if ( pos > #history ) then pos = 0 end
+	
+		local text = history[ pos ]
+		if ( !text ) then text = self:GetValue() end
+	
+		self:SetText( text )
+		self:SetCaretPos( utf8.len( text ) or 0 )
+	
+		self:OnTextChanged(false)
+	
+		self.HistoryPos = pos
+	
+	end
+
 	return panel
 end
 
