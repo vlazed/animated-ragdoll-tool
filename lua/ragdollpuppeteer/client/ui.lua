@@ -89,6 +89,7 @@ local function populateSMHEntitiesList(seqList, model, data, predicate)
 
 		line:SetSortValue(3, physFrames)
 		line:SetSortValue(4, nonPhysFrames)
+		line:SetSortValue(5, entity.Properties.Model)
 	end
 end
 
@@ -282,7 +283,9 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
-						animPuppeteer
+						animPuppeteer,
+						puppet,
+						smhList:GetSelected()[1]:GetSortValue(5)
 					)
 				end
 			end
@@ -797,7 +800,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
 					nonPhysCheckbox:GetChecked(),
-					animPuppeteer
+					animPuppeteer,
+					puppet,
+					smhList:GetSelected()[1]:GetSortValue(5)
 				)
 			end
 		end
@@ -1073,7 +1078,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
 						nonPhysCheckbox:GetChecked(),
-						animPuppeteer
+						animPuppeteer,
+						puppet,
+						smhList:GetSelected()[1]:GetSortValue(5)
 					)
 				end
 			end
@@ -1125,7 +1132,9 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			smhList:GetSelected()[1]:GetSortValue(3),
 			smhList:GetSelected()[1]:GetSortValue(4),
 			nonPhysCheckbox:GetChecked(),
-			animPuppeteer
+			animPuppeteer,
+			puppet,
+			smhList:GetSelected()[1]:GetSortValue(5)
 		)
 	end
 
