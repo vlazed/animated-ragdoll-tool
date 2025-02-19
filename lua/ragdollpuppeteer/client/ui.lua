@@ -578,6 +578,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 
 	local modelPath =
 		components.SearchBar(lists, "#ui.ragdollpuppeteer.label.modelpath", "#ui.ragdollpuppeteer.tooltip.modelpath")
+	modelPath:SetHistoryEnabled(true)
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
 	local removeGesture = components.RemoveGesture(lists)
@@ -694,6 +695,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local viewPuppeteer = panelProps.viewPuppeteer
 
 	local smhData = panelState.smhData
+
+	modelPath:AddHistory(model)
 
 	-- Set min and max of height slider for Resized Ragdolls
 	---@diagnostic disable-next-line
@@ -1195,14 +1198,16 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 			populateLists(option, "", panelChildren, panelProps, panelState, true)
 			panelState.model = newModel
+
+			modelPath:AddHistory(newModel)
 		else
-			-- Save the original model path so users can iterate on this
-			SetClipboardText(modelPath:GetValue())
+			-- Save the original model path to the history so users can iterate on this
+			modelPath:AddHistory(modelPath:GetValue())
 			-- Reset the model path
-			modelPath:SetValue(modelPath.currentModel)
+			modelPath:SetText(modelPath.currentModel)
 			-- Notify the user what happened and changed clipboard state
 			chat.AddText("Ragdoll Puppeteer: " .. requestMessages[errorInt])
-			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.clipboardmodel"))
+			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.history"))
 		end
 	end)
 	net.Receive("enablePuppeteerPlayback", function(len, ply)
