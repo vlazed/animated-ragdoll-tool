@@ -505,6 +505,8 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer, boneMa
 		and puppet:GetParent()
 		and puppet:GetParent():GetClass() == "prop_effect"
 
+	local physMap = bones.getPhysMap(puppeteer, puppet, boneMap)
+
 	if isEffectProp then
 		local parent = puppet:GetParent()
 		parent:SetPos(puppeteer:GetPos())
@@ -517,11 +519,13 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer, boneMa
 				continue
 			end
 
-			local sourceBoneName = puppeteer:GetBoneName(sourceBone)
-			local targetBone = puppet:LookupBone(boneMap and boneMap[sourceBoneName] or sourceBoneName)
-			local targetPhysBone = puppet:TranslateBoneToPhysBone(targetBone or sourceBone)
+			local targetPhysBone = physMap and physMap[i] or i
 
 			local phys = puppet:GetPhysicsObjectNum(targetPhysBone)
+			if not IsValid(phys) then
+				continue
+			end
+
 			local parent = puppet:GetPhysicsObjectNum(GetPhysBoneParent(puppet, targetPhysBone))
 			if targetPose[i].LocalPos and parent then
 				local pos, ang =
