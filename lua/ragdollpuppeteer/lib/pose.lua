@@ -448,7 +448,7 @@ do
 	end
 
 	---Send the client's sequence bone positions, first mutating the puppeteer with the gesturer
-	---@https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
+	---@source https://github.com/penolakushari/StandingPoseTool/blob/b7dc7b3b57d2d940bb6a4385d01a4b003c97592c/lua/autorun/standpose.lua#L42
 	---@param puppeteers RagdollPuppeteer[] An array of the client's puppeteers, posed to a sequence
 	---@param puppet Entity | ResizedRagdoll The entity controlled by its puppeteer for sequence posing
 	---@param physicsCount integer The number of physics objects on the `puppet`
