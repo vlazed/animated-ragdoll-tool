@@ -5,25 +5,62 @@ local quaternion = include("ragdollpuppeteer/lib/quaternion.lua")
 
 local Vendor = {}
 
----https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
----@param entity Entity Entity to obtain bone information
+---@param ent Entity Entity to translate physics bone
 ---@param physBone integer Physics object id
----@return integer parent Physics object parent of physBone
-function Vendor.GetPhysBoneParent(entity, physBone)
-	local b = Vendor.PhysBoneToBone(entity, physBone)
-	local i = 1
-	while true do
-		b = entity:GetBoneParent(b)
-		local parent = Vendor.BoneToPhysBone(entity, b)
-		if parent >= 0 and parent ~= physBone then
-			return parent
-		end
-		i = i + 1
-		if i > 256 then --We've gone through all possible bones, so we get out.
-			break
+---@return integer bone Translated bone id
+local function PhysBoneToBone(ent, physBone)
+	return ent:TranslatePhysBoneToBone(physBone)
+end
+Vendor.PhysBoneToBone = PhysBoneToBone
+
+---@source https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L201
+---@param ent Entity Entity to translate bone
+---@param bone integer Bone id
+---@return integer physBone Physics object id
+local function BoneToPhysBone(ent, bone)
+	for i = 0, ent:GetPhysicsObjectCount() - 1 do
+		local b = ent:TranslatePhysBoneToBone(i)
+		if bone == b then
+			return i
 		end
 	end
 	return -1
+end
+Vendor.BoneToPhysBone = BoneToPhysBone
+
+do
+	---@alias PhysBoneParents table<integer, integer>
+	---@type table<string, PhysBoneParents> Mapping of physobjs indices to their parent's, for faster lookup
+	local physBoneParents = {}
+
+	---@source https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L209
+	---@param entity Entity Entity to obtain bone information
+	---@param physBone integer Physics object id
+	---@return integer parent Physics object parent of physBone
+	function Vendor.GetPhysBoneParent(entity, physBone)
+		local model = entity:GetModel()
+		if physBoneParents[model] and physBoneParents[model][physBone] then
+			return physBoneParents[model][physBone]
+		end
+		physBoneParents[model] = {}
+
+		local b = PhysBoneToBone(entity, physBone)
+		local i = 1
+		while true do
+			b = entity:GetBoneParent(b)
+			local parent = BoneToPhysBone(entity, b)
+			if parent >= 0 and parent ~= physBone then
+				physBoneParents[model][physBone] = parent
+				return parent
+			end
+			i = i + 1
+			if i > 256 then --We've gone through all possible bones, so we get out.
+				break
+			end
+		end
+		physBoneParents[model][physBone] = -1
+		return -1
+	end
 end
 
 ---Calculate the bone offsets with respect to the parent
@@ -67,13 +104,6 @@ function Vendor.getBoneOffsetsOf(puppeteer, child, angleDelta, angleDelta2)
 	local _, dAng = WorldToLocal(m:GetTranslation(), m:GetAngles(), defaultBonePose[child + 1][1], defaultAngle)
 
 	return dPos, dAng
-end
-
----@param ent Entity Entity to translate physics bone
----@param physBone integer Physics object id
----@return integer bone Translated bone id
-function Vendor.PhysBoneToBone(ent, physBone)
-	return ent:TranslatePhysBoneToBone(physBone)
 end
 
 ---@type table<string, DefaultBonePoseArray> Array of position and angles denoting the reference bone pose
@@ -127,21 +157,7 @@ function Vendor.getDefaultBonePoseOf(ent, identifier)
 	return defaultPose
 end
 
----https://github.com/Winded/RagdollMover/blob/a761e5618e9cba3440ad88d44ee1e89252d72826/lua/autorun/ragdollmover.lua#L201
----@param ent Entity Entity to translate bone
----@param bone integer Bone id
----@return integer physBone Physics object id
-function Vendor.BoneToPhysBone(ent, bone)
-	for i = 0, ent:GetPhysicsObjectCount() - 1 do
-		local b = ent:TranslatePhysBoneToBone(i)
-		if bone == b then
-			return i
-		end
-	end
-	return -1
-end
-
----https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L5
+---@source https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L5
 ---@param s number | Vector Start number or vector
 ---@param e number | Vector End number or vector
 ---@param p number Percentage between start and end, between 0 and 1
@@ -154,7 +170,7 @@ function Vendor.LerpLinear(s, e, p)
 	return Lerp(p, s, e)
 end
 
----https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L11
+---@source https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L11
 ---@param s Vector Start vector
 ---@param e Vector End vector
 ---@param p number Percentage between start and end, between 0 and 1
@@ -163,7 +179,7 @@ function Vendor.LerpLinearVector(s, e, p)
 	return LerpVector(p, s, e)
 end
 
----https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L17
+---@source https://github.com/Winded/StopMotionHelper/blob/2f0f80815a6f46c0ccd0606f27b3b054dae30b2d/lua/smh/server/easing.lua#L17
 ---@param s Angle Start angle
 ---@param e Angle End angle
 ---@param p number Percentage between start and end, between 0 and 1
@@ -172,16 +188,16 @@ function Vendor.LerpLinearAngle(s, e, p)
 	return LerpAngle(p, s, e)
 end
 
----Find the closest keyframe corresponding to the frame of keyframes
+---Find the closest pair of keyframes (`previousKeyframe` and `nextKeyframe`) to a specified `frame`
 ---Modified to directly work with json translation
 ---@source https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/server/keyframe_data.lua#L1
 ---@param keyframes SMHFrameData[] SMH Keyframe data
 ---@param frame integer Target keyframe
 ---@param ignoreCurrentFrame boolean Whether to consider the previous and next keyframes
 ---@param modname SMHModifiers SMH Modifier name
----@return SMHFrameData? previousKeyframe Previous keyframe near frame
----@return SMHFrameData? nextKeyframe Next keyframe near frame
----@return integer lerpMultiplier Percentage between previous keyframe and next keyframe
+---@return SMHFrameData? previousKeyframe Previous keyframe near `frame`
+---@return SMHFrameData? nextKeyframe Next keyframe near `frame`
+---@return integer lerpMultiplier Percentage between `previousKeyframe` and `nextKeyframe`
 function Vendor.getClosestKeyframes(keyframes, frame, ignoreCurrentFrame, modname)
 	if ignoreCurrentFrame == nil then
 		ignoreCurrentFrame = false

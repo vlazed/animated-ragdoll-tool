@@ -30,9 +30,9 @@ function SMH.parseSMHFile(filePath, model)
 end
 
 ---Linearly interpolate between each frame, imitating the poses as seen in the SMH timeline
----Takes inspiration from the following sources:
----https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/bones.lua#L56
----https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/physbones.lua#L116
+---Takes inspiration from the following sources from Stop Motion Helper:
+--- - [smh/bones.lua](https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/bones.lua#L56)
+--- - [smh/modifiers/physbones.lua](https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/physbones.lua#L116)
 ---@param prevFrame SMHFramePose[]? Previous frame pose
 ---@param nextFrame SMHFramePose[]? Next frame pose
 ---@param lerpMultiplier number Percentage between previous frame and next frame
