@@ -42,7 +42,7 @@ do
 		if physBoneParents[model] and physBoneParents[model][physBone] then
 			return physBoneParents[model][physBone]
 		end
-		physBoneParents[model] = {}
+		physBoneParents[model] = physBoneParents[model] or {}
 
 		local b = PhysBoneToBone(entity, physBone)
 		local i = 1
