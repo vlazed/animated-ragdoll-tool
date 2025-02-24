@@ -16,6 +16,8 @@ local PREFIXES = constants.PREFIXES
 local SUFFIXES = constants.SUFFIXES
 local FILTER = constants.POSEFILTER
 local DEFAULT_MAX_FRAME = constants.DEFAULT_MAX_FRAME
+local LOCOMOTION_POSEPARAMS = constants.LOCOMOTION_POSEPARAMS
+local LOCOMOTION = constants.LOCOMOTION
 local SEQUENCE_CHANGE_DELAY = 0.2
 
 local UI = {}
@@ -410,6 +412,28 @@ local function getBoneType(entity, boneIndex)
 	return boneType
 end
 
+---@param poseParams PoseParameterSlider[]
+---@param sequenceName string
+local function setPoseParamsFromLocomotion(poseParams, sequenceName)
+	for _, poseParam in ipairs(poseParams) do
+		if not LOCOMOTION_POSEPARAMS[poseParam.name] then
+			continue
+		end
+
+		local shouldSet = false
+		for _, keyword in ipairs(LOCOMOTION) do
+			if string.find(sequenceName, keyword) then
+				shouldSet = true
+				break
+			end
+		end
+
+		if shouldSet then
+			poseParam.slider:SetValue(poseParam.slider:GetMax())
+		end
+	end
+end
+
 ---Add the bone nodes for the boneTree from the puppet
 ---@param puppet Entity
 ---@param boneTree DTree
@@ -536,6 +560,12 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		"ragdollpuppeteer_faceme",
 		"#ui.ragdollpuppeteer.tooltip.faceme"
 	)
+	local poseLocomotion = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.poselocomotion",
+		"ragdollpuppeteer_autopose_locomotion",
+		"#ui.ragdollpuppeteer.tooltip.poselocomotion"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local smhContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.smh")
@@ -603,6 +633,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		baseSlider = baseSlider,
 		gestureSlider = gestureSlider,
 		nonPhysCheckBox = nonPhysCheckbox,
+		poseLocomotion = poseLocomotion,
 		sourceBox = sourceBox,
 		searchBar = searchBar,
 		sequenceList = sequenceList,
@@ -683,6 +714,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local randomPose = panelChildren.randomPose
 	local scaleOffset = panelChildren.scaleOffset
 	local disableSMHModelCheck = panelChildren.disableSMHModelCheck
+	local poseLocomotion = panelChildren.poseLocomotion
 
 	local animPuppeteer = panelProps.puppeteer
 	local animGesturer = panelProps.gesturer
@@ -924,6 +956,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 	local function rowSelected(row, slider, puppeteer, mutatedSequence, sendNet, isGesture)
 		local currentIndex = row:GetValue(1)
+		---@type SequenceInfo
 		local seqInfo = puppeteer:GetSequenceInfo(currentIndex)
 		if mutatedSequence.label ~= seqInfo.label then
 			mutatedSequence = seqInfo
@@ -955,6 +988,10 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					panelState.offsets
 				)
 				net.SendToServer()
+
+				if poseLocomotion:GetChecked() then
+					setPoseParamsFromLocomotion(poseParams, seqInfo.label)
+				end
 			end)
 		end
 
