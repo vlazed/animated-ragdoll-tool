@@ -55,5 +55,14 @@ constants.POSEFILTER = {
 	"placesapper",
 	"jumpland",
 }
+-- Keywords in a sequence name which likely require pose parameters to visualize locomotion
+constants.LOCOMOTION = {
+	"run",
+	"walk",
+}
+-- Pose parameter names that typically control locomotion
+constants.LOCOMOTION_POSEPARAMS = {
+	["move_x"] = true,
+}
 
 return constants

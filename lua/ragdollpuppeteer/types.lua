@@ -109,6 +109,7 @@ local types = {}
 ---@field sequenceSheet DPropertySheet
 ---@field nonPhysCheckBox DCheckBoxLabel
 ---@field resetNonPhysCheckBox DCheckBoxLabel
+---@field poseLocomotion DCheckBoxLabel
 ---@field baseSlider FrameSlider
 ---@field gestureSlider FrameSlider
 ---@field searchBar DTextEntry
