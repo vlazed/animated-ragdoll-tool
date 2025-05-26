@@ -326,7 +326,7 @@ do
 	---@param gesturers RagdollPuppeteer[]
 	---@param sourceBone integer
 	---@param poseOffset PoseOffset
-	local function applyOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, poseOffset)
+	local function applyPhysicalOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, poseOffset)
 		local baseGesturer = gesturers[1]
 		local animGesturer = gesturers[2]
 		local animPuppeteer = puppeteers[1]
@@ -374,6 +374,33 @@ do
 			viewPuppeteer:ManipulateBoneAngles(sourceBone, gestureAng)
 		end
 		clientLastGesturePose[sourceBone] = { gesturePos, gestureAng }
+	end
+
+	---Mutate the puppeteer with the pose offsets
+	---@param puppeteers RagdollPuppeteer[]
+	---@param sourceBone integer
+	---@param boneOffset PoseOffset
+	local function applyNonPhysicalOffsetsToPuppeteer(puppeteers, sourceBone, boneOffset)
+		local animPuppeteer = puppeteers[1]
+		local basePuppeteer = puppeteers[2]
+		local viewPuppeteer = puppeteers[3]
+
+		local offsetPos, offsetAng
+		if sourceBone and boneOffset[sourceBone] then
+			offsetPos, offsetAng = boneOffset[sourceBone].pos, boneOffset[sourceBone].ang
+		end
+
+		-- Only manipulate bone positions if the bone exists on the puppeteer
+		if offsetPos and sourceBone then
+			animPuppeteer:ManipulateBonePosition(sourceBone, offsetPos)
+			basePuppeteer:ManipulateBonePosition(sourceBone, offsetPos)
+			viewPuppeteer:ManipulateBonePosition(sourceBone, offsetPos)
+		end
+		if offsetAng and sourceBone then
+			animPuppeteer:ManipulateBoneAngles(sourceBone, offsetAng)
+			basePuppeteer:ManipulateBoneAngles(sourceBone, offsetAng)
+			viewPuppeteer:ManipulateBoneAngles(sourceBone, offsetAng)
+		end
 	end
 
 	local clientLastPose = {}
@@ -467,13 +494,20 @@ do
 
 			local newPose = {}
 
+			for i = 0, puppeteers[3]:GetBoneCount() - 1 do
+				local targetBoneName = puppet:GetBoneName(i)
+				local sourceBone = puppeteers[3]:LookupBone(boneMap and boneMap[targetBoneName] or targetBoneName)
+
+				applyNonPhysicalOffsetsToPuppeteer(puppeteers, sourceBone, poseOffset)
+			end
+
 			for i = 0, physicsCount - 1 do
 				local targetBone = puppet:TranslatePhysBoneToBone(i)
 				local targetBoneName = puppet:GetBoneName(targetBone)
 				local sourceBone = puppeteers[3]:LookupBone(boneMap and boneMap[targetBoneName] or targetBoneName)
 
 				if gesture.anims and sourceBone then
-					applyOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, poseOffset)
+					applyPhysicalOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, poseOffset)
 				end
 
 				---@type Vector, Angle

@@ -63,6 +63,7 @@ constants.LOCOMOTION = {
 -- Pose parameter names that typically control locomotion
 constants.LOCOMOTION_POSEPARAMS = {
 	["move_x"] = true,
+	["move_scale"] = true,
 }
 
 return constants
