@@ -12,6 +12,7 @@ if SERVER then
 
 	resource.AddWorkshop("3333911060")
 
+	include("sh_cami.lua")
 	include("ragdollpuppeteer/server/net.lua")
 	include("ragdollpuppeteer/server/concommands.lua")
 
@@ -27,19 +28,14 @@ if SERVER then
 	AddCSLuaFile("ragdollpuppeteer/client/derma/poseoffsetter.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/derma/presetsaver.lua")
 
-	do
-		local directory = "ragdollpuppeteer/lib/bone_definitions"
-		local subdirectory = "bone_definitions/"
-
-		if file.IsDir(directory, "LUA") then
-			local definitions = file.Find("*.lua", directory)
-			if definitions then
-				for _, definitionFile in pairs(definitions) do
-					AddCSLuaFile(subdirectory .. definitionFile)
-				end
-			end
-		end
-	end
+	---@type CAMI_PRIVILEGE
+	local refreshBonesPrivilage = {
+		Name = "ragdollpuppeteer_canrefresh",
+		MinAccess = "superadmin",
+		Description = "Whether the user can refresh bones in a multiplayer server. Defaults to `superadmin`",
+		HasAccess = nil,
+	}
+	CAMI.RegisterPrivilege(refreshBonesPrivilage)
 
 	---@module "ragdollpuppeteer.lib.leakybucket"
 	local leakyBucket = include("ragdollpuppeteer/lib/leakybucket.lua")

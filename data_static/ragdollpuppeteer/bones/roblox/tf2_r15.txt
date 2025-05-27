@@ -1,0 +1,15 @@
+bip_upperArm_R,RightUpperArm
+bip_upperArm_L,LeftUpperArm
+bip_hip_R,RightUpperLeg
+bip_hip_L,LeftUpperLeg
+bip_lowerArm_R,RightLowerArm
+bip_lowerArm_L,LeftLowerArm
+bip_hand_R,RightHand
+bip_hand_L,LeftHand
+bip_knee_R,RightLowerLeg
+bip_knee_L,LeftLowerLeg
+bip_foot_R,RightFoot
+bip_foot_L,LeftFoot
+bip_spine_2,UpperTorso
+bip_pelvis,LowerTorso
+bip_head,Head

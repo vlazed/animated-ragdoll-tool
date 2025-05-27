@@ -15,6 +15,8 @@ local getDefaultBonePoseOf, getBoneOffsetsOf, GetPhysBoneParent =
 
 local getPoseFromSMHFrames = smh.getPoseFromSMHFrames
 
+local getMap, getPhysMap = bones.getMap, bones.getPhysMap
+
 -- Aliases to indices of DefaultBonePoseArray type
 local LOCAL_ANGLES = 2
 local WORLD_ANGLES = 4
@@ -84,7 +86,7 @@ do
 	---@return BoneDefinition?
 	---@return DefaultBonePoseArray
 	---@return DefaultBonePoseArray
-	local function setupSMHRetargeting(puppeteer, puppet, smhModel)
+	local function setupSMHRetargeting(puppeteer, puppet, smhModel, boneMap)
 		local source, target = puppeteer, puppet
 		if smhModel then
 			source = ents.CreateClientProp()
@@ -95,7 +97,10 @@ do
 			source:Spawn()
 		end
 		local sourceRoot, targetRoot = source:TranslatePhysBoneToBone(0), target:TranslatePhysBoneToBone(0)
-		local boneMap, name = bones.getMap(source:GetBoneName(sourceRoot), target:GetBoneName(targetRoot))
+		local from, to = source:GetBoneName(sourceRoot), target:GetBoneName(targetRoot)
+		if from ~= to and not boneMap then
+			boneMap = getMap(from, to)
+		end
 
 		local sourceReferencePose = getDefaultBonePoseOf(source)
 		local targetReferencePose = getDefaultBonePoseOf(target)
@@ -157,10 +162,11 @@ do
 	---@param puppeteer RagdollPuppeteer
 	---@param puppet Entity
 	---@param smhModel string?
+	---@param boneMap BoneDefinition
 	---@return SMHFramePose[]
-	local function retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel)
+	local function retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel, boneMap)
 		local source, target, boneMap, sourceReferencePose, targetReferencePose =
-			setupSMHRetargeting(puppeteer, puppet, smhModel)
+			setupSMHRetargeting(puppeteer, puppet, smhModel, boneMap)
 		retargetSMHPose(pose, source, target, boneMap, sourceReferencePose, targetReferencePose, WORLD_ANGLES)
 
 		-- FIXME: It's messy to add and remove these props for retargeting. What else works better?
@@ -175,10 +181,11 @@ do
 	---@param puppeteer RagdollPuppeteer|Entity
 	---@param puppet Entity
 	---@param smhModel string?
+	---@param boneMap BoneDefinition
 	---@return SMHFramePose[]
-	local function retargetSMHNonPhysicalPose(pose, puppeteer, puppet, smhModel)
+	local function retargetSMHNonPhysicalPose(pose, puppeteer, puppet, smhModel, boneMap)
 		local source, target, boneMap, sourceReferencePose, targetReferencePose =
-			setupSMHRetargeting(puppeteer, puppet, smhModel)
+			setupSMHRetargeting(puppeteer, puppet, smhModel, boneMap)
 		retargetSMHPose(pose, source, target, boneMap, sourceReferencePose, targetReferencePose, LOCAL_ANGLES)
 
 		-- FIXME: It's messy to add and remove these props for retargeting. What else works better?
@@ -193,7 +200,8 @@ do
 	---@param puppeteer RagdollPuppeteer
 	---@param puppet Entity
 	---@param smhModel string?
-	local function encodePose(pose, puppeteer, puppet, smhModel)
+	---@param boneMap BoneDefinition
+	local function encodePose(pose, puppeteer, puppet, smhModel, boneMap)
 		-- Physics props indices start at 1, not at 0. In case we work with physics props, use that matrix
 		local b1, b2 = puppeteer:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(1)
 		local matrix = puppeteer:GetBoneMatrix(b1) or puppeteer:GetBoneMatrix(b2)
@@ -204,7 +212,7 @@ do
 
 		local puppetModel = puppet:GetModel()
 		if puppeteer:GetModel() ~= puppetModel or smhModel ~= puppetModel then
-			pose = retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel)
+			pose = retargetSMHPhysicalPose(pose, puppeteer, puppet, smhModel, boneMap)
 		end
 
 		net.WriteUInt(#pose, 5)
@@ -234,18 +242,19 @@ do
 	---@param puppeteer RagdollPuppeteer A puppeteer for retargeting if the puppet or puppeteer are different
 	---@param puppet Entity A puppet for retargeting if the puppet or puppeteer are different
 	---@param smhModel string The model that was used in the `physFrames` (or `nonPhysFrames`), for retargeting if the puppet or puppeteer models differ from this one
-	function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer, puppet, smhModel)
+	---@param panelState PanelState The current condition of the Ragdoll Puppeteer panel
+	function writeSMHPose(netString, frame, physFrames, nonPhysFrames, nonPhys, puppeteer, puppet, smhModel, panelState)
 		local physPose = getPoseFromSMHFrames(frame, physFrames, "physbones")
 		net.Start(netString, true)
 		net.WriteBool(false)
-		encodePose(physPose, puppeteer, puppet, smhModel)
+		encodePose(physPose, puppeteer, puppet, smhModel, panelState.boneMap)
 		net.WriteBool(nonPhys)
 		net.WriteString(smhModel)
 		if nonPhys then
 			local nonPhysPose = getPoseFromSMHFrames(frame, nonPhysFrames, "bones")
 			local puppetModel = puppet:GetModel()
 			if puppeteer:GetModel() ~= puppetModel or puppetModel ~= smhModel then
-				nonPhysPose = retargetSMHNonPhysicalPose(nonPhysPose, puppeteer, puppet, smhModel)
+				nonPhysPose = retargetSMHNonPhysicalPose(nonPhysPose, puppeteer, puppet, smhModel, panelState.boneMap)
 			end
 			local compressedNonPhysPose = compressTableToJSON(nonPhysPose)
 			net.WriteUInt(#compressedNonPhysPose, 16)
@@ -259,11 +268,15 @@ end
 ---Try to manipulate the bone angles of the puppet to set the puppeteer
 ---@param puppeteer Entity The puppeteer to obtain nonphysical bone pose information
 ---@param puppet Entity The puppet to compare to if the models are different
+---@param boneMap BoneDefinition? A mapping from a puppeteer's bones to the puppet's
 ---@return BoneOffsetArray boneOffsets An array of bone offsets from the default bone pose
-local function getNonPhysicalBonePoseOf(puppeteer, puppet)
+local function getNonPhysicalBonePoseOf(puppeteer, puppet, boneMap)
 	local newPose = {}
 	local defaultBonePose = getDefaultBonePoseOf(puppeteer)
-	local boneMap = bones.getMap(puppeteer:GetBoneName(0), puppet:GetBoneName(0))
+	local from, to = puppeteer:GetBoneName(0), puppet:GetBoneName(0)
+	if from ~= to and not boneMap then
+		boneMap = getMap(from, to)
+	end
 
 	for b = 0, puppeteer:GetBoneCount() - 1 do
 		-- Reset bone position and angles
@@ -481,8 +494,8 @@ do
 	---@param physicsCount integer The number of physics objects on the `puppet`
 	---@param gesturers Entity[] An array of the client's gestures, as a workaround to sequence layering on the client
 	---@param gesture SequenceInfo The sequence played by the gesturers
-	---@param poseOffset PoseOffset A position and angle offset applied on the puppeteers, mainly to correct the retargeted puppet
-	function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, gesture, poseOffset)
+	---@param panelState PanelState The current condition of the Ragdoll Puppeteer panel
+	function writeSequencePose(puppeteers, puppet, physicsCount, gesturers, gesture, panelState)
 		if not IsValid(puppeteers[1]) or not IsValid(puppet) then
 			return
 		end
@@ -490,7 +503,15 @@ do
 		if game.SinglePlayer() then
 			local puppetRoot, puppeteerRoot =
 				puppet:TranslatePhysBoneToBone(0), puppeteers[3]:TranslatePhysBoneToBone(0)
-			local boneMap = bones.getMap(puppet:GetBoneName(puppetRoot), puppeteers[3]:GetBoneName(puppeteerRoot))
+			local from, to = puppet:GetBoneName(puppetRoot), puppeteers[3]:GetBoneName(puppeteerRoot)
+			local boneMap = panelState.boneMap
+			if from ~= to and not boneMap then
+				boneMap = getMap(from, to)
+				panelState.boneMap = boneMap
+				if boneMap then
+					panelState.inverseBoneMap = table.Flip(boneMap)
+				end
+			end
 
 			local newPose = {}
 
@@ -498,7 +519,7 @@ do
 				local targetBoneName = puppet:GetBoneName(i)
 				local sourceBone = puppeteers[3]:LookupBone(boneMap and boneMap[targetBoneName] or targetBoneName)
 
-				applyNonPhysicalOffsetsToPuppeteer(puppeteers, sourceBone, poseOffset)
+				applyNonPhysicalOffsetsToPuppeteer(puppeteers, sourceBone, panelState.offsets)
 			end
 
 			for i = 0, physicsCount - 1 do
@@ -507,7 +528,7 @@ do
 				local sourceBone = puppeteers[3]:LookupBone(boneMap and boneMap[targetBoneName] or targetBoneName)
 
 				if gesture.anims and sourceBone then
-					applyPhysicalOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, poseOffset)
+					applyPhysicalOffsetsToPuppeteer(puppeteers, gesturers, sourceBone, panelState.offsets)
 				end
 
 				---@type Vector, Angle
@@ -539,7 +560,7 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer, boneMa
 		and puppet:GetParent()
 		and puppet:GetParent():GetClass() == "prop_effect"
 
-	local physMap = bones.getPhysMap(puppeteer, puppet, boneMap)
+	local physMap = getPhysMap(puppeteer, puppet, boneMap)
 
 	if isEffectProp then
 		local parent = puppet:GetParent()
@@ -750,7 +771,7 @@ do
 		if smhModel ~= oldModel then
 			puppeteer:SetModel(smhModel)
 			local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(0)
-			local map = bones.getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
+			local map = getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
 			playerData.boneMap = map
 		end
 
@@ -781,7 +802,7 @@ do
 		if smhModel ~= oldModel then
 			puppeteer:SetModel(oldModel)
 			local puppetRoot, puppeteerRoot = puppet:TranslatePhysBoneToBone(0), puppeteer:TranslatePhysBoneToBone(0)
-			local map = bones.getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
+			local map = getMap(puppeteer:GetBoneName(puppeteerRoot), puppet:GetBoneName(puppetRoot))
 			playerData.boneMap = map
 		end
 	end
@@ -832,7 +853,7 @@ end
 ---@return BoneDefinition? boneMap A bone mapping `from` one skeleton `to` another skeleton
 ---@return string? boneName The name of the bone mapping
 local function getBoneMap(from, to)
-	return bones.getMap(from, to)
+	return getMap(from, to)
 end
 
 return {

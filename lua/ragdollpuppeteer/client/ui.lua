@@ -274,7 +274,7 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 					physicsCount,
 					{ baseGesturer, animGesturer },
 					currentGesture,
-					panelState.offsets
+					panelState
 				)
 				net.SendToServer()
 			else
@@ -287,7 +287,8 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 						nonPhysCheckbox:GetChecked(),
 						animPuppeteer,
 						puppet,
-						smhList:GetSelected()[1]:GetSortValue(5)
+						smhList:GetSelected()[1]:GetSortValue(5),
+						panelState
 					)
 				end
 			end
@@ -824,7 +825,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 				physicsCount,
 				{ baseGesturer, animGesturer },
 				currentGesture,
-				panelState.offsets
+				panelState
 			)
 			net.SendToServer()
 		else
@@ -919,7 +920,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					physicsCount,
 					{ baseGesturer, animGesturer },
 					currentGesture,
-					panelState.offsets
+					panelState
 				)
 				net.SendToServer()
 			end
@@ -985,7 +986,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					physicsCount,
 					{ baseGesturer, animGesturer },
 					currentGesture,
-					panelState.offsets
+					panelState
 				)
 				net.SendToServer()
 
@@ -1104,7 +1105,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					physicsCount,
 					{ baseGesturer, animGesturer },
 					currentGesture,
-					panelState.offsets
+					panelState
 				)
 				net.SendToServer()
 				sendingFrame = false
@@ -1235,6 +1236,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 			populateLists(option, "", panelChildren, panelProps, panelState, true)
 			panelState.model = newModel
+			panelState.boneMap = nil
+			panelState.inverseBoneMap = nil
 
 			modelPath:AddHistory(newModel)
 		else

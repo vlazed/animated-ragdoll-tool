@@ -156,6 +156,8 @@ local types = {}
 ---@field selectedBone integer
 ---@field puppet Entity
 ---@field offsets PoseOffset
+---@field boneMap BoneDefinition?
+---@field inverseBoneMap BoneDefinition?
 
 -- Miscellaneous Types
 
