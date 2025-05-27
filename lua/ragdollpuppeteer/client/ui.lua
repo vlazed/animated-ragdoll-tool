@@ -264,7 +264,7 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 				animPuppeteer:SetCycle(cycle)
 				viewPuppeteer:SetCycle(cycle)
 
-				net.Start("onFrameChange", true)
+				net.Start("rp_onFrameChange", true)
 				net.WriteBool(true)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
@@ -280,7 +280,7 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 			else
 				if smhList:GetSelected()[1] then
 					pose.writeSMH(
-						"onFrameChange",
+						"rp_onFrameChange",
 						baseSlider:GetValue(),
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
@@ -295,14 +295,14 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 		end
 	end)
 
-	net.Start("onPuppeteerPlayback")
+	net.Start("rp_onPuppeteerPlayback")
 	net.WriteBool(true)
 	net.SendToServer()
 end
 
 local function removePlaybackTimer()
 	timer.Remove("ragdollpuppeteer_playback")
-	net.Start("onPuppeteerPlayback")
+	net.Start("rp_onPuppeteerPlayback")
 	net.WriteBool(false)
 	net.SendToServer()
 end
@@ -797,7 +797,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 		node.locked = not node.locked
 		node:SetIcon(node.locked and boneTypes[#boneTypes] or node.boneIcon)
 		filteredBones[node.boneId + 1] = node.locked
-		net.Start("onBoneFilterChange")
+		net.Start("rp_onBoneFilterChange")
 		net.WriteTable(filteredBones, true)
 		net.SendToServer()
 	end
@@ -815,7 +815,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			animPuppeteer:SetCycle(cycle)
 			viewPuppeteer:SetCycle(cycle)
 
-			net.Start("onFrameChange", true)
+			net.Start("rp_onFrameChange", true)
 			net.WriteBool(true)
 			net.WriteFloat(cycle)
 			net.WriteBool(nonPhysCheckbox:GetChecked())
@@ -831,7 +831,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 		else
 			if smhList:GetSelected()[1] then
 				pose.writeSMH(
-					"onFrameChange",
+					"rp_onFrameChange",
 					baseSlider:GetValue(),
 					smhList:GetSelected()[1]:GetSortValue(3),
 					smhList:GetSelected()[1]:GetSortValue(4),
@@ -901,7 +901,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	---@param newValue number
 	---@param paramName string
 	---@param slider DNumSlider
-	local function onPoseParamChange(newValue, paramName, slider)
+	local function rp_onPoseParamChange(newValue, paramName, slider)
 		local _, option = sourceBox:GetSelected()
 
 		-- Set the pose parameter in the floor. The floor will automatically set the pose parameters through there
@@ -910,7 +910,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 		-- If the user has stopped dragging on the sequence, send the update
 		timer.Simple(SEQUENCE_CHANGE_DELAY, function()
 			if option == "sequence" and not slider:IsEditing() then
-				net.Start("onPoseParamChange", true)
+				net.Start("rp_onPoseParamChange", true)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
 				net.WriteFloat(newValue)
 				net.WriteString(paramName)
@@ -930,7 +930,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local function hookPoseParams()
 		for i = 1, #poseParams do
 			poseParams[i].slider.OnValueChanged = function(_, newValue)
-				onPoseParamChange(newValue, poseParams[i].name, poseParams[i].slider)
+				rp_onPoseParamChange(newValue, poseParams[i].name, poseParams[i].slider)
 			end
 		end
 	end
@@ -944,7 +944,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	modelPath.currentModel = currentModel
 
 	function modelPath:OnEnter(text)
-		net.Start("onPuppeteerChangeRequest", true)
+		net.Start("rp_onPuppeteerChangeRequest", true)
 		net.WriteString(text)
 		net.SendToServer()
 	end
@@ -976,7 +976,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 		if sendNet then
 			timer.Simple(SEQUENCE_CHANGE_DELAY, function()
-				net.Start("onSequenceChange")
+				net.Start("rp_onSequenceChange")
 				net.WriteBool(true)
 				net.WriteInt(currentIndex, 14)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
@@ -1095,7 +1095,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 				end
 
 				sendingFrame = true
-				net.Start("onFrameChange", true)
+				net.Start("rp_onFrameChange", true)
 				net.WriteBool(true)
 				net.WriteFloat(cycle)
 				net.WriteBool(nonPhysCheckbox:GetChecked())
@@ -1114,7 +1114,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			if sendNet then
 				if smh and smhList:GetSelected()[1] then
 					pose.writeSMH(
-						"onFrameChange",
+						"rp_onFrameChange",
 						val,
 						smhList:GetSelected()[1]:GetSortValue(3),
 						smhList:GetSelected()[1]:GetSortValue(4),
@@ -1168,7 +1168,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 		baseSlider:SetMax(row:GetValue(2))
 		panelState.maxFrames = row:GetValue(2)
 		pose.writeSMH(
-			"onSequenceChange",
+			"rp_onSequenceChange",
 			0,
 			smhList:GetSelected()[1]:GetSortValue(3),
 			smhList:GetSelected()[1]:GetSortValue(4),
@@ -1186,15 +1186,15 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	end
 
 	-- Network hooks from server
-	net.Receive("onFramePrevious", function()
+	net.Receive("rp_onFramePrevious", function()
 		local increment = net.ReadFloat()
 		moveSliderBy(baseSlider, gestureSlider, -increment, panelChildren.incrementGestures:GetChecked())
 	end)
-	net.Receive("onFrameNext", function()
+	net.Receive("rp_onFrameNext", function()
 		local increment = net.ReadFloat()
 		moveSliderBy(baseSlider, gestureSlider, increment, panelChildren.incrementGestures:GetChecked())
 	end)
-	net.Receive("onPuppeteerChangeRequest", function()
+	net.Receive("rp_onPuppeteerChangeRequest", function()
 		local result = net.ReadBool()
 		local errorInt = net.ReadUInt(3)
 
@@ -1205,7 +1205,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			modelPath.currentModel = newModel
 
 			-- Change the serverside puppeteer model
-			net.Start("onPuppeteerChange")
+			net.Start("rp_onPuppeteerChange")
 			net.WriteString(modelPath.currentModel)
 			net.SendToServer()
 			UI.ClearList(sequenceList)
@@ -1250,12 +1250,12 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			chat.AddText("Ragdoll Puppeteer: " .. language.GetPhrase("ui.ragdollpuppeteer.chat.history"))
 		end
 	end)
-	net.Receive("enablePuppeteerPlayback", function(len, ply)
+	net.Receive("rp_enablePuppeteerPlayback", function(len, ply)
 		createPlaybackTimer(panelChildren, panelProps, panelState, currentGesture)
 	end)
 
-	net.Receive("disablePuppeteerPlayback", removePlaybackTimer)
-	net.Receive("onSequenceChange", function()
+	net.Receive("rp_disablePuppeteerPlayback", removePlaybackTimer)
+	net.Receive("rp_onSequenceChange", function()
 		-- Handle pasting of NPC sequences onto the puppet
 		local sequence = net.ReadString()
 		local cycle = net.ReadFloat()

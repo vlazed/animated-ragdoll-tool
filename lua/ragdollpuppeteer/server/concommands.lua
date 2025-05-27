@@ -14,7 +14,7 @@ cvars.AddChangeCallback("sv_ragdollpuppeteer_allow_playback", function(_, _, new
 		---@type Player[]
 		local players = player.GetHumans()
 		for _, player in ipairs(players) do
-			net.Start("disablePuppeteerPlayback")
+			net.Start("rp_disablePuppeteerPlayback")
 			net.Send(player)
 		end
 	end
@@ -61,7 +61,7 @@ concommand.Add("+ragdollpuppeteer_playback", function(ply, _, _)
 
 	local userId = ply:UserID()
 	local fps = RAGDOLLPUPPETEER_PLAYERS[userId].fps
-	net.Start("enablePuppeteerPlayback")
+	net.Start("rp_enablePuppeteerPlayback")
 	net.WriteFloat(fps)
 	net.Send(ply)
 end)
@@ -71,7 +71,7 @@ concommand.Add("-ragdollpuppeteer_playback", function(ply, _, _)
 		return
 	end
 
-	net.Start("disablePuppeteerPlayback")
+	net.Start("rp_disablePuppeteerPlayback")
 	net.Send(ply)
 end)
 
@@ -81,7 +81,7 @@ concommand.Add("ragdollpuppeteer_previousframe", function(ply, _, args)
 	if args and type(newNumber) == "number" then
 		increment = newNumber
 	end
-	net.Start("onFramePrevious")
+	net.Start("rp_onFramePrevious")
 	net.WriteFloat(increment)
 	net.Send(ply)
 end)
@@ -92,7 +92,7 @@ concommand.Add("ragdollpuppeteer_nextframe", function(ply, _, args)
 	if args and type(newNumber) == "number" then
 		increment = newNumber
 	end
-	net.Start("onFrameNext")
+	net.Start("rp_onFrameNext")
 	net.WriteFloat(increment)
 	net.Send(ply)
 end)

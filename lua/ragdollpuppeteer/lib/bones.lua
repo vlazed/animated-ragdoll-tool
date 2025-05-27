@@ -106,7 +106,7 @@ local function refreshBoneDefinitions(dir, level)
 end
 
 if SERVER then
-	net.Receive("queryBoneRefresh", function(len, ply)
+	net.Receive("rp_queryBoneRefresh", function(len, ply)
 		local fail = net.ReadString()
 		if not game.SinglePlayer() then
 			-- Check if player has permissions
@@ -122,7 +122,7 @@ if SERVER then
 		end
 	end)
 else
-	net.Receive("queryBoneRefresh", function()
+	net.Receive("rp_queryBoneRefresh", function()
 		print("Refreshing")
 		refreshBoneDefinitions(ROOT, 0)
 	end)
@@ -133,11 +133,11 @@ refreshBoneDefinitions(ROOT, 0)
 concommand.Add("ragdollpuppeteer_refreshbones", function(ply)
 	if CLIENT then
 		local fail = language.GetPhrase("ui.ragdollpuppeteer.refreshbones.failure")
-		net.Start("queryBoneRefresh")
+		net.Start("rp_queryBoneRefresh")
 		net.WriteString(fail)
 		net.SendToServer()
 	else
-		net.Start("queryBoneRefresh")
+		net.Start("rp_queryBoneRefresh")
 		net.Broadcast()
 	end
 	refreshBoneDefinitions(ROOT, 0)
