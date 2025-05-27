@@ -367,7 +367,7 @@ function TOOL:PasteSequence(ent)
 	local playerData = RAGDOLLPUPPETEER_PLAYERS[ply:UserID()]
 	if sequence and playerData and playerData.puppet and playerData.floor then
 		if playerData.puppet == ent or playerData.floor == ent then
-			net.Start("onSequenceChange")
+			net.Start("rp_onSequenceChange")
 			net.WriteString(npc:GetSequenceName(sequence))
 			net.WriteFloat(cycle)
 			for i = 1, npc:GetNumPoseParameters() do
@@ -413,7 +413,7 @@ function TOOL:RightClick(tr)
 		if CLIENT then
 			return true
 		end
-		net.Start("removeClientAnimPuppeteer")
+		net.Start("rp_removeClientPuppeteer")
 		net.Send(self:GetOwner())
 		return true
 	end
@@ -432,7 +432,7 @@ if SERVER then
 		end
 	end)
 
-	net.Receive("onPuppeteerChangeRequest", function(_, sender)
+	net.Receive("rp_onPuppeteerChangeRequest", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local model = net.ReadString()
@@ -455,13 +455,13 @@ if SERVER then
 			errorInt = 1
 		end
 
-		net.Start("onPuppeteerChangeRequest")
+		net.Start("rp_onPuppeteerChangeRequest")
 		net.WriteBool(result)
 		net.WriteUInt(errorInt, 3)
 		net.Send(sender)
 	end)
 
-	net.Receive("onPuppeteerChange", function(_, sender)
+	net.Receive("rp_onPuppeteerChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local puppeteer = playerData.puppeteer
@@ -481,13 +481,13 @@ if SERVER then
 		floor:SetupDataTables()
 	end)
 
-	net.Receive("onPuppeteerPlayback", function(_, sender)
+	net.Receive("rp_onPuppeteerPlayback", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		playerData.playbackEnabled = net.ReadBool()
 	end)
 
-	net.Receive("onFrameChange", function(_, sender)
+	net.Receive("rp_onFrameChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local ragdollPuppet = playerData.puppet
@@ -503,7 +503,7 @@ if SERVER then
 		end
 	end)
 
-	net.Receive("onSequenceChange", function(_, sender)
+	net.Receive("rp_onSequenceChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local ragdollPuppet = playerData.puppet
@@ -519,7 +519,7 @@ if SERVER then
 		end
 	end)
 
-	net.Receive("onPoseParamChange", function(_, sender)
+	net.Receive("rp_onPoseParamChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local floor = playerData.floor
@@ -532,14 +532,14 @@ if SERVER then
 		pose.readSequence(cycle, animatingNonPhys, playerData)
 	end)
 
-	net.Receive("onBoneFilterChange", function(_, sender)
+	net.Receive("rp_onBoneFilterChange", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 
 		playerData.filteredBones = net.ReadTable(true)
 	end)
 
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, sender)
+	net.Receive("rp_queryNonPhysBonePoseOfPuppet", function(_, sender)
 		assert(RAGDOLLPUPPETEER_PLAYERS[sender:UserID()], "Player doesn't exist in hashmap!")
 		local playerData = RAGDOLLPUPPETEER_PLAYERS[sender:UserID()]
 		local animPuppeteer = playerData.puppeteer
@@ -565,7 +565,7 @@ if SERVER then
 		)
 	end)
 
-	net.Receive("onFPSChange", function(_, sender)
+	net.Receive("rp_onFPSChange", function(_, sender)
 		local userId = sender:UserID()
 		assert(RAGDOLLPUPPETEER_PLAYERS[userId], "Player doesn't exist in hashmap!")
 		local fps = net.ReadFloat()
@@ -584,7 +584,7 @@ cvars.AddChangeCallback("ragdollpuppeteer_fps", function(_, _, newValue)
 
 	local newFPS = tonumber(newValue)
 	if type(newFPS) == "number" then
-		net.Start("onFPSChange")
+		net.Start("rp_onFPSChange")
 		net.WriteFloat(newFPS)
 		net.SendToServer()
 	end
@@ -876,18 +876,18 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 		end
 	end
 
-	net.Receive("removeClientAnimPuppeteer", function()
+	net.Receive("rp_removeClientPuppeteer", function()
 		removePuppeteer()
 	end)
 
-	net.Receive("queryNonPhysBonePoseOfPuppet", function(_, _)
+	net.Receive("rp_queryNonPhysBonePoseOfPuppet", function(_, _)
 		if not IsValid(animPuppeteer) or not IsValid(animGesturer) then
 			return
 		end
 
 		local newBasePose = pose.getNonPhysicalPose(animPuppeteer, puppet, panelState.inverseBoneMap)
 		local newGesturePose = pose.getNonPhysicalPose(animGesturer, puppet, panelState.inverseBoneMap)
-		net.Start("queryNonPhysBonePoseOfPuppet")
+		net.Start("rp_queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))
 			net.WriteAngle(newBasePose[b][2] + newGesturePose[b][2])

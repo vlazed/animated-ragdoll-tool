@@ -234,7 +234,7 @@ do
 	end
 
 	---Helper for sending both a physical and nonphysical SMH pose
-	---@param netString string The name of the network string defined in `net.lua`. Usually `onFrameChange` or `onSequenceChange`
+	---@param netString 'rp_onFrameChange'|'rp_onSequenceChange' The name of the network string defined in `net.lua`. Usually `rp_onFrameChange` or `rp_onSequenceChange`
 	---@param frame integer The position of a physical or nonphysical pose in the `SMHFrameData`
 	---@param physFrames SMHFrameData[] A sequence of physical poses
 	---@param nonPhysFrames SMHFrameData[] A sequence of nonphysical poses
