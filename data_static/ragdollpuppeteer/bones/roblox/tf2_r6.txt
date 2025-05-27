@@ -1,0 +1,6 @@
+bip_lowerArm_R,Right Arm
+bip_lowerArm_L,Left Arm
+bip_knee_R,Right Leg
+bip_knee_L,Left Leg
+bip_pelvis,Torso
+bip_head,Head

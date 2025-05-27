@@ -885,8 +885,8 @@ function TOOL.BuildCPanel(cPanel, puppet, ply, physicsCount, floor)
 			return
 		end
 
-		local newBasePose = pose.getNonPhysicalPose(animPuppeteer, puppet)
-		local newGesturePose = pose.getNonPhysicalPose(animGesturer, puppet)
+		local newBasePose = pose.getNonPhysicalPose(animPuppeteer, puppet, panelState.inverseBoneMap)
+		local newGesturePose = pose.getNonPhysicalPose(animGesturer, puppet, panelState.inverseBoneMap)
 		net.Start("queryNonPhysBonePoseOfPuppet")
 		for b = 1, animPuppeteer:GetBoneCount() do
 			net.WriteVector((newBasePose[b][1] + newGesturePose[b][1]))

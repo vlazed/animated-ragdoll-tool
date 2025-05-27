@@ -1,0 +1,15 @@
+ValveBiped.Bip01_R_UpperArm,RightUpperArm
+ValveBiped.Bip01_L_UpperArm,LeftUpperArm
+ValveBiped.Bip01_R_Thigh,RightUpperLeg
+ValveBiped.Bip01_L_Thigh,LeftUpperLeg
+ValveBiped.Bip01_R_Forearm,RightLowerArm
+ValveBiped.Bip01_L_Forearm,LeftLowerArm
+ValveBiped.Bip01_R_Hand,RightHand
+ValveBiped.Bip01_L_Hand,LeftHand
+ValveBiped.Bip01_R_Calf,RightLowerLeg
+ValveBiped.Bip01_L_Calf,LeftLowerLeg
+ValveBiped.Bip01_R_Foot,RightFoot
+ValveBiped.Bip01_L_Foot,LeftFoot
+ValveBiped.Bip01_Spine2,UpperTorso
+ValveBiped.Bip01_Pelvis,LowerTorso
+ValveBiped.Bip01_Head,Head
