@@ -813,7 +813,7 @@ end
 ---@param ply Player Who queried for the nonphysical bone pose
 ---@param cycle number The current frame of the puppeteer's animation
 local function queryNonPhysBonePoseOfPuppet(ply, cycle)
-	net.Start("queryNonPhysBonePoseOfPuppet", false)
+	net.Start("rp_queryNonPhysBonePoseOfPuppet", false)
 	net.WriteFloat(cycle)
 	net.Send(ply)
 end
