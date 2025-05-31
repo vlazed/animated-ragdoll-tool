@@ -123,7 +123,6 @@ if SERVER then
 	end)
 else
 	net.Receive("rp_queryBoneRefresh", function()
-		print("Refreshing")
 		refreshBoneDefinitions(ROOT, 0)
 	end)
 end
@@ -141,6 +140,7 @@ concommand.Add("ragdollpuppeteer_refreshbones", function(ply)
 		net.Broadcast()
 	end
 	refreshBoneDefinitions(ROOT, 0)
+	print("Ragdoll Puppeteer: Refreshed bone maps")
 end)
 
 local function getRagdollFromEntity(ent)
