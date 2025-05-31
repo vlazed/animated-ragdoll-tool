@@ -838,7 +838,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 					nonPhysCheckbox:GetChecked(),
 					animPuppeteer,
 					puppet,
-					smhList:GetSelected()[1]:GetSortValue(5)
+					smhList:GetSelected()[1]:GetSortValue(5),
+					panelState
 				)
 			end
 		end
@@ -1121,7 +1122,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 						nonPhysCheckbox:GetChecked(),
 						animPuppeteer,
 						puppet,
-						smhList:GetSelected()[1]:GetSortValue(5)
+						smhList:GetSelected()[1]:GetSortValue(5),
+						panelState
 					)
 				end
 			end
@@ -1175,7 +1177,8 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 			nonPhysCheckbox:GetChecked(),
 			animPuppeteer,
 			puppet,
-			smhList:GetSelected()[1]:GetSortValue(5)
+			smhList:GetSelected()[1]:GetSortValue(5),
+			panelState
 		)
 	end
 
