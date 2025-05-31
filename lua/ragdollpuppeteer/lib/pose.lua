@@ -654,7 +654,9 @@ local function setSequencePoseOf(puppet, puppeteer, filteredBones, serverLastPos
 					continue
 				end
 
-				local pos, ang = serverLastPose[i][1] or vector_origin, serverLastPose[i][2] or angle_zero
+				local pos, ang =
+					serverLastPose[i] and serverLastPose[i][1] or vector_origin,
+					serverLastPose[i] and serverLastPose[i][2] or angle_zero
 				if puppeteer:GetModel() == puppet:GetModel() then
 					pos, ang = puppeteer:GetBonePosition(b)
 				else
