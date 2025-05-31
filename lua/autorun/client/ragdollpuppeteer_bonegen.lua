@@ -63,6 +63,9 @@ local function buildUI(panel)
 	panel:AddItem(category)
 	panel:Dock(TOP)
 
+	local refresh = panel:Button("#ui.ragdollpuppeteer.bonegen.refresh", "ragdollpuppeteer_refreshbones")
+	refresh:SetTooltip("#ui.ragdollpuppeteer.bonegen.refresh.tooltip")
+
 	local refreshList
 	---@param key string
 	---@param val string
