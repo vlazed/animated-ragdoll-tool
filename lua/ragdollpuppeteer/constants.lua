@@ -13,11 +13,18 @@ constants.RAGDOLL_HEIGHT_DIFFERENCE = 100
 
 constants.COLOR_BLUE = Color(0, 0, 64, 100)
 
+-- The number of models that the user should not go over
+constants.MAX_MODELS = 100
+-- The number of models to leak from the bucket
+constants.MODEL_DEQUE_RATE = 10
+-- A list of commonly used prefixes for gestures
 constants.PREFIXES = {
 	"g_",
 	"p_",
 }
+-- A list of commonly used suffixes for gestures
 constants.SUFFIXES = {}
+-- Keywords in a sequence name which likely result in a variation of a reference pose
 constants.POSEFILTER = {
 	"ref",
 	"ragdoll",
@@ -47,6 +54,16 @@ constants.POSEFILTER = {
 	"blend",
 	"placesapper",
 	"jumpland",
+}
+-- Keywords in a sequence name which likely require pose parameters to visualize locomotion
+constants.LOCOMOTION = {
+	"run",
+	"walk",
+}
+-- Pose parameter names that typically control locomotion
+constants.LOCOMOTION_POSEPARAMS = {
+	["move_x"] = true,
+	["move_scale"] = true,
 }
 
 return constants

@@ -11,13 +11,15 @@ local SMH = {}
 ---@param model string The model in the SMH file to consider
 ---@return SMHFile? smhFile A table consisting of the contents of the SMH .txt file
 function SMH.parseSMHFile(filePath, model)
+	local requireSameModel = GetConVar("ragdollpuppeteer_smhrequiresmodel"):GetBool()
+
 	-- Check if the file has the model somewhere in there
 	if not file.Exists(filePath, "DATA") then
 		return
 	end
 	local json = file.Read(filePath)
 	-- If the entity doesn't exist, don't bother loading other entities
-	if not string.find(json, model) then
+	if requireSameModel and not string.find(json, model) then
 		return
 	end
 	local smhData = util.JSONToTable(json)
@@ -28,9 +30,9 @@ function SMH.parseSMHFile(filePath, model)
 end
 
 ---Linearly interpolate between each frame, imitating the poses as seen in the SMH timeline
----Takes inspiration from the following sources:
----https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/bones.lua#L56
----https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/physbones.lua#L116
+---Takes inspiration from the following sources from Stop Motion Helper:
+--- - [smh/bones.lua](https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/bones.lua#L56)
+--- - [smh/modifiers/physbones.lua](https://github.com/Winded/StopMotionHelper/blob/bc94420283a978f3f56a282c5fe5cdf640d59855/lua/smh/modifiers/physbones.lua#L116)
 ---@param prevFrame SMHFramePose[]? Previous frame pose
 ---@param nextFrame SMHFramePose[]? Next frame pose
 ---@param lerpMultiplier number Percentage between previous frame and next frame

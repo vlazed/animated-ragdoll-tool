@@ -1,0 +1,6 @@
+ValveBiped.Bip01_R_Forearm,Right Shoulder
+ValveBiped.Bip01_L_Forearm,Left Shoulder
+ValveBiped.Bip01_R_Calf,Right Hip
+ValveBiped.Bip01_L_Calf,Left Hip
+ValveBiped.Bip01_Pelvis,Torso
+ValveBiped.Bip01_Head1,Neck
