@@ -16,13 +16,18 @@ if SERVER then
 	include("ragdollpuppeteer/server/net.lua")
 	include("ragdollpuppeteer/server/concommands.lua")
 
+	-- TODO: Automate in a for loop
 	AddCSLuaFile("ragdollpuppeteer/constants.lua")
+
+	AddCSLuaFile("ragdollpuppeteer/lib/leakybucket.lua")
+	AddCSLuaFile("ragdollpuppeteer/lib/fzy.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/vendor.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/bones.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/smh.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/quaternion.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/helpers.lua")
 	AddCSLuaFile("ragdollpuppeteer/lib/pose.lua")
+
 	AddCSLuaFile("ragdollpuppeteer/client/components.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/ui.lua")
 	AddCSLuaFile("ragdollpuppeteer/client/derma/poseoffsetter.lua")
