@@ -68,7 +68,7 @@ function MOD:LoadBetween(entity, data1, data2, percentage)
 	if data1["poseparams"] and data2["poseparams"] then
 		for poseName, poseValue1 in pairs(data1["poseparams"]) do
 			if isfunction(entity["Set" .. poseName]) then
-				local poseValue2 = data2["poseparams"][poseName]
+				local poseValue2 = data2["poseparams"][poseName] or poseValue1
 				local newValue = SMH.LerpLinear(poseValue1, poseValue2, percentage)
 				entity["Set" .. poseName](entity, newValue)
 			end
