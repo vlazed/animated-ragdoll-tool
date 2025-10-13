@@ -264,9 +264,9 @@ function TOOL:LeftClick(tr)
 	local userId = ply:UserID()
 
 	local puppet = tr.Entity
-	if puppet:GetClass() == "prop_effect" then
+	if puppet:GetClass() == "prop_effect" and IsValid(tr.Entity.AttachedEntity) then
 		-- Get the immediate first model that it finds in there
-		puppet = #tr.Entity:GetChildren() > 0 and tr.Entity:GetChildren()[1] or tr.Entity
+		puppet = tr.Entity.AttachedEntity
 	end
 	do
 		local validPuppet = IsValid(puppet)
