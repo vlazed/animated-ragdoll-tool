@@ -256,9 +256,13 @@ do
 			if puppeteer:GetModel() ~= puppetModel or puppetModel ~= smhModel then
 				nonPhysPose = retargetSMHNonPhysicalPose(nonPhysPose, puppeteer, puppet, smhModel, panelState.boneMap)
 			end
-			local compressedNonPhysPose = compressTableToJSON(nonPhysPose)
-			net.WriteUInt(#compressedNonPhysPose, 16)
-			net.WriteData(compressedNonPhysPose)
+
+			net.WriteBool(nonPhysPose ~= nil)
+			if nonPhysPose then
+				local compressedNonPhysPose = compressTableToJSON(nonPhysPose)
+				net.WriteUInt(#compressedNonPhysPose, 16)
+				net.WriteData(compressedNonPhysPose)
+			end
 		end
 
 		net.SendToServer()
@@ -778,7 +782,8 @@ do
 		end
 
 		setSMHPoseOf(puppet, targetPose, playerData.filteredBones, playerData.puppeteer, playerData.boneMap)
-		if animatingNonPhys then
+		local smhHasNonPhysPose = net.ReadBool()
+		if animatingNonPhys and smhHasNonPhysPose then
 			-- Instead of decoding the pose as we did with physical bones, we decompress some nonphysical data
 			-- This apparently reduces the outgoing rate compared to encoding/decoding together or
 			-- compressing/decompressing together

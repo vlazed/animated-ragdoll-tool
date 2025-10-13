@@ -98,6 +98,10 @@ local function getOriginPose(smhFrames, modifier)
 			lowestFrame = frameIndex
 		end
 	end
+	if not smhFrames[lowestFrame] or not smhFrames[lowestFrame].EntityData[modifier] then
+		return {}
+	end
+
 	return smhFrames[lowestFrame].EntityData[modifier][0]
 end
 
