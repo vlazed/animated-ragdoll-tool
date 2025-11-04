@@ -606,6 +606,7 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer, boneMa
 					phys:SetPos(fPos)
 					-- Finally, set angle of puppet itself
 					phys:SetAngles(fAng)
+					puppeteer.rootPos = fPos
 				end
 			end
 			phys:Wake()
@@ -648,6 +649,11 @@ local function setSequencePoseOf(puppet, puppeteer, filteredBones, serverLastPos
 				phys:SetAngles(ang and ang or serverLastPose[i][2])
 				phys:EnableMotion(false)
 				phys:Wake()
+
+				if i == 0 then
+					puppeteer.rootPos = pos and pos or serverLastPose[i][1]
+				end
+
 				serverLastPose[i] = { pos, ang }
 			end
 		else
@@ -682,6 +688,10 @@ local function setSequencePoseOf(puppet, puppeteer, filteredBones, serverLastPos
 				else
 					phys:EnableMotion(false)
 					phys:Wake()
+				end
+
+				if i == 0 then
+					puppeteer.rootPos = pos and pos or serverLastPose[i][1]
 				end
 
 				serverLastPose[i] = { pos, ang }

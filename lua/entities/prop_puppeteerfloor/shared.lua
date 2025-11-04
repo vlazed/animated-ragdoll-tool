@@ -41,12 +41,10 @@ function ENT:SetupDataTables()
 	) * 100
 
 	-- Wow this looks ugly lmao
-	self:NetworkVar(
-		"Float",
-		0,
-		"Height",
-		{ KeyName = "height", Edit = { order = 1, category = "Offset", min = -scale, max = scale, type = "Float" } }
-	)
+	self:NetworkVar("Float", 0, "Height", {
+		KeyName = "height",
+		Edit = { order = 1, category = "Offset", min = -scale * 100, max = scale * 100, type = "Float" },
+	})
 	self:NetworkVar(
 		"Float",
 		1,
@@ -303,26 +301,34 @@ function ENT:Think()
 			then
 				local physObj = puppet:GetPhysicsObject()
 				local ping = owner:Ping() * 1e-3
-				local rootPosition = puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
-						and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
-					or physObj:GetPos()
-				-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
-				local velocity = self:GetPuppeteerVelocity(puppeteer)
-				local delta = velocity * (FrameTime() + ping)
-				-- Fix jittering by only moving the puppet when the floor moves
-				if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
-					-- Instead of relying on the latency from the client to send the position, let's
-					-- predict the position using the velocity and the current physics object.
-					-- Fixes choppy root movement.
+				local rootPosition = puppeteer.rootPos
+					or (
+						puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
+							and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
+						or physObj:GetPos()
+					)
 
-					-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
-					local newPos =
-						vendor.LerpLinearVector(physObj:GetPos() + LOOKAHEAD * delta, rootPosition, FrameTime())
-					self:PushQueue(newPos)
+				if tobool(owner:GetInfo("ragdollpuppeteer_smooth")) then
+					-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
+					local velocity = self:GetPuppeteerVelocity(puppeteer)
+					local delta = velocity * (FrameTime() + ping)
+					-- Fix jittering by only moving the puppet when the floor moves
+					if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
+						-- Instead of relying on the latency from the client to send the position, let's
+						-- predict the position using the velocity and the current physics object.
+						-- Fixes choppy root movement.
 
-					-- Perform a average over the window of positions to filter out jitter
-					local avgPos = vectorAverage(self.positionQueue)
-					physObj:SetPos(avgPos, true)
+						-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
+						local newPos =
+							vendor.LerpLinearVector(physObj:GetPos() + LOOKAHEAD * delta, rootPosition, FrameTime())
+						self:PushQueue(newPos)
+
+						-- Perform a average over the window of positions to filter out jitter
+						local avgPos = vectorAverage(self.positionQueue)
+						physObj:SetPos(avgPos, true)
+					else
+						physObj:SetPos(rootPosition, true)
+					end
 				end
 			end
 		end

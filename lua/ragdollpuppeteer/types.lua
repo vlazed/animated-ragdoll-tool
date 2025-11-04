@@ -100,42 +100,11 @@ local types = {}
 ---@field currentModel string
 
 ---@class PanelChildren An immutable struct of the CPanel's panels. Frontend interface for the user to control the puppeteer
----@field angOffset DNumSlider[]
----@field puppetLabel DLabel
----@field smhBrowser DFileBrowser
----@field smhList DListView
----@field sequenceList DListView
----@field sequenceList2 DListView
----@field sequenceSheet DPropertySheet
----@field nonPhysCheckBox DCheckBoxLabel
----@field resetNonPhysCheckBox DCheckBoxLabel
----@field poseLocomotion DCheckBoxLabel
+---@field modelPath ModelPath
 ---@field baseSlider FrameSlider
 ---@field gestureSlider FrameSlider
----@field searchBar DTextEntry
----@field sourceBox DComboBox
 ---@field poseParams PoseParameterSlider[]
----@field resetParams DButton
----@field poseParamsCategory DForm The category holding the `poseParams` sliders. Used to change pose params when the entity changes
----@field boneTree DTree
----@field showPuppeteer DCheckBoxLabel
----@field removeGesture DButton
----@field floorCollisions DCheckBoxLabel
----@field disableSMHModelCheck DCheckBoxLabel
----@field recoverPuppeteer DButton
----@field playButton DButton
----@field fpsWang DNumberWang
----@field heightOffset DNumSlider
----@field puppeteerColor DColorCombo
----@field puppeteerIgnoreZ DCheckBoxLabel
----@field attachToGround DCheckBoxLabel
----@field anySurface DCheckBoxLabel
----@field incrementGestures DCheckBoxLabel
----@field modelPath ModelPath
----@field faceMe DCheckBoxLabel
----@field disableTween DCheckBoxLabel
----@field randomPose DButton
----@field scaleOffset DNumSlider
+---The fields will be defined in the ui.lua file
 
 ---@class PanelProps An immutable struct of the CPanel's properties
 ---@field puppet Entity The prop or ragdoll controlled by the puppeteer
@@ -209,6 +178,7 @@ local types = {}
 
 ---@class RagdollPuppeteer: Entity The pose controller of the ragdoll/prop puppet
 ---@field ragdollpuppeteer_currentMaterial IMaterial The current puppeteer material to pass to the PuppeteerFloor
+---@field rootPos Vector
 
 ---@alias DefaultBonePose {[1]: Vector, [2]: Angle, [3]: Vector, [4]: Angle}
 ---@alias DefaultBonePoseArray DefaultBonePose[]

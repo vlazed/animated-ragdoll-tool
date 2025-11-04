@@ -567,6 +567,12 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		"ragdollpuppeteer_autopose_locomotion",
 		"#ui.ragdollpuppeteer.tooltip.poselocomotion"
 	)
+	local smoothMovement = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.smoothmovement",
+		"ragdollpuppeteer_smooth",
+		"#ui.ragdollpuppeteer.tooltip.smoothmovement"
+	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
 	local smhContainer, tab2 = components.Container(settingsSheet, "#ui.ragdollpuppeteer.label.smh")
@@ -609,6 +615,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 
 	local modelPath =
 		components.SearchBar(lists, "#ui.ragdollpuppeteer.label.modelpath", "#ui.ragdollpuppeteer.tooltip.modelpath")
+	---@cast modelPath ModelPath
 	modelPath:SetHistoryEnabled(true)
 	local sourceBox = components.AnimationSourceBox(lists)
 	local searchBar = components.SearchBar(lists)
@@ -628,13 +635,15 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		sequenceSheet:CloseTab(sequenceSheet:GetItems()[2].Tab, false)
 	end
 
-	return {
+	---@class PanelChildren
+	local panelChildren = {
 		angOffset = angOffset,
 		puppetLabel = puppetLabel,
 		baseSlider = baseSlider,
 		gestureSlider = gestureSlider,
 		nonPhysCheckBox = nonPhysCheckbox,
 		poseLocomotion = poseLocomotion,
+		smoothMovement = smoothMovement,
 		sourceBox = sourceBox,
 		searchBar = searchBar,
 		sequenceList = sequenceList,
@@ -667,6 +676,8 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		scaleOffset = scaleOffset,
 		requireSMHModel = requireSMHModel,
 	}
+
+	return panelChildren
 end
 
 ---@param panelChildren PanelChildren
@@ -714,7 +725,6 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 	local faceMe = panelChildren.faceMe
 	local randomPose = panelChildren.randomPose
 	local scaleOffset = panelChildren.scaleOffset
-	local disableSMHModelCheck = panelChildren.disableSMHModelCheck
 	local poseLocomotion = panelChildren.poseLocomotion
 
 	local animPuppeteer = panelProps.puppeteer

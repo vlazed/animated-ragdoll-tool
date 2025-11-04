@@ -27,6 +27,7 @@ TOOL.ClientConVar["attachtoground"] = 0
 TOOL.ClientConVar["anysurface"] = 0
 TOOL.ClientConVar["disabletween"] = 0
 TOOL.ClientConVar["faceme"] = 1
+TOOL.ClientConVar["smooth"] = 1
 TOOL.ClientConVar["autopose_locomotion"] = 1
 TOOL.ClientConVar["smhrequiresmodel"] = 1
 
@@ -264,10 +265,12 @@ function TOOL:LeftClick(tr)
 	local userId = ply:UserID()
 
 	local puppet = tr.Entity
+	---@diagnostic disable: undefined-field
 	if puppet:GetClass() == "prop_effect" and IsValid(tr.Entity.AttachedEntity) then
 		-- Get the immediate first model that it finds in there
 		puppet = tr.Entity.AttachedEntity
 	end
+	---@diagnostic enable
 	do
 		local validPuppet = IsValid(puppet)
 		local isValidClass = validPuppetClasses[puppet:GetClass()]
