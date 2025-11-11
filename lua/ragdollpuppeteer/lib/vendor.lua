@@ -145,6 +145,7 @@ function Vendor.getDefaultBonePoseOf(ent, identifier)
 				)
 			end
 
+			-- {Position wrt entity, Angle wrt entity, Position wrt parent, Angle wrt Parent, World aosition, World angle}
 			defaultPose[b + 1] = { pos1, ang1, pos2, ang2, bMatrix:GetTranslation(), bMatrix:GetAngles() }
 		else
 			defaultPose[b + 1] = { vector_origin, angle_zero, vector_origin, angle_zero, vector_origin, angle_zero }

@@ -137,18 +137,14 @@ do
 				end
 
 				if pose[i].RootAng and index == WORLD_ANGLES then
-					---@diagnostic disable-next-line: param-type-mismatch
 					local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
-					---@diagnostic disable-next-line: param-type-mismatch
 					local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
 
 					local oldSourceAng = quaternion.fromAngle(pose[i].RootAng)
 					pose[i].RootAng = oldSourceAng:Mul(sourceAng:Invert()):Mul(targetAng):Angle()
 				end
 				if pose[i].Ang and index == WORLD_ANGLES then
-					---@diagnostic disable-next-line: param-type-mismatch
 					local sourceAng = quaternion.fromAngle(sourceReferencePose[sourceBone + 1][6])
-					---@diagnostic disable-next-line: param-type-mismatch
 					local targetAng = quaternion.fromAngle(targetReferencePose[targetBone + 1][6])
 
 					local oldSourceAng = quaternion.fromAngle(pose[i].Ang)
@@ -579,6 +575,15 @@ local function setSMHPoseOf(puppet, targetPose, filteredBones, puppeteer, boneMa
 			end
 
 			local targetPhysBone = physMap and physMap[i] or i
+
+			-- Same skeleton type? Then make sure to target the correct bone
+			if targetPhysBone == i then
+				local sourceBoneName = puppeteer:GetBoneName(sourceBone)
+				local targetBone = puppet:LookupBone(boneMap and boneMap[sourceBoneName] or sourceBoneName)
+				local newTargetPhysBone = BoneToPhysBone(puppet, targetBone)
+				targetPhysBone = newTargetPhysBone or targetPhysBone
+			end
+			local targetBone = puppet:TranslatePhysBoneToBone(targetPhysBone)
 
 			local phys = puppet:GetPhysicsObjectNum(targetPhysBone)
 			if not IsValid(phys) then
