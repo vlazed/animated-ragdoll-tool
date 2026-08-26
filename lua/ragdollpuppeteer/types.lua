@@ -189,7 +189,7 @@ local types = {}
 ---@field parent integer
 
 ---@class PuppeteerFloor: Entity The platform that offsets the puppeteer
----@field puppeteers Entity[] An array of puppeteers
+---@field puppeteers RagdollPuppeteer[] An array of puppeteers
 ---@field puppet Entity The puppet to be controlled by the puppeteer
 ---@field floorSize Vector[] The size of the floor based on the puppeteer
 ---@field angleOffset Angle The angle offset to apply on the puppeteers with respect to the floor
@@ -203,5 +203,7 @@ local types = {}
 ---@field SetPuppeteerRootScale fun(self: PuppeteerFloor, newScale: Vector) A setter for the root scale, used for Ragdoll Resizer entities
 ---@field GetPuppeteerRootScale fun(self: PuppeteerFloor): puppeteerRootScale: Vector A getter for the root scale, used for Ragdoll Resizer entities
 ---@field SetPuppeteerScale fun(self: PuppeteerFloor, newScale: number) A setter for the puppeteer's scale, for scaling puppeteer movement
+---@field SetMaxPoseParameterSpeed fun(self: PuppeteerFloor, newSpeed: number) A setter for the scale of a puppeteer's pose parameter speed
+---@field GetMaxPoseParameterSpeed fun(self: PuppeteerFloor): speed: number
 
 return types

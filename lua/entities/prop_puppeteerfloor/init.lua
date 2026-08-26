@@ -3,6 +3,9 @@ AddCSLuaFile("shared.lua")
 
 include("shared.lua")
 
+---@class PuppeteerFloor
+local ENT = ENT
+
 function ENT:Initialize()
 	self:SetModel("models/props_junk/watermelon01.mdl")
 	self:DrawShadow(false)
@@ -14,6 +17,9 @@ function ENT:Initialize()
 	self.angleOffset = angle_zero
 	self.positionQueue = {}
 	self.maxPositions = 4
+
+	-- Set this to the default run speed
+	self:SetMaxPoseParameterSpeed(400)
 end
 
 ---@param ply any

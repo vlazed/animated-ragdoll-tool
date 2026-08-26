@@ -29,6 +29,7 @@ TOOL.ClientConVar["disabletween"] = 0
 TOOL.ClientConVar["faceme"] = 1
 TOOL.ClientConVar["smooth"] = 1
 TOOL.ClientConVar["autopose_locomotion"] = 1
+TOOL.ClientConVar["autopose_locomotion_parameters"] = 0
 TOOL.ClientConVar["smhrequiresmodel"] = 1
 
 -- The number of models that the user should not go over
@@ -237,6 +238,7 @@ local function createPuppeteerFloor(puppeteer, puppet, ply)
 	puppeteerFloor:SetPhysicsSize(puppeteer)
 	puppeteerFloor:SetPlayerOwner(ply)
 	puppeteerFloor:SetPuppet(puppet)
+	puppeteerFloor:SetMaxPoseParameterSpeed(400)
 
 	if GetConVar("ragdollpuppeteer_faceme"):GetBool() then
 		setAngleOf(puppeteerFloor, ply)

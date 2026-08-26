@@ -11,6 +11,15 @@ local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 ---@module "ragdollpuppeteer.client.pose"
 local pose = include("ragdollpuppeteer/lib/pose.lua")
 
+local increasedPrecision = CreateConVar(
+	"ragdollpuppeteer_precision",
+	"0",
+	{ FCVAR_SPONLY, FCVAR_USERINFO },
+	"(SP-only) If set to 1, this reduces the interval for sending pose updates. This effectively removes choppy root movement during playback",
+	0,
+	1
+)
+
 local COLOR_BLUE = constants.COLOR_BLUE
 local PREFIXES = constants.PREFIXES
 local SUFFIXES = constants.SUFFIXES
@@ -240,8 +249,15 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 		return
 	end
 
+	local precisionEnabled = increasedPrecision:GetBool()
+	local interval = precisionEnabled and 0 or 1 / baseFPS
+
+	-- Since timer is CurTime dependent, we want the animation to run independent of that
+	-- so use the tick interval to moderate it
+	local tickInterval = engine.TickInterval()
+
 	timer.Remove("ragdollpuppeteer_playback")
-	timer.Create("ragdollpuppeteer_playback", 1 / baseFPS, -1, function()
+	timer.Create("ragdollpuppeteer_playback", interval, -1, function()
 		if not IsValid(animPuppeteer) or not IsValid(puppet) then
 			return
 		end
@@ -253,7 +269,10 @@ local function createPlaybackTimer(panelChildren, panelProps, panelState, curren
 		local incrementGestures = GetConVar("ragdollpuppeteer_playback_incrementgestures")
 			and GetConVar("ragdollpuppeteer_playback_incrementgestures"):GetInt() > 0
 		if shouldIncrement then
-			local increment = fps / baseFPS
+			local frameTime = precisionEnabled and math.max(tickInterval, RealFrameTime())
+				or math.max(interval, RealFrameTime())
+			local multiplier = precisionEnabled and frameTime / tickInterval or frameTime / interval
+			local increment = precisionEnabled and multiplier * fps * FrameTime() or multiplier * fps / baseFPS
 			moveSliderBy(baseSlider, gestureSlider, increment, incrementGestures)
 		else
 			local _, option = sourceBox:GetSelected()
@@ -567,11 +586,23 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 		"ragdollpuppeteer_autopose_locomotion",
 		"#ui.ragdollpuppeteer.tooltip.poselocomotion"
 	)
+	local poseLocomotionParameters = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.poselocomotion_parameters",
+		"ragdollpuppeteer_autopose_locomotion_parameters",
+		"#ui.ragdollpuppeteer.tooltip.poselocomotion_parameters"
+	)
 	local smoothMovement = components.CheckBox(
 		generalContainer,
 		"#ui.ragdollpuppeteer.label.smoothmovement",
 		"ragdollpuppeteer_smooth",
 		"#ui.ragdollpuppeteer.tooltip.smoothmovement"
+	)
+	local precision = components.CheckBox(
+		generalContainer,
+		"#ui.ragdollpuppeteer.label.precision",
+		"ragdollpuppeteer_precision",
+		"#ui.ragdollpuppeteer.tooltip.precision"
 	)
 	local recoverPuppeteer = components.RecoverPuppeteer(generalContainer)
 
@@ -631,6 +662,7 @@ function UI.ConstructPanel(cPanel, panelProps, panelState)
 
 	gestureSlider:SetEnabled(game.SinglePlayer())
 	removeGesture:SetEnabled(game.SinglePlayer())
+	precision:SetEnabled(game.SinglePlayer())
 	if not game.SinglePlayer() then
 		sequenceSheet:CloseTab(sequenceSheet:GetItems()[2].Tab, false)
 	end
@@ -1143,7 +1175,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 	function baseSlider:OnValueChanged(val)
 		local prevFrame = self.prevFrame
-		if math.abs(prevFrame - val) < 1 / baseFPS then
+		if not increasedPrecision:GetBool() and math.abs(prevFrame - val) < 1 / baseFPS then
 			return
 		end
 		sliderValueChanged(self, val, currentSequence, animPuppeteer, true, true)
@@ -1152,7 +1184,7 @@ function UI.HookPanel(panelChildren, panelProps, panelState, poseOffsetter)
 
 	function gestureSlider:OnValueChanged(val)
 		local prevFrame = self.prevFrame
-		if math.abs(prevFrame - val) < 1 / baseFPS then
+		if not increasedPrecision:GetBool() and math.abs(prevFrame - val) < 1 / baseFPS then
 			return
 		end
 		sliderValueChanged(self, val, currentGesture, animGesturer, false, true)

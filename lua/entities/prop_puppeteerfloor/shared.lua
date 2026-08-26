@@ -5,6 +5,9 @@ local constants = include("ragdollpuppeteer/constants.lua")
 ---@module "ragdollpuppeteer.lib.helpers"
 local helpers = include("ragdollpuppeteer/lib/helpers.lua")
 
+---@class PuppeteerFloor: ENT
+local ENT = ENT
+
 ENT.Type = "anim"
 ENT.Base = "base_gmodentity"
 
@@ -63,6 +66,10 @@ function ENT:SetupDataTables()
 		"Roll",
 		{ KeyName = "roll", Edit = { order = 4, category = "Offset", min = -180, max = 180, type = "Float" } }
 	)
+	self:NetworkVar("Float", 4, "MaxPoseParameterSpeed", {
+		KeyName = "maxposeparameterspeed",
+		Edit = { order = 5, category = "Offset", min = 0, max = 1e4, type = "Float" },
+	})
 
 	self:NetworkVarNotify("Pitch", self.UpdateAngleOffset)
 	self:NetworkVarNotify("Yaw", self.UpdateAngleOffset)
@@ -74,7 +81,7 @@ function ENT:SetupDataTables()
 		for i = 0, puppeteer:GetNumPoseParameters() - 1 do
 			local min, max = puppeteer:GetPoseParameterRange(i)
 			local name = puppeteer:GetPoseParameterName(i)
-			self:NetworkVar("Float", 4 + i, name, {
+			self:NetworkVar("Float", 5 + i, name, {
 				KeyName = name,
 				Edit = { category = "Pose Parameters", min = min, max = max, type = "Float", order = i },
 			})
@@ -93,6 +100,132 @@ function ENT:GetPoseParameters()
 		end
 	end
 	return data
+end
+
+---@enum MovementType
+local movementType = {
+	YAW = 0, -- HL2: they run constantly but change their movement direction
+	YAW_SCALE = 1, -- L4D: their movement is scaled by movement_scale, but they can change their movement direction
+	XY = 2, -- TF2: their movement scales their x and y pose parameters
+	XY_SCALE = 3, -- TF2: some robots
+	XY_YAW_SCALE = 4, -- TF2: some robots
+}
+
+local movementPoseParameters = {
+	["move_scale"] = movementType.YAW_SCALE,
+	["move_yaw"] = movementType.YAW,
+	["move_x"] = movementType.XY,
+	["move_y"] = movementType.XY,
+}
+
+local movementFunctions = {
+	---@param ent PuppeteerFloor
+	---@param velocity Vector
+	[movementType.YAW] = function(ent, velocity)
+		local up = ent:GetUp()
+		local v = velocity:GetNormalized()
+		local forward = ent:GetForward()
+		local angle = math.deg(math.atan2(forward:Cross(v):Dot(up), forward:Dot(v)))
+
+		---@diagnostic disable
+		if isfunction(ent.Setmove_yaw) then
+			ent:Setmove_yaw(angle)
+		end
+		---@diagnostic enable
+	end,
+	---@param ent PuppeteerFloor
+	---@param velocity Vector
+	[movementType.YAW_SCALE] = function(ent, velocity)
+		local up = ent:GetUp()
+		local v = velocity:GetNormalized()
+		local forward = ent:GetForward()
+		local angle = math.deg(math.atan2(forward:Cross(v):Dot(up), forward:Dot(v)))
+
+		---@diagnostic disable
+		if isfunction(ent.Setmove_yaw) and isfunction(ent.Setmove_scale) then
+			ent:Setmove_yaw(angle)
+			ent:Setmove_scale(velocity:Length())
+		end
+		---@diagnostic enable
+	end,
+	---@param ent PuppeteerFloor
+	---@param velocity Vector
+	[movementType.XY] = function(ent, velocity)
+		local x = ent:GetForward():Dot(velocity)
+		local y = ent:GetRight():Dot(velocity)
+
+		local maxSpeed = ent:GetMaxPoseParameterSpeed()
+		x, y = x / maxSpeed, y / maxSpeed
+
+		---@diagnostic disable
+		if isfunction(ent.Setmove_x) then
+			ent:Setmove_x(x)
+			ent:Setmove_y(y)
+		end
+		---@diagnostic enable
+	end,
+	---@param ent PuppeteerFloor
+	---@param velocity Vector
+	[movementType.XY_SCALE] = function(ent, velocity)
+		local x = ent:GetForward():Dot(velocity)
+		local y = ent:GetRight():Dot(velocity)
+
+		---@diagnostic disable
+		if isfunction(ent.Setmove_scale) and isfunction(ent.Setmove_x) and isfunction(ent.Setmove_y) then
+			ent:Setmove_scale(velocity:Length())
+			ent:Setmove_x(x)
+			ent:Setmove_y(y)
+		end
+		---@diagnostic enable
+	end,
+	---@param ent PuppeteerFloor
+	---@param velocity Vector
+	[movementType.XY_YAW_SCALE] = function(ent, velocity)
+		local up = ent:GetUp()
+		local forward = ent:GetForward()
+		local x = forward:Dot(velocity)
+		local y = ent:GetRight():Dot(velocity)
+
+		local v = velocity:GetNormalized()
+		local angle = math.deg(math.atan2(forward:Cross(v):Dot(up), forward:Dot(v)))
+
+		---@diagnostic disable
+		if
+			isfunction(ent.Setmove_yaw)
+			and isfunction(ent.Setmove_scale)
+			and isfunction(ent.Setmove_x)
+			and isfunction(ent.Setmove_y)
+		then
+			ent:Setmove_yaw(angle)
+			ent:Setmove_scale(velocity:Length())
+			ent:Setmove_x(x)
+			ent:Setmove_y(y)
+		end
+		---@diagnostic enable
+	end,
+}
+
+function ENT:GetMovementPoseParameters()
+	if not self.movementParameters then
+		self.movementParameters = {}
+		self.movementType = -1
+		local dt = self:GetNetworkVars()
+		for move, type in pairs(movementPoseParameters) do
+			if dt[move] then
+				table.insert(self.movementParameters, move)
+				self.movementType = type
+				if #self.movementParameters == 4 then
+					self.movementType = movementType.XY_YAW_SCALE
+				elseif type == movementType.YAW_SCALE and self.movementType == movementType.YAW then
+					self.movementType = movementType.YAW_SCALE
+				elseif type == movementType.XY_SCALE and self.movementType == movementType.XY then
+					self.movementType = movementType.XY_SCALE
+				end
+			end
+		end
+	end
+
+	return self.movementParameters, self.movementType
 end
 
 ---Add a table of puppeteers to the floor
@@ -232,17 +365,35 @@ local function vectorAverage(queue)
 	return avg / total
 end
 
----@param puppeteer Entity
+---@param puppeteer RagdollPuppeteer?
 ---@return Vector puppeteerVelocity
 function ENT:GetPuppeteerVelocity(puppeteer)
-	if not self.previousPosition then
-		self.previousPosition = puppeteer:GetPos()
+	if not self.previousPuppeteerPosition then
+		self.previousPuppeteerPosition = self:GetPos()
 		return vector_origin
 	end
 
 	local currentPos = puppeteer:GetPos()
-	local velocity = (currentPos - self.previousPosition) / FrameTime()
-	self.previousPosition = currentPos
+	local time = FrameTime() == 0 and 1 or FrameTime()
+	local velocity = (currentPos - self.previousPuppeteerPosition) / time
+	self.previousPuppeteerPosition = currentPos
+	return velocity
+end
+
+---@return Vector puppeteerVelocity
+function ENT:GetFloorVelocity()
+	if not self.previousFloorPosition then
+		self.previousFloorPosition = self:GetPos()
+		return vector_origin
+	end
+
+	local currentPos = self:GetPos()
+	if SERVER then
+		currentPos = self:GetPhysicsObject():GetPos()
+	end
+	local time = FrameTime() == 0 and 1 or FrameTime()
+	local velocity = (currentPos - self.previousFloorPosition) / time
+	self.previousFloorPosition = currentPos
 	return velocity
 end
 
@@ -267,72 +418,19 @@ function ENT:Think()
 	attachToGround = attachToGround or GetConVar("ragdollpuppeteer_attachtoground")
 	anySurface = anySurface or GetConVar("ragdollpuppeteer_anysurface")
 
+	local shouldAttachToGround = attachToGround:GetInt() > 0
+	local shouldAttachToAnySurface = anySurface:GetInt() > 0
+
 	local puppeteers = self.puppeteers
 	---@cast puppeteers RagdollPuppeteer[]
 
-	if puppeteers[#puppeteers] and IsValid(puppeteers[#puppeteers]) then
-		local puppeteer = puppeteers[#puppeteers]
-		local puppet = self.puppet
-		if not self.puppeteerHeight then
-			self.puppeteerHeight = helpers.getRootHeightDifferenceOf(puppeteer)
-		end
-		if CLIENT then
-			puppeteerShow = puppeteerShow or GetConVar("ragdollpuppeteer_showpuppeteer")
-			puppeteerIgnoreZ = puppeteerIgnoreZ or GetConVar("ragdollpuppeteer_ignorez")
-			local showPuppeteer = puppeteerShow:GetInt() > 0
-			local ignoreZOn = puppeteerIgnoreZ:GetInt() > 0 and PUPPETEER_MATERIAL_IGNOREZ or PUPPETEER_MATERIAL
-			self:SetColor(puppeteer:GetColor())
-			if showPuppeteer then
-				puppeteer:SetMaterial(ignoreZOn:GetName())
-				puppeteer.ragdollpuppeteer_currentMaterial = ignoreZOn
-			else
-				puppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
-				puppeteer.ragdollpuppeteer_currentMaterial = constants.INVISIBLE_MATERIAL
-			end
-		else
-			local owner = self:GetPlayerOwner()
-			local ownerId = IsValid(owner) and self:GetPlayerOwner():UserID()
+	local check = puppeteers[#puppeteers]
+	local mainPuppeteer = IsValid(check) and check
 
-			if
-				IsValid(puppet)
-				and ownerId
-				and RAGDOLLPUPPETEER_PLAYERS[ownerId]
-				and IsValid(puppet:GetPhysicsObject())
-			then
-				local physObj = puppet:GetPhysicsObject()
-				local ping = owner:Ping() * 1e-3
-				local rootPosition = puppeteer.rootPos
-					or (
-						puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
-							and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
-						or physObj:GetPos()
-					)
-
-				if tobool(owner:GetInfo("ragdollpuppeteer_smooth")) then
-					-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
-					local velocity = self:GetPuppeteerVelocity(puppeteer)
-					local delta = velocity * (FrameTime() + ping)
-					-- Fix jittering by only moving the puppet when the floor moves
-					if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
-						-- Instead of relying on the latency from the client to send the position, let's
-						-- predict the position using the velocity and the current physics object.
-						-- Fixes choppy root movement.
-
-						-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
-						local newPos =
-							vendor.LerpLinearVector(physObj:GetPos() + LOOKAHEAD * delta, rootPosition, FrameTime())
-						self:PushQueue(newPos)
-
-						-- Perform a average over the window of positions to filter out jitter
-						local avgPos = vectorAverage(self.positionQueue)
-						physObj:SetPos(avgPos, true)
-					else
-						physObj:SetPos(rootPosition, true)
-					end
-				end
-			end
-		end
+	if not self.puppeteerHeight and mainPuppeteer then
+		self.puppeteerHeight = helpers.getRootHeightDifferenceOf(mainPuppeteer)
 	end
+
 	for _, puppeteer in ipairs(puppeteers) do
 		if IsValid(puppeteer) then
 			local heightOffset = self:GetHeight() or 0 ---@diagnostic disable-line
@@ -353,9 +451,7 @@ function ENT:Think()
 			local angleOffset = self:GetAngleOffset() or angle_zero
 			puppeteer:SetAngles(self:GetAngles() + angleOffset)
 
-			local shouldAttachToGround = attachToGround:GetInt() > 0
-			local shouldAttachToAnySurface = anySurface:GetInt() > 0
-
+			self.groundNormal = vector_up
 			if shouldAttachToGround then
 				local rayDirection = shouldAttachToAnySurface and -self:GetAngles():Up() or -VECTOR_UP
 				---@type TraceResult
@@ -389,6 +485,79 @@ function ENT:Think()
 
 			if self.puppeteerHeight > RAGDOLL_HEIGHT_DIFFERENCE then
 				floorCorrect(puppeteer, puppeteer, 1, self.puppeteerHeight)
+			end
+		end
+	end
+
+	if mainPuppeteer then
+		local puppeteer = mainPuppeteer
+		local puppet = self.puppet
+
+		local puppeteerVelocity = self:GetPuppeteerVelocity(puppeteer)
+		local owner = CLIENT and LocalPlayer() or self:GetPlayerOwner()
+		if tobool(owner:GetInfo("ragdollpuppeteer_autopose_locomotion_parameters")) then
+			local poseParameters, movementType = self:GetMovementPoseParameters()
+			local movementFunction = movementFunctions[movementType]
+			local floorVelocity = self:GetFloorVelocity()
+
+			if movementFunction then
+				movementFunction(self, (floorVelocity + puppeteerVelocity) * 0.5)
+			end
+		end
+
+		if CLIENT then
+			puppeteerShow = puppeteerShow or GetConVar("ragdollpuppeteer_showpuppeteer")
+			puppeteerIgnoreZ = puppeteerIgnoreZ or GetConVar("ragdollpuppeteer_ignorez")
+			local showPuppeteer = puppeteerShow:GetInt() > 0
+			local ignoreZOn = puppeteerIgnoreZ:GetInt() > 0 and PUPPETEER_MATERIAL_IGNOREZ or PUPPETEER_MATERIAL
+			self:SetColor(puppeteer:GetColor())
+			if showPuppeteer then
+				puppeteer:SetMaterial(ignoreZOn:GetName())
+				puppeteer.ragdollpuppeteer_currentMaterial = ignoreZOn
+			else
+				puppeteer:SetMaterial(INVISIBLE_MATERIAL:GetName())
+				puppeteer.ragdollpuppeteer_currentMaterial = constants.INVISIBLE_MATERIAL
+			end
+		else
+			local ownerId = IsValid(owner) and owner:UserID()
+
+			if
+				IsValid(puppet)
+				and ownerId
+				and RAGDOLLPUPPETEER_PLAYERS[ownerId]
+				and IsValid(puppet:GetPhysicsObject())
+			then
+				local physObj = puppet:GetPhysicsObject()
+				local ping = owner:Ping() * 1e-3
+				local rootPosition = puppeteer.rootPos
+					or (
+						puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0))
+							and puppeteer:GetBoneMatrix(puppeteer:TranslatePhysBoneToBone(0)):GetTranslation()
+						or physObj:GetPos()
+					)
+				local rootDelta = rootPosition - physObj:GetPos()
+
+				if tobool(owner:GetInfo("ragdollpuppeteer_smooth")) then
+					-- Use the puppeteer's velocity instead. This allows attach to ground movement to be smooth
+					local delta = puppeteerVelocity * (FrameTime() + ping)
+					-- Fix jittering by only moving the puppet when the floor moves
+					if RAGDOLLPUPPETEER_PLAYERS[ownerId].playbackEnabled and delta:Length() > 0 then
+						-- Instead of relying on the latency from the client to send the position, let's
+						-- predict the position using the velocity and the current physics object.
+						-- Fixes choppy root movement.
+
+						-- Look ahead of the physobj position and interpolate to our root position. Eliminates choppy root movement
+						local newPos =
+							vendor.LerpLinearVector(rootPosition + LOOKAHEAD * delta, rootPosition, FrameTime())
+						self:PushQueue(newPos)
+
+						-- Perform a average over the window of positions to filter out jitter
+						local avgPos = vectorAverage(self.positionQueue)
+						physObj:SetPos(avgPos, true)
+					else
+						physObj:SetPos(rootPosition, true)
+					end
+				end
 			end
 		end
 	end
